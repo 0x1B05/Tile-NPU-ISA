@@ -82,7 +82,7 @@
   )
 }
 
-// Markdown columns: Instruction | Format | Operation | Effects / exceptions.
+// Markdown columns: Instruction | Format | Operation | 约束与说明.
 #let instruction-table = manual-table.with(
   columns: (2.1fr, 0.65fr, 2.5fr, 2.1fr),
   inset: 4pt,

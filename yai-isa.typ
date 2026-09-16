@@ -20,11 +20,15 @@
 
 = 前言
 
-本手册定义 Tile NPU 的物理指令集 (Tile-oriented ISA), 即硬件直接执行的指令架构. 手册规定架构状态 (数据寄存器与配置寄存器), 指令的操作语义, 访存与同步规则, 并汇总全部已命名指令.
+本手册定义 Tile NPU 的物理指令集 (Tile-oriented ISA). 手册规定架构状态 (数据寄存器与配置寄存器), 指令的操作语义, 访存与同步规则, 并汇总全部已命名指令.
 
 手册按功能组织: @overview 描述架构状态并给出指令分类; @scalar-sync 至 @quantization 按指令族定义语义; @instructions 汇总全部已命名指令; 附录提供助记符速查与编码图版.
 
-记法约定: 指令助记符, 寄存器名与字段名使用等宽字体 (如 `vadd.f32`, `a0`, `rows`); 数学公式与伪代码共同定义指令语义; `i8`, `u8`, `i32`, `u32`, `f32` 表示元素数据类型, `m8`, `m32` 表示每元素 8-bit 与 32-bit 的 mask; 尚未定义的内容在文中统一标注为 "待定".
+记法约定:
++ 指令助记符, 寄存器名与字段名使用等宽字体 (如 `vadd.f32`, `a0`, `rows`)
++ 数学公式与伪代码共同定义指令语义
++ `i8`, `u8`, `i32`, `u32`, `f32` 表示元素数据类型, `m8`, `m32` 表示每元素 8-bit 与 32-bit 的 mask
++ 尚未定义的内容在文中统一标注为 "待定".
 
 = 指令集概览 <overview>
 
@@ -48,8 +52,6 @@
 以上构成五个不同的*数据域*.
 
 #important[
-  `m8` 表示每个元素为 8-bit mask, `m32` 表示每个元素为 32-bit mask.
-
   32-bit 寄存器内无法存储两个半精度数(如`f16`/`bf16`), `f16`/`bf16`等半精度数加载后扩展到 f32 Acc/Vec.
 ]
 
@@ -70,6 +72,14 @@
   | TM: 矩阵访存描述符 | `tm0..tm15` | Tile / Acc 访存显式选择   | 待定 | `rows`, `cols`, `row_stride_bytes`, `col_stride_bytes`, `storage_dtype`, `transform` |
   | VM: 向量访存描述符 | `vm0..vm31` | Vec8 / Vec32 访存显式选择 | 待定 | `length`, `stride_bytes`, `storage_dtype`                                            |
 ]
+
+== 编程模型 <model>
+
+待写
+
+== 指令格式 <formats>
+
+待写
 
 == 指令分类 <classification>
 
@@ -106,7 +116,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 标量略
 
 #instruction-table(caption: [能力查询与同步指令])[
-  | Instruction  | Format | Operation                          | Effects / exceptions         |
+  | Instruction  | Format | Operation                          | 约束与说明         |
   | ------------ | ------ | ---------------------------------- | ---------------------------- |
   | `getcap`     | 待定   | 查询资源规格, 扩展和数值能力.     | 操作数与返回字段待定义.     |
   | `fence.mem`  | 待定   | 等待此前访存完成并达到约定可见点. | 后续访存不得越过此边界.     |
@@ -127,7 +137,7 @@ kernel.end      # 隐含 fence.all, 报告 kernel 完成
 下表列出配置指令的语义摘要; `Format` 为尚待定义的二进制编码格式.
 
 #instruction-table(caption: [配置指令])[
-  | Instruction | Format | Operation                                  | Effects / exceptions                                   |
+  | Instruction | Format | Operation                                  | 约束与说明                                   |
   | ----------- | ------ | ------------------------------------------ | ------------------------------------------------------ |
   | `cfg.seti`  | 待定   | 扩展立即数, 校验后写入指定配置字段.       | 校验失败时产生 `CFG_ERROR`.                           |
   | `cfg.setx`  | 待定   | 从 Scalar 读取完整值, 校验后写入配置字段. | 字段定义扩展, 截断与范围规则; 失败时产生 `CFG_ERROR`. |
@@ -226,16 +236,10 @@ cfg.get xD, C, field
 
 = 地址与访存指令 <memory>
 
-坐标以元素计, stride 以字节计; `xBase` 已包含外层 Tensor 切片偏移, RF 行号 $r$ 与内存 `xRow` 独立.
-
-load 对边界外位置不访问内存并按规则补零, store 只写有效交集. 编译器仍须设置真实 rows/cols/len, 不能让补零位置作为有效值参加 max/argmax. 普通整块 load 清零目的其余位置, row load 仅处理选定行, 其他行保持不变.
-
-Decode 的 KV 追加可直接用 bstore 写 `i8` 行片段, vstore 写 `f16` scale, 无需先把向量插入 Tile. 所有 x/t/a/b/v 访存保持统一的程序可见顺序.
-
-`t/a/b/v` 的存储类型由访存描述符决定. `xload`, `xstore` 保留为 Scalar 访存族; 正文明确给出的类型化形式为 `xload.i32`, 其余类型后缀与完整格式待定义. 转置加载通过 `TM.transform` 选择, 仍使用 `tload`.
+本章定义按描述符寻址的访存指令. 矩阵访存 (`tload`, `tstore`, `aload`, `astore` 及行形式) 由 TM 描述, 向量访存 (`bload`, `vload`, `bstore`, `vstore`) 由 VM 描述, Scalar 访存使用 `xload`, `xstore`. 所有 x/t/a/b/v 访存保持统一的程序可见顺序.
 
 #instruction-table(caption: [地址与访存指令])[
-  | Instruction  | Format | Operation                                     | Effects / exceptions                               |
+  | Instruction  | Format | Operation                                     | 约束与说明                               |
   | ------------ | ------ | --------------------------------------------- | -------------------------------------------------- |
   | `xload`      | 待定   | 从内存读取标量参数, 索引, 长度或单值结果.    | 类型化形式和完整操作数定义待补.                   |
   | `xload.i32`  | 待定   | 读取 i32 标量; 用于取得 token ID 等整数索引. | 具体扩展规则待 Scalar 访存定义.                   |
@@ -286,6 +290,8 @@ $
   | `xCol`   | 二维 view 的起始列坐标              |
   | $i$, $j$ | 当前 Tile 或 Vector 内的局部坐标    |
 ]
+
+坐标以元素计, stride 以字节计; RF 行号 $r$ 与内存 `xRow` 独立.
 
 编译器将逻辑 Tile 编号乘以固定边长 $L = 32$ 后, 形成对应的元素坐标.
 
@@ -429,6 +435,8 @@ for 0 <= j < len(CS):
 
 == 存储数据类型和转换
 
+`t/a/b/v` 的存储类型由访存描述符的 `storage_dtype` 字段决定. `xload`, `xstore` 保留为 Scalar 访存族; 正文明确给出的类型化形式为 `xload.i32`, 其余类型后缀与完整格式待定义. 转置加载通过 `TM.transform` 选择, 仍使用 `tload` (见 @transpose-load).
+
 #manual-table(
   columns: (1.1fr, 1.6fr, 1.1fr, 1.9fr),
   caption: [访存存储格式与转换],
@@ -472,7 +480,7 @@ vload v0, vm_embedding, xEmbeddingBase, xToken
 
 == KV Cache 追加示例
 
-KV cache 的 bits 和 scale 可以分别使用 Vec8 和 Vec32 访存:
+Decode 的 KV 追加可直接用 `bstore` 写 `i8` 行片段, 用 `vstore` 写 `f16` scale, 无需先把向量插入 Tile. bits 和 scale 分别使用 Vec8 和 Vec32 访存:
 
 ```asm
 bstore bK, vm_k_bits,   xKVBase, xPosition
@@ -493,7 +501,7 @@ f16/bf16 KV scale
 `TYPE` 在 Tile/Vec8 中为 `i8/u8/m8`, 在 Acc/Vec32 中为 `i32/u32/f32/m32`. 不带类型后缀的搬运使用寄存器配置中的 dtype. 行号和 lane 号可以来自立即数或 Scalar.
 
 #instruction-table(caption: [初始化, 搬运与转置指令])[
-  | Instruction    | Format | Operation                                   | Effects / exceptions                                  |
+  | Instruction    | Format | Operation                                   | 约束与说明                                  |
   | -------------- | ------ | ------------------------------------------- | ----------------------------------------------------- |
   | `tfill.TYPE`   | 待定   | 将立即数填入 Tile 的有效区域.              | TYPE: `i8/u8/m8`; 无效物理位置保持原值.              |
   | `tfillx.TYPE`  | 待定   | 用 Scalar 值填充 Tile 的有效区域.          | TYPE: `i8/u8/m8`; mask lane 必须为全零或全一.        |
@@ -522,26 +530,12 @@ f16/bf16 KV scale
 
 == Fill 指令
 
-=== 格式
-
 ```asm
 {t,a,b,v}fill.TYPE   D, imm
 {t,a,b,v}fillx.TYPE  D, xS
 ```
 
-示例:
-
-```asm
-tfill.i8    t0, 0
-afill.f32   a0, 0.0
-bfill.i8    b0, 0
-vfill.f32   v0, 0.0
-
-tfillx.i8   t0, x4
-vfillx.f32  v0, x5
-```
-
-`fill` 的目标数据域由指令前缀确定:
+`fill` 将立即数填入目标有效区域; `fillx` 用 Scalar 值填充. 目标数据域由指令前缀确定:
 
 ```text
 tfill: 目标为 Tile
@@ -550,9 +544,7 @@ bfill: 目标为 Vec8
 vfill: 目标为 Vec32
 ```
 
-=== `fill` 操作
-
-对于矩阵目标, 令:
+`fill` 操作: 对于矩阵目标, 令:
 
 $
   R & = op("rows")(D) \
@@ -580,68 +572,33 @@ for 0 <= j < N:
     D[j] ← value
 ```
 
-`fill` 只修改目标数据寄存器的当前有效区域. 有效区域之外的物理位置保持原值:
+`fill` 只修改目标数据寄存器的当前有效区域. 有效区域之外的物理位置保持原值: 矩阵中满足 $i >= op("rows")(D)$ 或 $j >= op("cols")(D)$ 的位置保持不变; 向量中满足 $j >= op("len")(D)$ 的 lane 保持不变.
 
-矩阵中满足 $i >= op("rows")(D)$ 或 $j >= op("cols")(D)$ 的位置保持不变; 向量中满足 $j >= op("len")(D)$ 的 lane 保持不变.
+`fillx` 操作: 从 Scalar 寄存器中读取填充值 `value ← x[xS]`, 然后按照 `TYPE` 写入目标有效区域.
 
-=== 立即数解释
+示例:
 
-`imm` 按 `TYPE` 解释:
+```asm
+tfill.i8    t0, 0
+afill.f32   a0, 0.0
+bfill.i8    b0, 0
+vfill.f32   v0, 0.0
 
-```text
-i8/u8: 按目标整数类型解释;
-i32/u32: 按目标整数类型解释;
-f32: 按 32-bit 浮点常量编码;
-m8/m32: 必须产生全零或全一 mask lane.
+tfillx.i8   t0, x4
+vfillx.f32  v0, x5
 ```
-
-=== `fillx` 操作
-
-`fillx` 从 Scalar 寄存器中读取填充值:
-
-```text
-value ← x[xS]
-```
-
-然后按照 `TYPE` 写入目标有效区域.
 
 == Copy 指令
-
-=== 格式
 
 ```asm
 {t,a,b,v}copy D, S
 ```
 
-=== 前置条件
+复制同域寄存器的有效数据.
 
-源和目的的数据域必须一致:
+约束: 源和目的必须属于同一数据域, 且 dtype, shape 和 layout 相同. Tile/Acc 的 shape 为 rows 和 cols; Vec8/Vec32 的 shape 为 len.
 
-```text
-tcopy: t → t
-acopy: a → a
-bcopy: b → b
-vcopy: v → v
-```
-
-此外源和目的必须满足:
-
-$
-   op("dtype")(S) & = op("dtype")(D) \
-   op("shape")(S) & = op("shape")(D) \
-  op("layout")(S) & = op("layout")(D)
-$
-
-其中:
-
-```text
-Tile/Acc 的 shape 为 rows, cols;
-Vec8/Vec32 的 shape 为 len.
-```
-
-=== 操作
-
-矩阵 copy 定义为:
+操作: 矩阵 copy 定义为:
 
 ```text
 for 0 <= i < rows(D):
@@ -658,7 +615,7 @@ for 0 <= j < len(D):
 
 copy 只写目标的有效区域, 目标有效区域之外的物理位置保持不变.
 
-例如:
+示例:
 
 ```asm
 cfg.copy tc1, tc0
@@ -669,26 +626,16 @@ tcopy t1, t0
 
 == Tile 和 Vec8 的行搬运
 
-=== 格式
-
 ```asm
 tinsert.row  tD[rd], bS
 textract.row bD,     tS[rs]
 ```
 
-`tinsert.row` 和 `textract.row` 只执行同精度 bit 搬运, 即:
+在 Vec8 与 Tile 的指定行之间搬运数据.
 
-```text
-i8 Tile ↔ i8 Vec8
-u8 Tile ↔ u8 Vec8
-m8 Tile ↔ m8 Vec8
-```
+约束: 只执行同精度 bit 搬运, 即 `i8` Tile ↔ `i8` Vec8, `u8` ↔ `u8`, `m8` ↔ `m8`. 如果需要扩大或量化, 必须先使用 `twiden`, `bwiden`, `tquant` 或 `vquant` 完成转换, 再执行行搬运.
 
-如果需要扩大或量化, 必须先使用相应的转换指令, 再执行 row insert.
-
-=== `tinsert.row`
-
-`tinsert.row` 将一个 Vec8 写入 Tile 的指定行, 执行:
+`tinsert.row` 操作: 将一个 Vec8 写入 Tile 的指定行:
 
 ```text
 if 0 <= rd < rows(tD)
@@ -698,39 +645,32 @@ if 0 <= rd < rows(tD)
         tD[rd,j] ← bS[j]
 ```
 
-=== `textract.row`
+只有目标 Tile 的第 `rd` 行被修改, 其他行保持原值.
 
-`textract.row` 将 Tile 的指定行读入 Vec8, 执行:
+`textract.row` 操作: 将 Tile 的指定行读入 Vec8:
 
 ```text
 if 0 <= rs < rows(tS)
     && len(bD) = cols(tS)
-    && dtype(bD) = dtype(tS)
+    && dtype(bD) = dtype(tS):
     for 0 <= j < cols(tS):
         bD[j] ← tS[rs,j]
 ```
 
-== Acc 和 Vec32 的行搬运
+只有 `bD` 的有效 lane 被写入, 其他 lane 保持原值.
 
-=== 格式
+== Acc 和 Vec32 的行搬运
 
 ```asm
 ainsert.row  aD[rd], vS
 aextract.row vD,     aS[rs]
 ```
 
-`ainsert.row` 和 `aextract.row` 只允许同精度搬运, 即:
+在 Vec32 与 Acc 的指定行之间搬运数据.
 
-```text
-i32 Acc ↔ i32 Vec32
-u32 Acc ↔ u32 Vec32
-f32 Acc ↔ f32 Vec32
-m32 Acc ↔ m32 Vec32
-```
+约束: 只允许同精度搬运, 即 `i32` Acc ↔ `i32` Vec32, `u32` ↔ `u32`, `f32` ↔ `f32`, `m32` ↔ `m32`.
 
-=== `ainsert.row`
-
-`ainsert.row` 将一个 Vec32 写入 Acc 的指定行, 执行:
+`ainsert.row` 操作: 将一个 Vec32 写入 Acc 的指定行:
 
 ```text
 if 0 <= rd < rows(aD)
@@ -742,14 +682,12 @@ if 0 <= rd < rows(aD)
 
 只有目标 Acc 的第 `rd` 行被修改, 其他行保持原值.
 
-=== `aextract.row`
-
-`aextract.row` 将 Acc 的指定行读入 Vec32, 执行:
+`aextract.row` 操作: 将 Acc 的指定行读入 Vec32:
 
 ```text
 if 0 <= rs < rows(aS)
     && len(vD) = cols(aS)
-    && dtype(vD) = dtype(aS)
+    && dtype(vD) = dtype(aS):
     for 0 <= j < cols(aS):
         vD[j] ← aS[rs,j]
 ```
@@ -758,19 +696,15 @@ if 0 <= rs < rows(aS)
 
 == Scalar 与 Vector lane 操作
 
-=== 格式
-
 ```asm
 {b,v}extract xD, S[lane]
 {b,v}insert  D[lane], xS
 {b,v}broadcast D, S[lane]
 ```
 
-`lane` 可以是立即数, 也可以由 Scalar 寄存器提供.
+在 Scalar 与 Vector 的单个 lane 之间读写数据, 或将一个 lane 广播到整个向量. `lane` 可以是立即数, 也可以由 Scalar 寄存器提供.
 
-=== `extract`
-
-执行:
+`extract` 操作:
 
 ```text
 if 0 <= lane < len(S):
@@ -786,9 +720,7 @@ m8/m32: 按 mask 的整数表示扩展;
 f32: 低 32 bit 写入浮点位模式, 高 32 bit 清零.
 ```
 
-=== `insert`
-
-执行:
+`insert` 操作:
 
 ```text
 if 0 <= lane < len(D):
@@ -796,9 +728,7 @@ if 0 <= lane < len(D):
     D[lane] ← value
 ```
 
-=== `broadcast`
-
-执行:
+`broadcast` 操作:
 
 ```text
 if 0 <= lane < len(S)
@@ -808,26 +738,17 @@ if 0 <= lane < len(S)
         D[j] ← value
 ```
 
-源和目的必须属于同一 Vector 数据域, 并且 dtype 相同:
-
-```text
-bS → bD
-vS → vD
-```
+`broadcast` 的源和目的必须属于同一 Vector 数据域, 且 dtype 相同 (`bS` → `bD` 或 `vS` → `vD`).
 
 == Tile 转置
-
-=== 格式
 
 ```asm
 ttranspose tD, tS
 ```
 
-该指令只对 Tile 执行转置. 基础版本的转置单元只支持 8-bit 数据.
+交换源 Tile 的行列, 将元素转置写入目的 Tile. 该指令只对 Tile 执行转置, 基础版本的转置单元只支持 8-bit 数据.
 
-=== 操作
-
-设源 Tile 的有效 shape 为:
+操作: 设源 Tile 的有效 shape 为:
 
 $
   R & = op("rows")("tS") \
@@ -857,7 +778,7 @@ $
 ttranspose t0, t0
 ```
 
-== Full load 的转置形式
+== Full load 的转置形式 <transpose-load>
 
 `TM.transform=transpose` 可以作为 full `tload` 的访存变换:
 
@@ -886,7 +807,7 @@ transpose-on-load:
     先产生普通 Tile, 再调用 Tile 转置指令.
 ```
 
-== KV Cache 中的典型用法
+== KV Cache 中的行搬运
 
 KV cache 追加可以采用如下指令序列:
 
@@ -909,8 +830,10 @@ tinsert.row tK[rowK], b0
 
 = 矩阵乘与向量—矩阵乘 <matrix>
 
+本节定义基础 `i8` 矩阵乘和 Vec8—Tile 点积指令. 基础指令使用*`i8` 输入, `i32` 输出或累加*.
+
 #instruction-table(caption: [矩阵乘与点积指令])[
-  | Instruction          | Format | Operation                                            | Effects / exceptions                               |
+  | Instruction          | Format | Operation                                            | 约束与说明                               |
   | -------------------- | ------ | ---------------------------------------------------- | -------------------------------------------------- |
   | `mma.nn.zero.i8.i32` | 待定   | 按普通右矩阵执行矩阵乘, 写入 `i32` Acc.             | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配. |
   | `mma.nn.acc.i8.i32`  | 待定   | 按普通右矩阵执行矩阵乘, 累加到旧 `i32` Acc.         | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配. |
@@ -919,8 +842,6 @@ tinsert.row tK[rowK], b0
   | `mma.nt.acc.i8.i32`  | 待定   | 将右 Tile 逻辑转置后执行矩阵乘, 累加到旧 `i32` Acc. | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配. |
   | `bdot.nt.i8.i32`     | 待定   | Vec8 与 Tile 各行执行点积, 结果写入 Vec32.          | `i8` 输入, `i32` 输出; 跨块累加使用 `vadd.i32`.   |
 ]
-
-本节定义基础 `i8` 矩阵乘和 Vec8—Tile 点积指令. 基础指令使用*`i8` 输入, `i32` 输出或累加*.
 
 == 指令格式
 
@@ -958,8 +879,8 @@ bdot.nt.i8.i32     vD, bA, tB
 )[
   | 形式      | 运算                                                           |
   | --------- | -------------------------------------------------------------- |
-  | `mma.nn`  | $A_(M times K) times B_(K times N) -> D_(M times N)$           |
-  | `mma.nt`  | $A_(M times K) times (B_(N times K))^sans(T) -> D_(M times N)$ |
+  | `mma.nn`  | $A_(M times K) B_(K times N) -> D_(M times N)$           |
+  | `mma.nt`  | $A_(M times K) (B_(N times K))^sans(T) -> D_(M times N)$ |
   | `bdot.nn` | $"out"_j = sum_(k=0)^(K-1) b_k B_(k,j)$                        |
   | `bdot.nt` | $"out"_j = sum_(k=0)^(K-1) b_k B_(j,k)$                        |
 ]
@@ -972,7 +893,7 @@ bdot.nt.i8.i32     vD, bA, tB
 
 `mma.nn` 的数学形式为:
 
-$ A_(M times K) times B_(K times N) -> D_(M times N) $
+$ A_(M times K) B_(K times N) -> D_(M times N) $
 
 其中:
 
@@ -980,13 +901,13 @@ $ A_(i,k) = "tA"_(i,k), quad B_(k,j) = "tB"_(k,j) $
 
 因此:
 
-$ D_(i,j) = sum_(k=0)^(K-1) A_(i,k) times B_(k,j) $
+$ D_(i,j) = sum_(k=0)^(K-1) A_(i,k) B_(k,j) $
 
 === `nt`
 
 `nt` 的含义是矩阵运算的逻辑布局, `mma.nt` 的数学形式为:
 
-$ A_(M times K) times (B_(N times K))^sans(T) -> D_(M times N) $
+$ A_(M times K) (B_(N times K))^sans(T) -> D_(M times N) $
 
 Tile `tB` 的物理有效 shape 是:
 
@@ -998,19 +919,17 @@ $ op("shape")(("tB")^sans(T)) = K times N $
 
 因此:
 
-$ D_(i,j) = sum_(k=0)^(K-1) A_(i,k) times "tB"_(j,k) $
+$ D_(i,j) = sum_(k=0)^(K-1) A_(i,k) "tB"_(j,k) $
 
 == `mma.nn.zero.i8.i32`
-
-每个 `i8` 操作数先符号扩展到 `i32`, 再进行乘法. 乘积和累加使用 `i32` 算术.
-
-=== 格式
 
 ```asm
 mma.nn.zero.i8.i32 aD, tA, tB
 ```
 
-=== 前置条件
+按普通右矩阵执行矩阵乘, 结果写入 `i32` Acc. 每个 `i8` 操作数先符号扩展到 `i32`, 再进行乘法; 乘积和累加使用 `i32` 算术.
+
+约束:
 
 $
   op("dtype")("tA") & = "i8" and op("dtype")("tB") = "i8" \
@@ -1020,7 +939,7 @@ $
    op("rows")("aD") & = M, op("cols")("aD") = N
 $
 
-=== 操作
+操作:
 
 ```text
 for i = 0 ... M-1:
@@ -1035,15 +954,15 @@ for i = 0 ... M-1:
 
 == `mma.nn.acc.i8.i32`
 
-=== 格式
-
 ```asm
 mma.nn.acc.i8.i32 aD, tA, tB
 ```
 
-=== 操作
+按普通右矩阵执行矩阵乘, 并累加到目的 Acc 的旧值.
 
-`acc` 形式与 `zero` 使用相同的乘法定义, 但将结果加到目的 Acc 的旧值上:
+约束: 与 `mma.nn.zero.i8.i32` 相同.
+
+操作: `acc` 形式与 `zero` 使用相同的乘法定义, 但将结果加到目的 Acc 的旧值上:
 
 ```text
 for i = 0 ... M-1:
@@ -1057,7 +976,7 @@ for i = 0 ... M-1:
         aD[i,j] = wrap32(aD[i,j] + partial)
 ```
 
-典型 K 维分块序列为:
+示例: 沿 K 维分块累加:
 
 ```asm
 mma.nn.zero.i8.i32 a0, tA0, tB0
@@ -1066,22 +985,22 @@ mma.nn.acc.i8.i32  a0, tA2, tB2
 mma.nn.acc.i8.i32  a0, tA3, tB3
 ```
 
-其逻辑结果为:
+每条 `mma.nn.acc` 都读取上一次得到的 `a0`, 并产生新的 `a0`, 结果为:
 
-$ "a0" = A_0 times B_0 + A_1 times B_1 + A_2 times B_2 + A_3 times B_3 $
-
-每条 `mma.nn.acc` 都读取上一次得到的 `a0`, 并产生新的 `a0`.
+$ "a0" = A_0 B_0 + A_1 B_1 + A_2 B_2 + A_3 B_3 $
 
 == `mma.nt.zero.i8.i32` 和 `mma.nt.acc.i8.i32`
-
-=== 格式
 
 ```asm
 mma.nt.zero.i8.i32 aD, tA, tB
 mma.nt.acc.i8.i32  aD, tA, tB
 ```
 
-=== `zero` 操作
+将右 Tile 逻辑转置后执行矩阵乘; `zero` 形式写入目的 Acc, `acc` 形式累加到目的 Acc 的旧值.
+
+约束: 与 `mma.nn` 形式相同, 但右操作数 `tB` 按逻辑转置解释, 其物理有效 shape 为 $N times K$.
+
+`zero` 操作:
 
 ```text
 for i = 0 ... M-1:
@@ -1094,7 +1013,7 @@ for i = 0 ... M-1:
         aD[i,j] = sum
 ```
 
-=== `acc` 操作
+`acc` 操作:
 
 ```text
 for i = 0 ... M-1:
@@ -1110,13 +1029,13 @@ for i = 0 ... M-1:
 
 == `bdot.nn.i8.i32`
 
-=== 格式
-
 ```asm
 bdot.nn.i8.i32 vD, bA, tB
 ```
 
-=== 前置条件
+Vec8 与 Tile 各列执行点积, 结果写入 `i32` Vec32.
+
+约束:
 
 $
   op("dtype")("bA") & = "i8" \
@@ -1128,7 +1047,7 @@ $
     op("len")("vD") & = N
 $
 
-=== 操作
+操作:
 
 ```text
 for j = 0 ... N-1:
@@ -1142,17 +1061,17 @@ for j = 0 ... N-1:
 
 数学形式为:
 
-$ "bA"_(1 times K) times "tB"_(K times N) -> "vD"_(1 times N) $
+$ "bA"_(1 times K) "tB"_(K times N) -> "vD"_(1 times N) $
 
 == `bdot.nt.i8.i32`
-
-=== 格式
 
 ```asm
 bdot.nt.i8.i32 vD, bA, tB
 ```
 
-=== 前置条件
+Vec8 与 Tile 各行执行点积, 结果写入 `i32` Vec32.
+
+约束:
 
 $
   op("dtype")("bA") & = "i8" \
@@ -1164,7 +1083,7 @@ $
     op("len")("vD") & = N
 $
 
-=== 操作
+操作:
 
 ```text
 for j = 0 ... N-1:
@@ -1178,15 +1097,13 @@ for j = 0 ... N-1:
 
 数学形式为:
 
-$ "bA"_(1 times K) times ("tB"_(N times K))^sans(T) -> "vD"_(1 times N) $
+$ "bA"_(1 times K) ("tB"_(N times K))^sans(T) -> "vD"_(1 times N) $
 
 `bdot.nt` 使用 Tile 的每一行作为一个待匹配的向量:
 
 $ "tB"[j, 0:K] $
 
-因此它适合计算一个 query 向量与多个 key 向量之间的点积.
-
-== Decode 中的 $Q times K^sans(T)$
+== Decode 中的 $Q K^sans(T)$
 
 以`head_dim = 128`为例, head dimension 可以分为四个 32-element 子块:
 
@@ -1232,11 +1149,11 @@ $ "vScore0"_j = sum_(d=0)^3 op("dot")(Q_d, K_d[j,:]) $
 
 这等价于:
 
-$ Q times K^sans(T) $
+$ Q K^sans(T) $
 
 但具体的 scale, 反量化和 softmax 前缩放须由指令序列显式完成.
 
-== Decode 中的 $P times V$
+== Decode 中的 $P V$
 
 假设一个 key block 有 `K` 个 token, V 的维度块宽度为 32:
 
@@ -1244,10 +1161,7 @@ $ op("shape")(P) = 1 times K, quad op("shape")(V) = K times 32 $
 
 将 P 的 `i8` 量化值放入 Vec8, 将 V 的 `i8` block 放入 Tile:
 
-```text
-Pbits -> bP
-Vbits -> tV
-```
+$ "Pbits" -> "bP", "Vbits" -> "tV" $
 
 然后执行:
 
@@ -1257,9 +1171,9 @@ bdot.nn.i8.i32 vOutRaw, bP, tV
 
 产生:
 
-$ "vOutRaw"_j = sum_(k=0)^(K-1) "Pbits"_k times "Vbits"_(k,j) $
+$ "vOutRaw"_j = sum_(k=0)^(K-1) "Pbits"_k "Vbits"_(k,j) $
 
-如果 V 的 scale 或 P 的 scale 不同, 须显式执行相应的 scale 重建:
+如果 V 的 scale 或 P 的 scale 不同, 须显式执行 scale 重建:
 
 ```text
 vOutF32 = convert_i32_to_f32(vOutRaw)
@@ -1373,7 +1287,7 @@ D[element] ← op(A[element], value)
 以下按数据域逐项列出基础操作. 二元操作展开为寄存器, 立即数 (`i`) 和 Scalar (`x`) 三种来源; 低精度整数的 `sat`, `wrap` 分别列出. 一元操作仅列单源形式, 融合乘加, 特殊函数, 比较和 select 在各自小节列出. 每行的 `TYPE` 仅取该行给出的类型集合.
 
 #instruction-table(caption: [Tile 基础逐元素指令])[
-  | Instruction       | Format | Operation                                 | Effects / exceptions               |
+  | Instruction       | Format | Operation                                 | 约束与说明               |
   | ----------------- | ------ | ----------------------------------------- | ---------------------------------- |
   | `tadd.sat.TYPE`   | 待定   | Tile 与同域源逐元素执行加法 (饱和).     | TYPE: `i8/u8`; 使用饱和结果.      |
   | `tadd.wrap.TYPE`  | 待定   | Tile 与同域源逐元素执行加法 (回绕).     | TYPE: `i8/u8`; 保留低 8 bit.      |
@@ -1425,7 +1339,7 @@ D[element] ← op(A[element], value)
 ]
 
 #instruction-table(caption: [Acc 基础逐元素指令])[
-  | Instruction  | Format | Operation                            | Effects / exceptions                                    |
+  | Instruction  | Format | Operation                            | 约束与说明                                    |
   | ------------ | ------ | ------------------------------------ | ------------------------------------------------------- |
   | `aadd.TYPE`  | 待定   | Acc 与同域源逐元素执行加法.         | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
   | `aaddi.TYPE` | 待定   | Acc 与立即数逐元素执行加法.         | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
@@ -1469,7 +1383,7 @@ D[element] ← op(A[element], value)
 ]
 
 #instruction-table(caption: [Vec8 基础逐元素指令])[
-  | Instruction       | Format | Operation                                 | Effects / exceptions               |
+  | Instruction       | Format | Operation                                 | 约束与说明               |
   | ----------------- | ------ | ----------------------------------------- | ---------------------------------- |
   | `badd.sat.TYPE`   | 待定   | Vec8 与同域源逐元素执行加法 (饱和).     | TYPE: `i8/u8`; 使用饱和结果.      |
   | `badd.wrap.TYPE`  | 待定   | Vec8 与同域源逐元素执行加法 (回绕).     | TYPE: `i8/u8`; 保留低 8 bit.      |
@@ -1521,7 +1435,7 @@ D[element] ← op(A[element], value)
 ]
 
 #instruction-table(caption: [Vec32 基础逐元素指令])[
-  | Instruction  | Format | Operation                              | Effects / exceptions                                    |
+  | Instruction  | Format | Operation                              | 约束与说明                                    |
   | ------------ | ------ | -------------------------------------- | ------------------------------------------------------- |
   | `vadd.TYPE`  | 待定   | Vec32 与同域源逐元素执行加法.         | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
   | `vaddi.TYPE` | 待定   | Vec32 与立即数逐元素执行加法.         | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
@@ -1618,7 +1532,7 @@ $
 `fma` 运算使用 `fmadd` 助记符; 按 Acc/Vec32 的 f32 数据域列出. 这里只列三数据源形式, 其他操作数变体尚未定义.
 
 #instruction-table(caption: [融合乘加指令])[
-  | Instruction  | Format | Operation                            | Effects / exceptions                                    |
+  | Instruction  | Format | Operation                            | 约束与说明                                    |
   | ------------ | ------ | ------------------------------------ | ------------------------------------------------------- |
   | `afmadd.f32` | 待定   | 对 Acc 逐元素执行 $D <- A B + C$.   | 一次融合乘加, 一次 f32 舍入; 不能任意替换独立 mul/add. |
   | `vfmadd.f32` | 待定   | 对 Vec32 逐元素执行 $D <- A B + C$. | 一次融合乘加, 一次 f32 舍入; 不能任意替换独立 mul/add. |
@@ -1640,16 +1554,18 @@ vfmadd.f32 vD, vA, vB, vC
 
 `fma` 定义为一次融合乘加:
 
-$ D_i = op("round")_("f32")(A_i times B_i + C_i) $
+$ D_i = op("round")_("f32")(A_i B_i + C_i) $
 
-> fma(A,B,C) 和 mul(A,B) followed by add(...,C) 不保证数值等价, 因此编译器不能自动合并mul与add成fma
+#warning[
+  `fma(A, B, C)` 与先 `mul(A, B)` 再 `add(..., C)` 不保证数值等价, 因此编译器不能自动把 `mul` 与 `add` 合并成 `fma`.
+]
 
 == 近似特殊函数
 
 当前特殊函数小节明确列出了以下 Vec32 形式.
 
 #instruction-table(caption: [近似特殊函数指令])[
-  | Instruction     | Format | Operation                | Effects / exceptions                     |
+  | Instruction     | Format | Operation                | 约束与说明                     |
   | --------------- | ------ | ------------------------ | ---------------------------------------- |
   | `vexp2.approx`  | 待定   | 逐 lane 计算 2 的幂.    | 源和目的为 f32 Vec32; 采用近似函数规则. |
   | `vrcp.approx`   | 待定   | 逐 lane 计算倒数.       | 源和目的为 f32 Vec32; 采用近似函数规则. |
@@ -1676,7 +1592,7 @@ for 0 ≤ j < len(D):
 目的行与各源行独立选择; 行号必须有效, 源与目的 dtype 及列数满足对应操作的约束. 下表展开通用二元行操作.
 
 #instruction-table(caption: [Tile 行逐元素指令])[
-  | Instruction           | Format | Operation                                     | Effects / exceptions          |
+  | Instruction           | Format | Operation                                     | 约束与说明          |
   | --------------------- | ------ | --------------------------------------------- | ----------------------------- |
   | `tadd.row.sat.TYPE`   | 待定   | Tile 源行与同域右源行逐元素执行加法 (饱和). | TYPE: `i8/u8`; 使用饱和结果. |
   | `tadd.row.wrap.TYPE`  | 待定   | Tile 源行与同域右源行逐元素执行加法 (回绕). | TYPE: `i8/u8`; 保留低 8 bit. |
@@ -1723,7 +1639,7 @@ for 0 ≤ j < len(D):
 ]
 
 #instruction-table(caption: [Acc 行逐元素指令])[
-  | Instruction      | Format | Operation                                | Effects / exceptions                                    |
+  | Instruction      | Format | Operation                                | 约束与说明                                    |
   | ---------------- | ------ | ---------------------------------------- | ------------------------------------------------------- |
   | `aadd.row.TYPE`  | 待定   | Acc 源行与同域右源行逐元素执行加法.     | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
   | `aaddi.row.TYPE` | 待定   | Acc 源行与立即数逐元素执行加法.         | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
@@ -1766,18 +1682,16 @@ for 0 ≤ j < len(D):
 矩阵行操作使用独立的目的行和源行:
 
 ```asm
-top.row.TYPE
-    tD[rd], tA[ra], tB[rb]
+top.row.TYPE tD[rd], tA[ra], tB[rb]
 
-aop.row.TYPE
-    aD[rd], aA[ra], aB[rb]
+aop.row.TYPE aD[rd], aA[ra], aB[rb]
 ```
 
 例如:
 
 ```asm
 tadd.row.sat.i8 t0[3], t1[2], t2[5]
-aadd.row.f32   a0[1], a1[4], a2[0]
+aadd.row.f32    a0[1], a1[4], a2[0]
 ```
 
 执行语义为:
@@ -1790,17 +1704,13 @@ for 0 ≤ j < cols(D):
 立即数和 Scalar 形式为:
 
 ```asm
-topi.row.TYPE
-    tD[rd], tA[ra], imm
+topi.row.TYPE tD[rd], tA[ra], imm
 
-topx.row.TYPE
-    tD[rd], tA[ra], xS
+topx.row.TYPE tD[rd], tA[ra], xS
 
-aopi.row.TYPE
-    aD[rd], aA[ra], imm
+aopi.row.TYPE aD[rd], aA[ra], imm
 
-aopx.row.TYPE
-    aD[rd], aA[ra], xS
+aopx.row.TYPE aD[rd], aA[ra], xS
 ```
 
 == 行广播
@@ -1810,7 +1720,7 @@ aopx.row.TYPE
 右矩阵指定行的各列元素广播到每个目的行.
 
 #instruction-table(caption: [矩阵源行广播指令])[
-  | Instruction           | Format | Operation                                       | Effects / exceptions                                    |
+  | Instruction           | Format | Operation                                       | 约束与说明                                    |
   | --------------------- | ------ | ----------------------------------------------- | ------------------------------------------------------- |
   | `tadd.brow.sat.TYPE`  | 待定   | Tile 将右矩阵源行广播后逐元素执行加法 (饱和). | TYPE: `i8/u8`; 使用饱和结果.                           |
   | `tadd.brow.wrap.TYPE` | 待定   | Tile 将右矩阵源行广播后逐元素执行加法 (回绕). | TYPE: `i8/u8`; 保留低 8 bit.                           |
@@ -1871,7 +1781,7 @@ $ "t0"_(i,j) = op("sat")_("i8")("t1"_(i,j) - "t2"_(0,j)) $
 Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 i 个元素广播到矩阵第 i 行.
 
 #instruction-table(caption: [向量按行广播指令])[
-  | Instruction             | Format | Operation                                       | Effects / exceptions                                    |
+  | Instruction             | Format | Operation                                       | 约束与说明                                    |
   | ----------------------- | ------ | ----------------------------------------------- | ------------------------------------------------------- |
   | `taddb.byrow.sat.TYPE`  | 待定   | Tile 按行广播向量标量后逐元素执行加法 (饱和). | TYPE: `i8/u8`; 使用饱和结果.                           |
   | `taddb.byrow.wrap.TYPE` | 待定   | Tile 按行广播向量标量后逐元素执行加法 (回绕). | TYPE: `i8/u8`; 保留低 8 bit.                           |
@@ -1929,16 +1839,14 @@ amulv.byrow.f32 a0, a1, v0
 
 表示:
 
-$ "a0"_(i,j) = "a1"_(i,j) times "v0"_i $
-
-其中 `v0[i]` 对应第 `i` 行, 并在该行的所有列上重复使用.
+$ "a0"_(i,j) = "a1"_(i,j) "v0"_i $
 
 === 按列广播
 
 Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 j 个元素广播到矩阵第 j 列.
 
 #instruction-table(caption: [向量按列广播指令])[
-  | Instruction             | Format | Operation                                       | Effects / exceptions                                    |
+  | Instruction             | Format | Operation                                       | 约束与说明                                    |
   | ----------------------- | ------ | ----------------------------------------------- | ------------------------------------------------------- |
   | `taddb.bycol.sat.TYPE`  | 待定   | Tile 按列广播向量标量后逐元素执行加法 (饱和). | TYPE: `i8/u8`; 使用饱和结果.                           |
   | `taddb.bycol.wrap.TYPE` | 待定   | Tile 按列广播向量标量后逐元素执行加法 (回绕). | TYPE: `i8/u8`; 保留低 8 bit.                           |
@@ -1996,7 +1904,7 @@ amulv.bycol.f32 a0, a1, v0
 
 表示:
 
-$ "a0"_(i,j) = "a1"_(i,j) times "v0"_j $
+$ "a0"_(i,j) = "a1"_(i,j) "v0"_j $
 
 `bycol` 是逻辑列广播. 硬件可以按行读取矩阵, 然后在每个 lane 上选择 `S[j]`.
 
@@ -2005,7 +1913,7 @@ $ "a0"_(i,j) = "a1"_(i,j) times "v0"_j $
 条件逐项展开为 `eq/ne/lt/le/gt/ge`; f32 另外列出 `ord/unord`. Vec8 小节目前只明确给出寄存器比较, 未列出 `bcmpi`, `bcmpx`. `TYPE` 为源数值类型, 目的为同宽 mask.
 
 #instruction-table(caption: [比较指令])[
-  | Instruction       | Format | Operation                           | Effects / exceptions                                |
+  | Instruction       | Format | Operation                           | 约束与说明                                |
   | ----------------- | ------ | ----------------------------------- | --------------------------------------------------- |
   | `tcmp.eq.TYPE`    | 待定   | 逐元素比较同域右源, 判断相等.      | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.        |
   | `tcmp.ne.TYPE`    | 待定   | 逐元素比较同域右源, 判断不等.      | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.        |
@@ -2135,7 +2043,7 @@ for 0 ≤ j < len(D):
 == Select 指令
 
 #instruction-table(caption: [选择指令])[
-  | Instruction    | Format | Operation                       | Effects / exceptions                                         |
+  | Instruction    | Format | Operation                       | 约束与说明                                         |
   | -------------- | ------ | ------------------------------- | ------------------------------------------------------------ |
   | `tselect.TYPE` | 待定   | mask 非零时选择 A, 否则选择 B. | TYPE: `i8/u8/m8`; mask 为 `m8`, 两个数据源均被读取.         |
   | `aselect.TYPE` | 待定   | mask 非零时选择 A, 否则选择 B. | TYPE: `i32/u32/f32/m32`; mask 为 `m32`, 两个数据源均被读取. |
@@ -2168,7 +2076,7 @@ select 必须读取两个数据源: M 为 true 时选择 A; M 为 false 时选�
 mask 使用寄存器配置中的 dtype; 它改写数据值, 保留区域之外写入显式 fill 值.
 
 #instruction-table(caption: [Mask 指令])[
-  | Instruction  | Format | Operation                                | Effects / exceptions                          |
+  | Instruction  | Format | Operation                                | 约束与说明                          |
   | ------------ | ------ | ---------------------------------------- | --------------------------------------------- |
   | `tmask.tail` | 待定   | 保留行列坐标小于 xRows, xCols 的源元素. | 其余有效寄存器位置写 fill; 不缩短有效 shape. |
   | `tmask.tril` | 待定   | 保留满足 $j-i <= "xDelta"$ 的源元素.    | 有符号偏移; 包含边界, 其余位置写 fill.       |
@@ -2258,7 +2166,7 @@ for 0 ≤ i < rows(D):
 
 例如 `xDelta = 0`表示保留主对角线及其上方元素.
 
-== 典型示例
+== 示例
 
 === Attention score 的 causal mask
 
@@ -2295,7 +2203,7 @@ vdiv.f32       vOut, v2, vSum
 行规约每行产生一个 Vec32 元素, 列规约每列产生一个 Vec32 元素. 除基础 `sum/max/min` 外, 正文示例还定义了 `areduce.rows.sumsq.f32`; 向量规约另含 f32 `sumsq` 与 `argmax`.
 
 #instruction-table(caption: [规约指令])[
-  | Instruction               | Format | Operation                                       | Effects / exceptions                            |
+  | Instruction               | Format | Operation                                       | 约束与说明                            |
   | ------------------------- | ------ | ----------------------------------------------- | ----------------------------------------------- |
   | `areduce.rows.sum.f32`    | 待定   | 将 Acc 按行求和到 Vec32.                       | 源与目的为 f32; 只规约源有效元素.              |
   | `areduce.rows.max.f32`    | 待定   | 将 Acc 按行取最大到 Vec32.                     | 源与目的为 f32; 只规约源有效元素.              |
@@ -2673,20 +2581,20 @@ xD = sign_extend_i32(value)
 
 == Argmax
 
-=== 格式
-
 ```asm
 vreduce.argmax.f32 xIndex, xValue, vS
 ```
 
-源 `vS` 的dtype须为f32, 输出为两个 Scalar:
+将 `f32` Vec32 的有效 lane 取最大值, 输出其逻辑索引与浮点位模式到两个 Scalar.
+
+约束: 源 `vS` 的 dtype 须为 `f32`. 两个输出的解释为:
 
 ```text
 xIndex: 最大值的逻辑索引, i32 语义, 符号扩展到 64 bit
 xValue: 最大值的 f32 位模式, 写入低 32 bit, 高 32 bit 清零
 ```
 
-操作定义为:
+操作:
 
 ```text
 if len(vS) == 0:
@@ -2741,7 +2649,7 @@ else:
 == 类型转换指令
 
 #instruction-table(caption: [类型转换与扩大指令])[
-  | Instruction     | Format | Operation                                   | Effects / exceptions                     |
+  | Instruction     | Format | Operation                                   | 约束与说明                     |
   | --------------- | ------ | ------------------------------------------- | ---------------------------------------- |
   | `acvt.i32.f32`  | 待定   | 将 Acc 中的 `i32` 逐元素转为 `f32`.         | 允许原地执行; 成功接收时更新目的 dtype. |
   | `vcvt.i32.f32`  | 待定   | 将 Vec32 中的 `i32` 逐 lane 转为 `f32`.     | 允许原地执行; 成功接收时更新目的 dtype. |
@@ -2749,15 +2657,14 @@ else:
   | `bwiden.i8.i32` | 待定   | 将 Vec8 的 `i8` 符号扩展到 Vec32 的 `i32`. | 跨数据域, 保持有效长度.                 |
 ]
 
-=== Acc 类型转换
-
 ```asm
 acvt.i32.f32 aD, aS
+vcvt.i32.f32 vD, vS
 ```
 
-该助记符表示源类型: i32, 目的类型: f32
+将 `i32` 数据逐元素转换为 `f32`; 助记符中源类型在前, 目的类型在后.
 
-执行:
+`acvt` 操作:
 
 ```text
 for 0 ≤ i < rows(aD):
@@ -2765,13 +2672,7 @@ for 0 ≤ i < rows(aD):
         aD[i,j] = convert_f32(aS[i,j])
 ```
 
-=== Vec32 类型转换
-
-```asm
-vcvt.i32.f32 vD, vS
-```
-
-执行:
+`vcvt` 操作:
 
 ```text
 for 0 ≤ j < len(vD):
@@ -2793,7 +2694,9 @@ vcvt.i32.f32 v0, v0
 twiden.i8.i32 aD, tS
 ```
 
-执行:
+将 Tile 的 `i8` 符号扩展到 Acc 的 `i32`. 跨数据域, 不能原地执行; 目的 Acc 的有效 shape 与源 Tile 相同.
+
+操作:
 
 ```text
 for 0 ≤ i < rows(tS):
@@ -2801,24 +2704,22 @@ for 0 ≤ i < rows(tS):
         aD[i,j] = sign_extend_i8_to_i32(tS[i,j])
 ```
 
-它只是有符号位宽扩大: i8 → i32, 目的 Acc 的有效 shape 与源 Tile 相同.
-
-> 该指令不能原地执行, 因为源和目的属于不同数据域
-
 == Vec8 到 Vec32 的扩大转换
 
 ```asm
 bwiden.i8.i32 vD, bS
 ```
 
-执行:
+将 Vec8 的 `i8` 符号扩展到 Vec32 的 `i32`, 保持有效长度.
+
+操作:
 
 ```text
 for 0 ≤ j < len(bS):
     vD[j] = sign_extend_i8_to_i32(bS[j])
 ```
 
-== 典型使用
+== 示例
 
 === RMSNorm 行规约
 
@@ -2833,7 +2734,7 @@ amulv.byrow.f32       aY, aX, vInv
 $
   "vSumSq"_i & = sum_(j=0)^(op("cols")("aX")-1) ("aX"_(i,j))^2 \
     "vInv"_i & = op("rsqrt.approx")("vSumSq"_i) \
-  "aY"_(i,j) & = "aX"_(i,j) times "vInv"_i
+  "aY"_(i,j) & = "aX"_(i,j) "vInv"_i
 $
 
 如果需要加 epsilon, 应先执行显式的 Vec32 操作:
@@ -2888,7 +2789,7 @@ vScore = vScore × scale
 bits 和 scale 都是显式操作数. Q8 MMA, decode scale 重建与 P×V 量化流程是基础指令序列, 不另外分配复合指令助记符.
 
 #instruction-table(caption: [量化与反量化指令])[
-  | Instruction         | Format | Operation                                          | Effects / exceptions                           |
+  | Instruction         | Format | Operation                                          | 约束与说明                           |
   | ------------------- | ------ | -------------------------------------------------- | ---------------------------------------------- |
   | `tquant.rows.q8s32` | 待定   | 将 Acc 按行量化到 Tile, 每行产生一个 Vec32 scale. | Tile bits 与 Vec32 scale 是两个显式目的.      |
   | `vquant.q8s32`      | 待定   | 将 Vec32 量化到 Vec8, 产生一个指定 lane 的 scale. | Vec8 bits 与 Vec32 scale lane 是两个显式目的. |
@@ -2903,7 +2804,7 @@ tdequant.rows.f32 aD, tS, vScale
 bdequant.f32      vD, bS, vScale[lane]
 ```
 
-矩阵行量化每行产生一个 scale; 向量量化产生一个 scale. bits 和 scale 是两个显式目的/源, 依赖与生命周期必须一起跟踪. 内部动态量化使用具名格式 q8s32, 外部权重保留原始 bits/scale; 具体舍入与特殊值见格式规范.
+矩阵行量化每行产生一个 scale; 向量量化产生一个 scale. bits 和 scale 是两个显式目的/源, 依赖与生命周期必须一起跟踪. 内部动态量化使用具名格式 q8s32, 外部权重保留原始 bits/scale; 舍入与特殊值规则待定义.
 
 Q8 MMA 是以下基础指令的复合操作, 不隐藏临时 Acc:
 
@@ -2917,11 +2818,11 @@ aadd.f32          aOut, aOut, aTmp
 
 aOut 预先初始化, aTmp 与 aOut 分开. 每个 K 块分别 scale 后再累加. Decode 对应 `bdot → vcvt → scale → vadd`, raw 临时使用 v.
 
-在 $P times V$ 中, 当 `Vscale` 位于规约轴时, 先在 Vec32 中计算:
+在 $P V$ 中, 当 `Vscale` 位于规约轴时, 先在 Vec32 中计算:
 
-$ "Pscaled" = P times "Vscale" $
+$ "Pscaled" = P "Vscale" $
 
-再 vquant 到 b, 随后 bdot; 每个 V 维度块从原始 P 重建, 结果只乘 Pscale. 这是需要明确允许量化误差的算法选择, 不是 `f32` $P times V$ 的无损替代.
+再 vquant 到 b, 随后 bdot; 每个 V 维度块从原始 P 重建, 结果只乘 Pscale. 这是需要明确允许量化误差的算法选择, 不是 `f32` $P V$ 的无损替代.
 
 = 指令集清单 <instructions>
 
