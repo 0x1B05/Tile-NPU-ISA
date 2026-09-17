@@ -45,7 +45,8 @@
   | `A`, `B`        | 第一, 第二源寄存器, 对应 `tA`, `tB` 等                        |
   | `S`             | 单源或广播向量源                                              |
   | `M`             | mask 寄存器                                                   |
-  | `imm`, `xS`     | 立即数 / 来自 Scalar 寄存器的操作数                           |
+  | `imm`           | 立即数                                                        |
+  | `xS`            | 来自 Scalar 寄存器的操作数                                    |
   | `tmJ`, `vmJ`    | 访存描述符 TM / VM 的编号                                     |
   | `[i,j]`         | 矩阵元素索引                                                  |
   | `[j]`           | 向量 lane 索引                                                |
@@ -1625,33 +1626,27 @@ $ "a0"_(i,j) = "a1"_(i,j) "v0"_j $
 
 == 比较指令
 
-条件逐项展开为 `eq/ne/lt/le/gt/ge`; f32 另外列出 `ord/unord`. Tile 与 Vec8 只定义寄存器比较形式, Acc 与 Vec32 另有 Scalar 形式. `TYPE` 为源数值类型, 目的为同宽 mask.
+条件取独立子集: 整数为 `eq/ne/lt/ge`, `gt` 与 `le` 由交换两个源操作数获得; f32 为 `eq/lt/le/unord`, `ord` 由 `unord` 结果取反获得, `ne` 由 `eq` 结果取反获得. Tile 与 Vec8 只定义寄存器比较形式, Acc 与 Vec32 另有 Scalar 形式. `TYPE` 为源数值类型, 目的为同宽 mask.
 
 #instruction-table(caption: [比较指令])[
   | Instruction           | Format | Operation             | Notes                                     |
   | --------------------- | ------ | --------------------- | ----------------------------------------- |
-  | `{t,b}cmp.eq.TYPE`                     | 待定   | {t,b}D = A == B            | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.        |
-  | `{t,b}cmp.ne.TYPE`                     | 待定   | {t,b}D = A != B            | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.        |
-  | `{t,b}cmp.lt.TYPE`                     | 待定   | {t,b}D = A < B             | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.        |
-  | `{t,b}cmp.le.TYPE`                     | 待定   | {t,b}D = A <= B            | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.        |
-  | `{t,b}cmp.gt.TYPE`                     | 待定   | {t,b}D = A > B             | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.        |
-  | `{t,b}cmp.ge.TYPE`                     | 待定   | {t,b}D = A >= B            | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.        |
-  | `{a,v}cmp.eq.TYPE`                     | 待定   | {a,v}D = A == B            | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmp.ne.TYPE`                     | 待定   | {a,v}D = A != B            | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmp.lt.TYPE`                     | 待定   | {a,v}D = A < B             | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmp.le.TYPE`                     | 待定   | {a,v}D = A <= B            | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmp.gt.TYPE`                     | 待定   | {a,v}D = A > B             | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmp.ge.TYPE`                     | 待定   | {a,v}D = A >= B            | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmp.ord.f32`                     | 待定   | {a,v}D = ordered(A, B)     | 源为 f32, 目的为 m32; 真为全一, 假为零.               |
-  | `{a,v}cmp.unord.f32`                     | 待定   | {a,v}D = unordered(A, B)   | 源为 f32, 目的为 m32; 真为全一, 假为零.               |
-  | `{a,v}cmpx.eq.TYPE`                     | 待定   | {a,v}D = A == xS           | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmpx.ne.TYPE`                     | 待定   | {a,v}D = A != xS           | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmpx.lt.TYPE`                     | 待定   | {a,v}D = A < xS            | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmpx.le.TYPE`                     | 待定   | {a,v}D = A <= xS           | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmpx.gt.TYPE`                     | 待定   | {a,v}D = A > xS            | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmpx.ge.TYPE`                     | 待定   | {a,v}D = A >= xS           | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmpx.ord.f32`                     | 待定   | {a,v}D = ordered(A, xS)    | 源为 f32, 目的为 m32; 真为全一, 假为零.               |
-  | `{a,v}cmpx.unord.f32`                     | 待定   | {a,v}D = unordered(A, xS)  | 源为 f32, 目的为 m32; 真为全一, 假为零.               |
+  | `{t,b}cmp.eq.TYPE`    | 待定   | {t,b}D = A == B       | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.        |
+  | `{t,b}cmp.ne.TYPE`    | 待定   | {t,b}D = A != B       | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.        |
+  | `{t,b}cmp.lt.TYPE`    | 待定   | {t,b}D = A < B        | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.        |
+  | `{t,b}cmp.ge.TYPE`    | 待定   | {t,b}D = A >= B       | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.        |
+  | `{a,v}cmp.eq.TYPE`    | 待定   | {a,v}D = A == B       | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
+  | `{a,v}cmp.ne.TYPE`    | 待定   | {a,v}D = A != B       | TYPE: `i32/u32`; 生成 `m32`, 真为全一, 假为零. |
+  | `{a,v}cmp.lt.TYPE`    | 待定   | {a,v}D = A < B        | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
+  | `{a,v}cmp.ge.TYPE`    | 待定   | {a,v}D = A >= B       | TYPE: `i32/u32`; 生成 `m32`, 真为全一, 假为零. |
+  | `{a,v}cmp.le.f32`     | 待定   | {a,v}D = A <= B       | 源为 f32, 目的为 m32; 真为全一, 假为零. |
+  | `{a,v}cmp.unord.f32`  | 待定   | {a,v}D = unordered(A, B) | 源为 f32, 目的为 m32; 真为全一, 假为零. |
+  | `{a,v}cmpx.eq.TYPE`   | 待定   | {a,v}D = A == xS      | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
+  | `{a,v}cmpx.ne.TYPE`   | 待定   | {a,v}D = A != xS      | TYPE: `i32/u32`; 生成 `m32`, 真为全一, 假为零. |
+  | `{a,v}cmpx.lt.TYPE`   | 待定   | {a,v}D = A < xS       | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
+  | `{a,v}cmpx.ge.TYPE`   | 待定   | {a,v}D = A >= xS      | TYPE: `i32/u32`; 生成 `m32`, 真为全一, 假为零. |
+  | `{a,v}cmpx.le.f32`    | 待定   | {a,v}D = A <= xS      | 源为 f32, 目的为 m32; 真为全一, 假为零. |
+  | `{a,v}cmpx.unord.f32` | 待定   | {a,v}D = unordered(A, xS) | 源为 f32, 目的为 m32; 真为全一, 假为零. |
 ]
 
 比较指令产生 mask 数据:
@@ -1670,7 +1665,7 @@ acmpx.COND.TYPE  aM, aA, xS
 vcmpx.COND.TYPE  vM, vA, xS
 ```
 
-支持的条件为 eq, ne, lt, le, gt, ge; 浮点比较另外支持ord, unord.
+整数条件为 `eq/ne/lt/ge`; f32 条件为 `eq/lt/le/unord`; 其余条件由交换操作数或对 mask 取反获得.
 
 比较结果定义为:
 
@@ -2241,7 +2236,7 @@ $ "Pscaled" = P "Vscale" $
 
 == 清单说明
 
-`Format`, `Opcode` 和 `Function` 为尚待定义的二进制编码字段, 统一标为待定. `TYPE` 的合法取值以对应章节的每行说明为准; 带固定类型后缀的指令直接按该类型解释. 比较条件已逐项展开, 浮点有序/无序比较单独列出.
+`Format`, `Opcode` 和 `Function` 为尚待定义的二进制编码字段, 统一标为待定. `TYPE` 的合法取值以对应章节的每行说明为准; 带固定类型后缀的指令直接按该类型解释. 比较条件取独立子集: 整数为 `eq/ne/lt/ge`, f32 为 `eq/lt/le/unord`; `gt`/`le` 由交换操作数获得, `ord` 由 `unord` 取反获得.
 
 `xload`, `xstore` 是尚待补全的 Scalar 访存族, `xload.i32` 作为正文已出现的具体形式另列. `getcap` 的操作数与返回字段仍待定义. 标量算术, 常数装载和控制流目前只有能力描述, 具体助记符待补. 各类尚未定义的变体均不作为已分配编码处理.
 
@@ -2606,46 +2601,34 @@ $ "Pscaled" = P "Vscale" $
   | `tcmp.eq.TYPE`    | 待定   | 待定   | 待定     | 同域右源相等比较; `i8/u8`.            |
   | `tcmp.ne.TYPE`    | 待定   | 待定   | 待定     | 同域右源不等比较; `i8/u8`.            |
   | `tcmp.lt.TYPE`    | 待定   | 待定   | 待定     | 同域右源小于比较; `i8/u8`.            |
-  | `tcmp.le.TYPE`    | 待定   | 待定   | 待定     | 同域右源小于等于比较; `i8/u8`.        |
-  | `tcmp.gt.TYPE`    | 待定   | 待定   | 待定     | 同域右源大于比较; `i8/u8`.            |
   | `tcmp.ge.TYPE`    | 待定   | 待定   | 待定     | 同域右源大于等于比较; `i8/u8`.        |
   | `acmp.eq.TYPE`    | 待定   | 待定   | 待定     | 同域右源相等比较; `i32/u32/f32`.      |
-  | `acmp.ne.TYPE`    | 待定   | 待定   | 待定     | 同域右源不等比较; `i32/u32/f32`.      |
+  | `acmp.ne.TYPE`    | 待定   | 待定   | 待定     | 同域右源不等比较; `i32/u32`.          |
   | `acmp.lt.TYPE`    | 待定   | 待定   | 待定     | 同域右源小于比较; `i32/u32/f32`.      |
-  | `acmp.le.TYPE`    | 待定   | 待定   | 待定     | 同域右源小于等于比较; `i32/u32/f32`.  |
-  | `acmp.gt.TYPE`    | 待定   | 待定   | 待定     | 同域右源大于比较; `i32/u32/f32`.      |
-  | `acmp.ge.TYPE`    | 待定   | 待定   | 待定     | 同域右源大于等于比较; `i32/u32/f32`.  |
-  | `acmp.ord.f32`    | 待定   | 待定   | 待定     | 同域右源浮点有序比较.                 |
+  | `acmp.ge.TYPE`    | 待定   | 待定   | 待定     | 同域右源大于等于比较; `i32/u32`.      |
+  | `acmp.le.f32`     | 待定   | 待定   | 待定     | 同域右源小于等于比较; `f32`.          |
   | `acmp.unord.f32`  | 待定   | 待定   | 待定     | 同域右源浮点无序比较.                 |
   | `acmpx.eq.TYPE`   | 待定   | 待定   | 待定     | Scalar 值相等比较; `i32/u32/f32`.     |
-  | `acmpx.ne.TYPE`   | 待定   | 待定   | 待定     | Scalar 值不等比较; `i32/u32/f32`.     |
+  | `acmpx.ne.TYPE`   | 待定   | 待定   | 待定     | Scalar 值不等比较; `i32/u32`.         |
   | `acmpx.lt.TYPE`   | 待定   | 待定   | 待定     | Scalar 值小于比较; `i32/u32/f32`.     |
-  | `acmpx.le.TYPE`   | 待定   | 待定   | 待定     | Scalar 值小于等于比较; `i32/u32/f32`. |
-  | `acmpx.gt.TYPE`   | 待定   | 待定   | 待定     | Scalar 值大于比较; `i32/u32/f32`.     |
-  | `acmpx.ge.TYPE`   | 待定   | 待定   | 待定     | Scalar 值大于等于比较; `i32/u32/f32`. |
-  | `acmpx.ord.f32`   | 待定   | 待定   | 待定     | Scalar 值浮点有序比较.                |
+  | `acmpx.ge.TYPE`   | 待定   | 待定   | 待定     | Scalar 值大于等于比较; `i32/u32`.     |
+  | `acmpx.le.f32`    | 待定   | 待定   | 待定     | Scalar 值小于等于比较; `f32`.         |
   | `acmpx.unord.f32` | 待定   | 待定   | 待定     | Scalar 值浮点无序比较.                |
   | `bcmp.eq.TYPE`    | 待定   | 待定   | 待定     | 同域右源相等比较; `i8/u8`.            |
   | `bcmp.ne.TYPE`    | 待定   | 待定   | 待定     | 同域右源不等比较; `i8/u8`.            |
   | `bcmp.lt.TYPE`    | 待定   | 待定   | 待定     | 同域右源小于比较; `i8/u8`.            |
-  | `bcmp.le.TYPE`    | 待定   | 待定   | 待定     | 同域右源小于等于比较; `i8/u8`.        |
-  | `bcmp.gt.TYPE`    | 待定   | 待定   | 待定     | 同域右源大于比较; `i8/u8`.            |
   | `bcmp.ge.TYPE`    | 待定   | 待定   | 待定     | 同域右源大于等于比较; `i8/u8`.        |
   | `vcmp.eq.TYPE`    | 待定   | 待定   | 待定     | 同域右源相等比较; `i32/u32/f32`.      |
-  | `vcmp.ne.TYPE`    | 待定   | 待定   | 待定     | 同域右源不等比较; `i32/u32/f32`.      |
+  | `vcmp.ne.TYPE`    | 待定   | 待定   | 待定     | 同域右源不等比较; `i32/u32`.          |
   | `vcmp.lt.TYPE`    | 待定   | 待定   | 待定     | 同域右源小于比较; `i32/u32/f32`.      |
-  | `vcmp.le.TYPE`    | 待定   | 待定   | 待定     | 同域右源小于等于比较; `i32/u32/f32`.  |
-  | `vcmp.gt.TYPE`    | 待定   | 待定   | 待定     | 同域右源大于比较; `i32/u32/f32`.      |
-  | `vcmp.ge.TYPE`    | 待定   | 待定   | 待定     | 同域右源大于等于比较; `i32/u32/f32`.  |
-  | `vcmp.ord.f32`    | 待定   | 待定   | 待定     | 同域右源浮点有序比较.                 |
+  | `vcmp.ge.TYPE`    | 待定   | 待定   | 待定     | 同域右源大于等于比较; `i32/u32`.      |
+  | `vcmp.le.f32`     | 待定   | 待定   | 待定     | 同域右源小于等于比较; `f32`.          |
   | `vcmp.unord.f32`  | 待定   | 待定   | 待定     | 同域右源浮点无序比较.                 |
   | `vcmpx.eq.TYPE`   | 待定   | 待定   | 待定     | Scalar 值相等比较; `i32/u32/f32`.     |
-  | `vcmpx.ne.TYPE`   | 待定   | 待定   | 待定     | Scalar 值不等比较; `i32/u32/f32`.     |
+  | `vcmpx.ne.TYPE`   | 待定   | 待定   | 待定     | Scalar 值不等比较; `i32/u32`.         |
   | `vcmpx.lt.TYPE`   | 待定   | 待定   | 待定     | Scalar 值小于比较; `i32/u32/f32`.     |
-  | `vcmpx.le.TYPE`   | 待定   | 待定   | 待定     | Scalar 值小于等于比较; `i32/u32/f32`. |
-  | `vcmpx.gt.TYPE`   | 待定   | 待定   | 待定     | Scalar 值大于比较; `i32/u32/f32`.     |
-  | `vcmpx.ge.TYPE`   | 待定   | 待定   | 待定     | Scalar 值大于等于比较; `i32/u32/f32`. |
-  | `vcmpx.ord.f32`   | 待定   | 待定   | 待定     | Scalar 值浮点有序比较.                |
+  | `vcmpx.ge.TYPE`   | 待定   | 待定   | 待定     | Scalar 值大于等于比较; `i32/u32`.     |
+  | `vcmpx.le.f32`    | 待定   | 待定   | 待定     | Scalar 值小于等于比较; `f32`.         |
   | `vcmpx.unord.f32` | 待定   | 待定   | 待定     | Scalar 值浮点无序比较.                |
 ]
 
