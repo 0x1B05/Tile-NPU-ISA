@@ -11,7 +11,11 @@
     margin: (top: 24mm, bottom: 22mm, left: 24mm, right: 20mm),
     numbering: "1",
   )
-  set text(font: ("Tex Gyre Termes", "Noto Serif CJK SC"), size: 10.5pt, lang: "zh")
+  set text(
+    font: ("Tex Gyre Termes", "Noto Serif CJK SC"),
+    size: 10.5pt,
+    lang: "zh",
+  )
   set par(justify: true, leading: 0.72em)
   set heading(numbering: "1.1")
   // Every top-level chapter starts on a fresh page, as in the reference ISA manuals.
@@ -23,35 +27,43 @@
   body
 }
 
-#let kbd(body) = box(fill: luma(242), inset: (x: 3pt, y: 1pt), radius: 2pt)[#raw(body)]
-#let term(body) = emph(body)
 #let important = block.with(
   fill: rgb("f3f6fa"),
   stroke: (left: 3pt + rgb("446e9b")),
   inset: 9pt,
   radius: 2pt,
 )
-#let warning(body) = block(fill: rgb("fff8e8"), stroke: (left: 3pt + rgb("b27a18")), inset: 9pt, radius: 2pt)[#body]
-#let proto(body) = block(fill: rgb("f7f7f7"), inset: 8pt, radius: 2pt, width: 100%)[#body]
-#let bits(body, caption: none) = figure(body, caption: caption, supplement: [图], kind: "bits")
+#let warning = block.with(
+  fill: rgb("fff8e8"),
+  stroke: (left: 3pt + rgb("b27a18")),
+  inset: 9pt,
+  radius: 2pt,
+)
+#let note = block.with(
+  fill: rgb("f0f7f2"),
+  stroke: (left: 3pt + rgb("3d8a4f")),
+  inset: 9pt,
+  radius: 2pt,
+)
+#let example = block.with(
+  fill: rgb("f7f7f7"),
+  stroke: (left: 3pt + luma(160)),
+  inset: 9pt,
+  radius: 2pt,
+)
+
 #let yai-table-counter = counter("yai-table")
 #let captioned-table(body, caption: none) = if caption == none {
   body
 } else {
   yai-table-counter.step()
-  block(width: 100%, above: 0.35em, below: 0.35em)[
-    #context align(center)[#text(size: 9pt)[表 #yai-table-counter.display()　#caption]]
+  block(width: 100%, above: 0.9em, below: 0.4em)[
+    #context align(center)[#text(
+      size: 9pt,
+    )[表 #yai-table-counter.display()　#caption]]
   ]
   body
 }
-#let table-cell(body) = block(width: 100%)[
-  #set par(justify: false)
-  #body
-]
-#let table-header(body) = block(width: 100%)[
-  #set par(justify: false)
-  #align(center)[#body]
-]
 
 // Markdown-style rows, with Typst content inside each cell:
 // #manual-table(columns: (1fr, 2fr), caption: [示例])[
