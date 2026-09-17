@@ -73,7 +73,7 @@
   | Scalar      | `x0..x31`  | $64$ bit $= 8$ B                                   | 地址, 整数, 低 32 bit 的 `f32` 位模式  | 地址, 循环, 索引和控制值                |
 ]
 
-以上构成五个不同的*数据域*.
+以上构成五个不同的*数据域*. 标量域的指令集为 RV64IM (见 @scalar-sync); 其余数据域的指令由本手册定义.
 
 #important[
   32-bit 寄存器内无法存储两个半精度数(如`f16`/`bf16`), `f16`/`bf16`等半精度数加载后扩展到 f32 Acc/Vec.
@@ -115,9 +115,9 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 )[
   | 功能族          | 主要数据流                                                                     | 架构职责                                   | 助记符入口                                                                                                                                      |
   | --------------- | ------------------------------------------------------------------------------ | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-  | 标量与控制      | Scalar ↔ Scalar #linebreak() Scalar ↔ 内存                                     | 地址, 索引, 标量计算, 控制流, 能力查询     | 标量算术, 分支, 跳转, 循环, `call/return` #linebreak() `getcap`                                                                                 |
+  | 标量与控制      | Scalar ↔ Scalar #linebreak() Scalar ↔ 内存                                     | 地址, 索引, 标量计算, 控制流, 能力查询     | RV64IM (见 RISC-V 规范) #linebreak() `getcap`                                                                                                   |
   | 配置            | Scalar → TC, AC, BC, VC, TM, VM                                                | 建立数据域的类型, shape, 布局和访存描述    | `cfg.seti`, `cfg.setx`, `cfg.copy`, `cfg.get`                                                                                                   |
-  | 地址与访存      | 内存 ↔ `x/t/a/b/v`                                                             | 按 TM/VM 描述符执行整块, 行和向量访问      | `xload` / `xstore` #linebreak() `{t,a}{load,store}` #linebreak() `{b,v}{load,store}`                                                            |
+  | 地址与访存      | 内存 ↔ `t/a/b/v`                                                               | 按 TM/VM 描述符执行整块, 行和向量访问      | `{t,a}{load,store}` #linebreak() `{b,v}{load,store}`                                                                                            |
   | 初始化与搬运    | 域内 #linebreak() `t` ↔ `b` #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane  | 填充, 复制, 行搬运, lane 搬运, 广播和转置  | `{t,a,b,v}{fill,fillx,copy}` #linebreak() `{t,a}{insert,extract}.row` #linebreak() `{b,v}{insert,extract,broadcast}` #linebreak() `ttranspose`  |
   | 矩阵乘与点积    | `t` × `t` → `a` #linebreak() `b` × `t` → `v`                                   | `i8` 乘法, `i32` 累加或点积                | `mma` #linebreak() `bdot`                                                                                                                       |
   | 逐元素与广播    | `t/a/b/v` 同域 #linebreak() 矩阵 ↔ 向量广播                                    | 算术, 位运算, 移位, 特殊函数, 比较和选择   | `{t,a,b,v}op` #linebreak() `.brow`, `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                                                     |
@@ -129,7 +129,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 == 指令空间组织 <instruction-space>
 
-待定
+指令空间按指令字最低两位划分. `[1:0] = 11` 的空间用于标量指令: 标量指令集采用 RV64IM (RISC-V 64-bit 基础整数指令集与乘除扩展), 译码按 RISC-V 规范执行. `[1:0]` 为 `00`, `01`, `10` 的原压缩指令空间全部用于非标量指令, 共 $3 times 2^30$ 个 32-bit 编码槽; 其内部组织待定.
 
 = 指令格式 <encoding>
 
@@ -137,7 +137,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 = 标量与同步 <scalar-sync>
 
-标量略
+标量指令集采用 RV64IM: 标量算术, 逻辑, 比较, 分支, 跳转和标量访存均按 RISC-V 规范执行, 不在本手册定义. 本章只定义 NPU 特有的能力查询与同步指令.
 
 #instruction-table(caption: [能力查询与同步指令])[
   | Instruction   | Format  | Operation                          | Notes                        |
@@ -260,20 +260,17 @@ cfg.get xD, C, field
 
 = 地址与访存指令 <memory>
 
-本章定义按描述符寻址的访存指令. 矩阵访存 (`tload`, `tstore`, `aload`, `astore` 及行形式) 由 TM 描述, 向量访存 (`bload`, `vload`, `bstore`, `vstore`) 由 VM 描述, Scalar 访存使用 `xload`, `xstore`. 所有 x/t/a/b/v 访存保持统一的程序可见顺序.
+本章定义按描述符寻址的访存指令. 矩阵访存 (`tload`, `tstore`, `aload`, `astore` 及行形式) 由 TM 描述, 向量访存 (`bload`, `vload`, `bstore`, `vstore`) 由 VM 描述; Scalar 访存由 RV64IM load/store 指令承担. 所有 x/t/a/b/v 访存保持统一的程序可见顺序.
 
 #instruction-table(caption: [地址与访存指令])[
-  | Instruction       | Format  | Operation                                     | Notes                                              |
-  | ----------------- | ------- | --------------------------------------------- | -------------------------------------------------- |
-  | `xload`           | 待定    | 从内存读取标量参数, 索引, 长度或单值结果.     | 类型化形式和完整操作数定义待补.                    |
-  | `xload.i32`       | 待定    | 读取 i32 标量; 用于取得 token ID 等整数索引.  | 具体扩展规则待 Scalar 访存定义.                    |
-  | `xstore`          | 待定    | 将 Scalar 中的单值结果写入内存.               | 类型化形式和完整操作数定义待补.                    |
-  | `{t,a}load`       | 待定    | {t,a}D[i,j] = memory[addr(i,j)]               | 越界元素补零, 整块 load 清零目的其余位置.          |
-  | `{t,a}store`      | 待定    | memory[addr(i,j)] = S[i,j]                    | 仅写有效交集; 越界位置不访问内存.                  |
-  | `{t,a}load.row`   | 待定    | {t,a}D[r,j] = memory[addr(r,j)]               | 仅处理目的行; 无效列补零, 其余行保持.              |
-  | `{t,a}store.row`  | 待定    | memory[addr(r,j)] = S[r,j]                    | 仅写有效交集; 越界位置不访问内存.                  |
-  | `{b,v}load`       | 待定    | {b,v}D[j] = memory[addr(j)]                   | 按寄存器有效长度与 VM 范围确定访问, 越界元素补零.  |
-  | `{b,v}store`      | 待定    | memory[addr(j)] = S[j]                        | 仅写有效交集, 越界位置不访问内存.                  |
+  | Instruction       | Format  | Operation                        | Notes                                              |
+  | ----------------- | ------- | -------------------------------- | -------------------------------------------------- |
+  | `{t,a}load`       | 待定    | {t,a}D[i,j] = memory[addr(i,j)]  | 越界元素补零, 整块 load 清零目的其余位置.          |
+  | `{t,a}store`      | 待定    | memory[addr(i,j)] = S[i,j]       | 仅写有效交集; 越界位置不访问内存.                  |
+  | `{t,a}load.row`   | 待定    | {t,a}D[r,j] = memory[addr(r,j)]  | 仅处理目的行; 无效列补零, 其余行保持.              |
+  | `{t,a}store.row`  | 待定    | memory[addr(r,j)] = S[r,j]       | 仅写有效交集; 越界位置不访问内存.                  |
+  | `{b,v}load`       | 待定    | {b,v}D[j] = memory[addr(j)]      | 按寄存器有效长度与 VM 范围确定访问, 越界元素补零.  |
+  | `{b,v}store`      | 待定    | memory[addr(j)] = S[j]           | 仅写有效交集, 越界位置不访问内存.                  |
 ]
 
 == 访存描述符和地址操作数
@@ -427,7 +424,7 @@ for 0 <= j < len(CS):
 
 == 存储数据类型和转换
 
-`t/a/b/v` 的存储类型由访存描述符的 `storage_dtype` 字段决定. `xload`, `xstore` 保留为 Scalar 访存族; 正文明确给出的类型化形式为 `xload.i32`, 其余类型后缀与完整格式待定义. 转置加载通过 `TM.transform` 选择, 仍使用 `tload` (见 @transpose-load).
+`t/a/b/v` 的存储类型由访存描述符的 `storage_dtype` 字段决定; Scalar 访存由 RV64IM 指令承担. 转置加载通过 `TM.transform` 选择, 仍使用 `tload` (见 @transpose-load).
 
 #manual-table(
   columns: (1.1fr, 1.6fr, 1.1fr, 1.9fr),
@@ -448,10 +445,11 @@ for 0 <= j < len(CS):
 
 == 受限动态行读取
 
-Embedding 可以使用 Scalar 先读取 token ID:
+Embedding 可以使用 Scalar 先读取 token ID (RV64IM 指令):
 
 ```asm
-xload.i32 xToken, token_base, token_offset
+add xAddr, xTokenBase, xTokenOffset
+lw xToken, 0(xAddr)
 ```
 
 Scalar 代码先检查:
@@ -2187,7 +2185,7 @@ $ "Pscaled" = P "Vscale" $
 
 `Format`, `Opcode` 和 `Function` 为尚待定义的二进制编码字段, 统一标为待定. `TYPE` 的合法取值以对应章节的每行说明为准; 带固定类型后缀的指令直接按该类型解释. 比较条件取独立子集: 整数为 `eq/ne/lt/ge`, f32 为 `eq/lt/le/unord`; `gt`/`le` 由交换操作数获得, `ord` 由 `unord` 取反获得.
 
-`xload`, `xstore` 是尚待补全的 Scalar 访存族, `xload.i32` 作为正文已出现的具体形式另列. `getcap` 的操作数与返回字段仍待定义. 标量算术, 常数装载和控制流目前只有能力描述, 具体助记符待补. 各类尚未定义的变体均不作为已分配编码处理.
+Scalar 指令集为 RV64IM, 其指令不在本清单. `getcap` 的操作数与返回字段仍待定义. 各类尚未定义的变体均不作为已分配编码处理.
 
 == 标量与同步
 
@@ -2221,23 +2219,20 @@ $ "Pscaled" = P "Vscale" $
 详细语义见 @memory.
 
 #instruction-listing(caption: [地址与访存指令清单])[
-  | Instruction   | Format  | Opcode  | Function  | Summary                                       |
-  | ------------- | ------- | ------- | --------- | --------------------------------------------- |
-  | `xload`       | 待定    | 待定    | 待定      | Scalar 读取; 正文示例使用 `xload.i32`.        |
-  | `xload.i32`   | 待定    | 待定    | 待定      | 读取 i32 标量; 用于取得 token ID 等整数索引.  |
-  | `xstore`      | 待定    | 待定    | 待定      | 将 Scalar 中的单值结果写入内存.               |
-  | `tload`       | 待定    | 待定    | 待定      | 从 TM 描述的内存读取到 Tile 有效区域.         |
-  | `tstore`      | 待定    | 待定    | 待定      | 将 Tile 有效区域写入 TM 描述的内存.           |
-  | `tload.row`   | 待定    | 待定    | 待定      | 从 TM 描述的内存读取到 Tile 指定行.           |
-  | `tstore.row`  | 待定    | 待定    | 待定      | 将 Tile 指定行写入 TM 描述的内存.             |
-  | `aload`       | 待定    | 待定    | 待定      | 从 TM 描述的内存读取到 Acc 有效区域.          |
-  | `astore`      | 待定    | 待定    | 待定      | 将 Acc 有效区域写入 TM 描述的内存.            |
-  | `aload.row`   | 待定    | 待定    | 待定      | 从 TM 描述的内存读取到 Acc 指定行.            |
-  | `astore.row`  | 待定    | 待定    | 待定      | 将 Acc 指定行写入 TM 描述的内存.              |
-  | `bload`       | 待定    | 待定    | 待定      | 从 VM 描述的内存读取 Vec8 向量.               |
-  | `bstore`      | 待定    | 待定    | 待定      | 将 Vec8 向量写入 VM 描述的内存.               |
-  | `vload`       | 待定    | 待定    | 待定      | 从 VM 描述的内存读取 Vec32 向量.              |
-  | `vstore`      | 待定    | 待定    | 待定      | 将 Vec32 向量写入 VM 描述的内存.              |
+  | Instruction   | Format  | Opcode  | Function  | Summary                                |
+  | ------------- | ------- | ------- | --------- | -------------------------------------- |
+  | `tload`       | 待定    | 待定    | 待定      | 从 TM 描述的内存读取到 Tile 有效区域.  |
+  | `tstore`      | 待定    | 待定    | 待定      | 将 Tile 有效区域写入 TM 描述的内存.    |
+  | `tload.row`   | 待定    | 待定    | 待定      | 从 TM 描述的内存读取到 Tile 指定行.    |
+  | `tstore.row`  | 待定    | 待定    | 待定      | 将 Tile 指定行写入 TM 描述的内存.      |
+  | `aload`       | 待定    | 待定    | 待定      | 从 TM 描述的内存读取到 Acc 有效区域.   |
+  | `astore`      | 待定    | 待定    | 待定      | 将 Acc 有效区域写入 TM 描述的内存.     |
+  | `aload.row`   | 待定    | 待定    | 待定      | 从 TM 描述的内存读取到 Acc 指定行.     |
+  | `astore.row`  | 待定    | 待定    | 待定      | 将 Acc 指定行写入 TM 描述的内存.       |
+  | `bload`       | 待定    | 待定    | 待定      | 从 VM 描述的内存读取 Vec8 向量.        |
+  | `bstore`      | 待定    | 待定    | 待定      | 将 Vec8 向量写入 VM 描述的内存.        |
+  | `vload`       | 待定    | 待定    | 待定      | 从 VM 描述的内存读取 Vec32 向量.       |
+  | `vstore`      | 待定    | 待定    | 待定      | 将 Vec32 向量写入 VM 描述的内存.       |
 ]
 
 == 初始化, 搬运与转置
@@ -2620,7 +2615,7 @@ $ "Pscaled" = P "Vscale" $
 )[
   | 前缀或功能族        | 主要对象                    | 读法示例                                                                        |
   | ------------------- | --------------------------- | ------------------------------------------------------------------------------- |
-  | `xload` / `xstore`  | Scalar `x` 与内存           | `xload.i32` 读取整数参数或索引.                                                 |
+  | 标量                | Scalar `x` 与内存, 控制流   | 标量指令集为 RV64IM, 按 RISC-V 规范执行, 本手册不展开.                          |
   | `t` / `a`           | Tile / Acc 矩阵数据域       | `tload` / `aload` 使用 `TM`; `tcopy` / `acopy` 执行同域复制.                    |
   | `b` / `v`           | Vec8 / Vec32 向量数据域     | `bload` / `vload` 使用 `VM`; `badd` / `vadd` 执行同域向量加法.                  |
   | `cfg`               | `TC/AC/BC/VC/TM/VM`         | `cfg.seti` 写立即数字段; `cfg.setx` 从 Scalar 写字段.                           |
