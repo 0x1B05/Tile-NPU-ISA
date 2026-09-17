@@ -1,0 +1,68 @@
+colors:
+  tc:
+    "7-0": "240,214,148"
+    "15-8": "238,183,150"
+    "19-16": "163,200,177"
+    "22-20": "192,200,210"
+    "31-23": "230,230,230"
+  bc:
+    "7-0": "240,214,148"
+    "11-8": "163,200,177"
+    "31-12": "230,230,230"
+  vm:
+    "31-0": "240,214,148"
+    "35-32": "167,199,200"
+    "39-36": "222,184,203"
+    "63-40": "230,230,230"
+    "95-64": "230,230,230"
+    "127-96": "191,177,211"
+  tm-0:
+    "3-0": "167,199,200"
+    "7-4": "192,200,210"
+    "15-8": "222,184,203"
+    "63-16": "230,230,230"
+  tm-1:
+    "127-64": "179,163,205"
+    "191-128": "191,177,211"
+    "223-192": "240,214,148"
+    "255-224": "238,183,150"
+
+structures:
+  tc:
+    bits: 32
+    ranges:
+      31-23: {name: reserved, description: reserved}
+      22-20: {name: lo, description: layout, values: {"0": "canonical", "1-7": "reserved"}}
+      19-16: {name: dt, description: dtype (element type), values: {"0": "i8", "1": "u8", "2": "i32", "3": "u32", "4": "f32", "5-15": "reserved"}}
+      15-8: {name: cols, description: cols (valid columns)}
+      7-0: {name: rows, description: rows (valid rows)}
+  bc:
+    bits: 32
+    ranges:
+      31-12: {name: reserved, description: reserved}
+      11-8: {name: dt, description: dtype (element type), values: {"0": "i8", "1": "u8", "2": "i32", "3": "u32", "4": "f32", "5-15": "reserved"}}
+      7-0: {name: len, description: len (valid length)}
+  tm-0:
+    bits: 128
+    ranges:
+      127-64: {name: col_stride_bytes, description: col_stride_bytes (signed, bytes)}
+      63-16: {name: reserved, description: reserved}
+      15-8: {name: fl, description: "flags"}
+      7-4: {name: tf, description: transform, values: {"0": "normal", "1": "transpose", "2-15": "reserved"}}
+      3-0: {name: sd, description: storage_dtype, values: {"0": "i8", "1": "u8", "2": "i32", "3": "u32", "4": "f32", "5": "f16", "6": "bf16", "7-15": "reserved"}}
+  tm-1:
+    bits: 128
+    start: 128
+    ranges:
+      255-224: {name: cols, description: cols (memory view columns)}
+      223-192: {name: rows, description: rows (memory view rows)}
+      191-128: {name: row_stride_bytes, description: row_stride_bytes (signed, bytes)}
+  vm:
+    bits: 128
+    ranges:
+      127-96: {name: stride_bytes, description: stride_bytes (signed, bytes)}
+      95-64: {name: reserved, description: reserved}
+      63-40: {name: reserved, description: reserved}
+      39-36: {name: fl, description: "flags"}
+      35-32: {name: sd, description: storage_dtype, values: {"0": "i8", "1": "u8", "2": "i32", "3": "u32", "4": "f32", "5": "f16", "6": "bf16", "7-15": "reserved"}}
+      31-0: {name: length, description: length (memory view length)}

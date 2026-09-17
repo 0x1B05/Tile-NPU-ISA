@@ -1,4 +1,5 @@
 #import "yai-isa-style.typ": *
+#import "yai-isa-rivet.typ": *
 
 #show: setup
 
@@ -87,15 +88,27 @@
   columns: (1.05fr, 1fr, 1.2fr, 0.6fr, 2.2fr),
   caption: [计算配置寄存器与访存描述符],
 )[
-  | 寄存器类型          | 汇编名称     | 绑定或适用对象             | 容量  | 配置字段                                                                              |
-  | :-----------------: | :----------: | -------------------------- | ----- | ------------------------------------------------------------------------------------- |
-  | TC: Tile 计算配置   | `tc0..tc15`  | `tc[i]` ↔ `t[i]`           | 待定  | `dtype`, `rows`, `cols`, `layout`                                                     |
-  | AC: Acc 计算配置    | `ac0..ac11`  | `ac[i]` ↔ `a[i]`           | 待定  | `dtype`, `rows`, `cols`, `layout`                                                     |
-  | BC: Vec8 计算配置   | `bc0..bc31`  | `bc[i]` ↔ `b[i]`           | 待定  | `dtype`, `len`                                                                        |
-  | VC: Vec32 计算配置  | `vc0..vc31`  | `vc[i]` ↔ `v[i]`           | 待定  | `dtype`, `len`                                                                        |
-  | TM: 矩阵访存描述符  | `tm0..tm15`  | Tile / Acc 访存显式选择    | 待定  | `rows`, `cols`, `row_stride_bytes`, `col_stride_bytes`, `storage_dtype`, `transform`  |
-  | VM: 向量访存描述符  | `vm0..vm31`  | Vec8 / Vec32 访存显式选择  | 待定  | `length`, `stride_bytes`, `storage_dtype`                                             |
+  | 寄存器类型          | 汇编名称     | 绑定或适用对象             | 容量    | 配置字段                                                                              |
+  | :-----------------: | :----------: | -------------------------- | ------- | ------------------------------------------------------------------------------------- |
+  | TC: Tile 计算配置   | `tc0..tc15`  | `tc[i]` ↔ `t[i]`           | 32bit   | `dtype`, `rows`, `cols`, `layout`                                                     |
+  | AC: Acc 计算配置    | `ac0..ac11`  | `ac[i]` ↔ `a[i]`           | 32bit   | `dtype`, `rows`, `cols`, `layout`                                                     |
+  | BC: Vec8 计算配置   | `bc0..bc31`  | `bc[i]` ↔ `b[i]`           | 32bit   | `dtype`, `len`                                                                        |
+  | VC: Vec32 计算配置  | `vc0..vc31`  | `vc[i]` ↔ `v[i]`           | 32bit   | `dtype`, `len`                                                                        |
+  | TM: 矩阵访存描述符  | `tm0..tm15`  | Tile / Acc 访存显式选择    | 256bit  | `rows`, `cols`, `row_stride_bytes`, `col_stride_bytes`, `storage_dtype`, `transform`  |
+  | VM: 向量访存描述符  | `vm0..vm31`  | Vec8 / Vec32 访存显式选择  | 128bit  | `length`, `stride_bytes`, `storage_dtype`                                             |
 ]
+
+计算配置寄存器 TC/AC 与 BC/VC 均为 32-bit; 矩阵访存描述符 TM 为 256-bit (四个 64-bit word), 向量访存描述符 VM 为 128-bit (两个 64-bit word). 位段分配如下.
+
+#rivet-c-figure(tc-schema, caption: [TC/AC 计算配置寄存器位段])
+
+#rivet-c-figure(bc-schema, caption: [BC/VC 计算配置寄存器位段])
+
+#rivet-tm-figure((tm-0-schema, tm-1-schema), caption: [TM 矩阵访存描述符位段])
+
+#rivet-vm-figure(vm-schema, caption: [VM 向量访存描述符位段])
+
+`flags.bit0` (EN) 为 0 时, 使用该描述符的访存指令被拒绝并产生 `CFG_ERROR`; flags 的其余位保留, 写零.
 
 == 编程模型 <model>
 
