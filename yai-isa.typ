@@ -27,7 +27,7 @@
 记法约定:
 + 指令助记符, 寄存器名与字段名使用等宽字体 (如 `vadd.f32`, `a0`, `rows`)
 + 数学公式与伪代码共同定义指令语义
-+ `i8`, `u8`, `i32`, `u32`, `f32` 表示元素数据类型, `m8`, `m32` 表示每元素 8-bit 与 32-bit 的 mask
++ `i8`, `u8`, `i32`, `u32`, `f32` 表示元素数据类型; 整数元素用作 mask 时取全 0 (假) 或全 1 (真)
 + 尚未定义的内容在文中统一标注为 "待定".
 + `{t,a}` 形式的展开记号依次表示 t 形式和 a 形式两条指令, 多处出现时按顺序配对 (如 `{t,a}insert.row` 中 `{b,v}` 与 `{t,a}` 配对).
 + 指令表 Operation 列中, 目的 `D` 按助记符的展开域标注 (如 `{t,a}D`); 源操作数 `A`, `B`, `S` 不再重复标注, 未标注时与目的同域, 跨域时显式写出 (如 `{t,a}insert.row` 的 `{b,v}S`).
@@ -44,7 +44,7 @@
   | `D`            | 目的寄存器, 对应汇编操作数 `tD`, `aD`, `bD`, `vD`  |
   | `A`, `B`       | 第一, 第二源寄存器, 对应 `tA`, `tB` 等             |
   | `S`            | 单源或广播向量源                                   |
-  | `M`            | mask 寄存器                                        |
+  | `M`            | mask 寄存器, 值为全 0 或全 1 的 `u8`/`u32` 元素    |
   | `imm`          | 立即数                                             |
   | `xS`           | 来自 Scalar 寄存器的操作数                         |
   | `tmJ`, `vmJ`   | 访存描述符 TM / VM 的编号                          |
@@ -66,10 +66,10 @@
 )[
   | 寄存器类型  | 汇编名称   | 单寄存器容量                                       | 基础数据解释                           | 主要用途                                |
   | :---------: | :--------: | -------------------------------------------------- | -------------------------------------- | --------------------------------------- |
-  | Tile        | `t0..t15`  | $32 times 32 times 8$ bit #linebreak() $= 1$ KiB   | `i8`, `u8`, `m8`                       | 矩阵输入, 低精度中间结果                |
-  | Acc         | `a0..a11`  | $32 times 32 times 32$ bit #linebreak() $= 4$ KiB  | `i32`, `u32`, `f32`, `m32`             | 矩阵宽累加结果, Attention score/output  |
-  | Vec8        | `b0..b31`  | $32 times 8$ bit #linebreak() $= 32$ B             | `i8`, `u8`, `m8`                       | 低精度向量, decode 阶段单 batch query   |
-  | Vec32       | `v0..v31`  | $32 times 32$ bit #linebreak() $= 128$ B           | `i32`, `u32`, `f32`, `m32`             | 行状态, 规约结果, 向量计算输入输出      |
+  | Tile        | `t0..t15`  | $32 times 32 times 8$ bit #linebreak() $= 1$ KiB   | `i8`, `u8`                             | 矩阵输入, 低精度中间结果                |
+  | Acc         | `a0..a11`  | $32 times 32 times 32$ bit #linebreak() $= 4$ KiB  | `i32`, `u32`, `f32`                    | 矩阵宽累加结果, Attention score/output  |
+  | Vec8        | `b0..b31`  | $32 times 8$ bit #linebreak() $= 32$ B             | `i8`, `u8`                             | 低精度向量, decode 阶段单 batch query   |
+  | Vec32       | `v0..v31`  | $32 times 32$ bit #linebreak() $= 128$ B           | `i32`, `u32`, `f32`                    | 行状态, 规约结果, 向量计算输入输出      |
   | Scalar      | `x0..x31`  | $64$ bit $= 8$ B                                   | 地址, 整数, 低 32 bit 的 `f32` 位模式  | 地址, 循环, 索引和控制值                |
 ]
 
@@ -433,12 +433,12 @@ for 0 <= j < len(CS):
   columns: (1.1fr, 1.6fr, 1.1fr, 1.9fr),
   caption: [访存存储格式与转换],
 )[
-  | 寄存器域    | 允许的存储格式       | load 行为     | store 行为               |
-  | ----------- | -------------------- | ------------- | ------------------------ |
-  | `t/b`       | `i8`, `u8`, `m8`     | 原样搬运      | 原样写回                 |
-  | `a/v` 整数  | `i32`, `u32`, `m32`  | 原样搬运      | 原样写回                 |
-  | `a/v` 浮点  | `f32`                | 原样搬运      | 原样写回                 |
-  | `a/v` 浮点  | `f16`, `bf16`        | 扩展为 `f32`  | 从 `f32` 按规定舍入转换  |
+  | 寄存器域    | 允许的存储格式  | load 行为     | store 行为               |
+  | ----------- | --------------- | ------------- | ------------------------ |
+  | `t/b`       | `i8`, `u8`      | 原样搬运      | 原样写回                 |
+  | `a/v` 整数  | `i32`, `u32`    | 原样搬运      | 原样写回                 |
+  | `a/v` 浮点  | `f32`           | 原样搬运      | 原样写回                 |
+  | `a/v` 浮点  | `f16`, `bf16`   | 扩展为 `f32`  | 从 `f32` 按规定舍入转换  |
 ]
 
 格式转换必须使用明确的转换, 量化或反量化指令. 因此:
@@ -490,23 +490,23 @@ f16/bf16 KV scale
 
 本节定义数据寄存器之间的初始化, 复制, 行搬运, lane 搬运, 广播和 Tile 转置操作.
 
-`TYPE` 在 Tile/Vec8 中为 `i8/u8/m8`, 在 Acc/Vec32 中为 `i32/u32/f32/m32`. 不带类型后缀的搬运使用寄存器配置中的 dtype. 行号和 lane 号可以来自立即数或 Scalar.
+`TYPE` 在 Tile/Vec8 中为 `i8/u8`, 在 Acc/Vec32 中为 `i32/u32/f32`. 不带类型后缀的搬运使用寄存器配置中的 dtype. 行号和 lane 号可以来自立即数或 Scalar.
 
 #instruction-table(caption: [初始化, 搬运与转置指令])[
-  | Instruction         | Format  | Operation                 | Notes                                                                       |
-  | ------------------- | ------- | ------------------------- | --------------------------------------------------------------------------- |
-  | `{t,a}fill.TYPE`    | 待定    | {t,a}D[i,j] = imm         | TYPE: t 为 `i8/u8/m8`, a 为 `i32/u32/f32/m32`; 无效物理位置保持原值.        |
-  | `{t,a}fillx.TYPE`   | 待定    | {t,a}D[i,j] = xS          | TYPE: t 为 `i8/u8/m8`, a 为 `i32/u32/f32/m32`; mask lane 必须为全零或全一.  |
-  | `{t,a}copy`         | 待定    | {t,a}D[i,j] = S[i,j]      | 源与目的 dtype, shape, layout 必须一致.                                     |
-  | `{b,v}fill.TYPE`    | 待定    | {b,v}D[j] = imm           | TYPE: b 为 `i8/u8/m8`, v 为 `i32/u32/f32/m32`; 无效物理位置保持原值.        |
-  | `{b,v}fillx.TYPE`   | 待定    | {b,v}D[j] = xS            | TYPE: b 为 `i8/u8/m8`, v 为 `i32/u32/f32/m32`; mask lane 必须为全零或全一.  |
-  | `{b,v}copy`         | 待定    | {b,v}D[j] = S[j]          | 源与目的 dtype, shape, layout 必须一致.                                     |
-  | `{t,a}insert.row`   | 待定    | {t,a}D[rd,j] = {b,v}S[j]  | 行号有效, 向量长度等于列数, dtype 相同; 其他行保持.                         |
-  | `{t,a}extract.row`  | 待定    | {b,v}D[j] = {t,a}S[rs,j]  | 行号有效, 目的长度等于源列数, dtype 相同.                                   |
-  | `{b,v}extract`      | 待定    | xD = S[lane]              | lane 有效; 按源 dtype 扩展或写入浮点位模式.                                 |
-  | `{b,v}insert`       | 待定    | {b,v}D[lane] = xS         | lane 有效; 按目的 dtype 解释数值.                                           |
-  | `{b,v}broadcast`    | 待定    | {b,v}D[j] = S[lane]       | 源与目的同域且 dtype 相同.                                                  |
-  | `ttranspose`        | 待定    | tD[i,j] = tS[j,i]         | 仅支持 8-bit Tile; 允许原地执行, 交换有效行列数.                            |
+  | Instruction         | Format  | Operation                 | Notes                                                          |
+  | ------------------- | ------- | ------------------------- | -------------------------------------------------------------- |
+  | `{t,a}fill.TYPE`    | 待定    | {t,a}D[i,j] = imm         | TYPE: t 为 `i8/u8`, a 为 `i32/u32/f32`; 无效物理位置保持原值.  |
+  | `{t,a}fillx.TYPE`   | 待定    | {t,a}D[i,j] = xS          | TYPE: t 为 `i8/u8`, a 为 `i32/u32/f32`.                        |
+  | `{t,a}copy`         | 待定    | {t,a}D[i,j] = S[i,j]      | 源与目的 dtype, shape, layout 必须一致.                        |
+  | `{b,v}fill.TYPE`    | 待定    | {b,v}D[j] = imm           | TYPE: b 为 `i8/u8`, v 为 `i32/u32/f32`; 无效物理位置保持原值.  |
+  | `{b,v}fillx.TYPE`   | 待定    | {b,v}D[j] = xS            | TYPE: b 为 `i8/u8`, v 为 `i32/u32/f32`.                        |
+  | `{b,v}copy`         | 待定    | {b,v}D[j] = S[j]          | 源与目的 dtype, shape, layout 必须一致.                        |
+  | `{t,a}insert.row`   | 待定    | {t,a}D[rd,j] = {b,v}S[j]  | 行号有效, 向量长度等于列数, dtype 相同; 其他行保持.            |
+  | `{t,a}extract.row`  | 待定    | {b,v}D[j] = {t,a}S[rs,j]  | 行号有效, 目的长度等于源列数, dtype 相同.                      |
+  | `{b,v}extract`      | 待定    | xD = S[lane]              | lane 有效; 按源 dtype 扩展或写入浮点位模式.                    |
+  | `{b,v}insert`       | 待定    | {b,v}D[lane] = xS         | lane 有效; 按目的 dtype 解释数值.                              |
+  | `{b,v}broadcast`    | 待定    | {b,v}D[j] = S[lane]       | 源与目的同域且 dtype 相同.                                     |
+  | `ttranspose`        | 待定    | tD[i,j] = tS[j,i]         | 仅支持 8-bit Tile; 允许原地执行, 交换有效行列数.               |
 ]
 
 == Fill 指令
@@ -605,7 +605,7 @@ textract.row bD,     tS[rs]
 
 在 Vec8 与 Tile 的指定行之间搬运数据.
 
-约束: 只执行同精度 bit 搬运, 即 `i8` Tile ↔ `i8` Vec8, `u8` ↔ `u8`, `m8` ↔ `m8`. 如果需要扩大或量化, 必须先使用 `twiden`, `tquant` 或 `vquant` 完成转换, 再执行行搬运.
+约束: 只执行同精度 bit 搬运, 即 `i8` Tile ↔ `i8` Vec8, `u8` ↔ `u8`. 如果需要扩大或量化, 必须先使用 `twiden`, `tquant` 或 `vquant` 完成转换, 再执行行搬运.
 
 `tinsert.row` 操作: 将一个 Vec8 写入 Tile 的指定行:
 
@@ -640,7 +640,7 @@ aextract.row vD,     aS[rs]
 
 在 Vec32 与 Acc 的指定行之间搬运数据.
 
-约束: 只允许同精度搬运, 即 `i32` Acc ↔ `i32` Vec32, `u32` ↔ `u32`, `f32` ↔ `f32`, `m32` ↔ `m32`.
+约束: 只允许同精度搬运, 即 `i32` Acc ↔ `i32` Vec32, `u32` ↔ `u32`, `f32` ↔ `f32`.
 
 `ainsert.row` 操作: 将一个 Vec32 写入 Acc 的指定行:
 
@@ -688,7 +688,6 @@ Scalar 结果的扩展规则由源 dtype 决定:
 ```text
 i8/i32: 符号扩展到 64 bit;
 u8/u32: 零扩展到 64 bit;
-m8/m32: 按 mask 的整数表示扩展;
 f32: 低 32 bit 写入浮点位模式, 高 32 bit 清零.
 ```
 
@@ -1232,7 +1231,6 @@ D[element] ← op(A[element], value)
   | `i32`           | 另外支持 `abs`, `neg`                                                                               |
   | `f32`           | `add`, `sub`, `mul`, `div`, `min`, `max`, `abs`, `neg`, `fma`, `cmp`, `select`                      |
   | `f32` 近似函数  | `exp2.approx`, `rcp.approx`, `rsqrt.approx`                                                         |
-  | `m8/m32`        | bitwise, copy, select                                                                               |
 ]
 
 以下分 8-bit 域 (Tile/Vec8) 与 32-bit 域 (Acc/Vec32) 两表列出基础操作. 二元操作展开为寄存器和 Scalar (`x`) 两种来源; 低精度整数的 `sat`, `wrap` 分别列出. 一元操作仅列单源形式, 融合乘加, 特殊函数, 比较和 select 在各自小节列出. 每行的 `TYPE` 仅取该行给出的类型集合. `and`, `or`, `xor`, `not` 与 `select` 为按位操作, 不带类型后缀, 对域内任意 dtype 适用.
@@ -1629,24 +1627,24 @@ $ "a0"_(i,j) = "a1"_(i,j) "v0"_j $
 条件取独立子集: 整数为 `eq/ne/lt/ge`, `gt` 与 `le` 由交换两个源操作数获得; f32 为 `eq/lt/le/unord`, `ord` 由 `unord` 结果取反获得, `ne` 由 `eq` 结果取反获得. Tile 与 Vec8 只定义寄存器比较形式, Acc 与 Vec32 另有 Scalar 形式. `TYPE` 为源数值类型, 目的为同宽 mask.
 
 #instruction-table(caption: [比较指令])[
-  | Instruction            | Format  | Operation                  | Notes                                               |
-  | ---------------------- | ------- | -------------------------- | --------------------------------------------------- |
-  | `{t,b}cmp.eq.TYPE`     | 待定    | {t,b}D = A == B            | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.         |
-  | `{t,b}cmp.ne.TYPE`     | 待定    | {t,b}D = A != B            | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.         |
-  | `{t,b}cmp.lt.TYPE`     | 待定    | {t,b}D = A < B             | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.         |
-  | `{t,b}cmp.ge.TYPE`     | 待定    | {t,b}D = A >= B            | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.         |
-  | `{a,v}cmp.eq.TYPE`     | 待定    | {a,v}D = A == B            | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零.  |
-  | `{a,v}cmp.ne.TYPE`     | 待定    | {a,v}D = A != B            | TYPE: `i32/u32`; 生成 `m32`, 真为全一, 假为零.      |
-  | `{a,v}cmp.lt.TYPE`     | 待定    | {a,v}D = A < B             | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零.  |
-  | `{a,v}cmp.ge.TYPE`     | 待定    | {a,v}D = A >= B            | TYPE: `i32/u32`; 生成 `m32`, 真为全一, 假为零.      |
-  | `{a,v}cmp.le.f32`      | 待定    | {a,v}D = A <= B            | 源为 f32, 目的为 m32; 真为全一, 假为零.             |
-  | `{a,v}cmp.unord.f32`   | 待定    | {a,v}D = unordered(A, B)   | 源为 f32, 目的为 m32; 真为全一, 假为零.             |
-  | `{a,v}cmpx.eq.TYPE`    | 待定    | {a,v}D = A == xS           | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零.  |
-  | `{a,v}cmpx.ne.TYPE`    | 待定    | {a,v}D = A != xS           | TYPE: `i32/u32`; 生成 `m32`, 真为全一, 假为零.      |
-  | `{a,v}cmpx.lt.TYPE`    | 待定    | {a,v}D = A < xS            | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零.  |
-  | `{a,v}cmpx.ge.TYPE`    | 待定    | {a,v}D = A >= xS           | TYPE: `i32/u32`; 生成 `m32`, 真为全一, 假为零.      |
-  | `{a,v}cmpx.le.f32`     | 待定    | {a,v}D = A <= xS           | 源为 f32, 目的为 m32; 真为全一, 假为零.             |
-  | `{a,v}cmpx.unord.f32`  | 待定    | {a,v}D = unordered(A, xS)  | 源为 f32, 目的为 m32; 真为全一, 假为零.             |
+  | Instruction            | Format  | Operation                  | Notes                                                    |
+  | ---------------------- | ------- | -------------------------- | -------------------------------------------------------- |
+  | `{t,b}cmp.eq.TYPE`     | 待定    | {t,b}D = A == B            | TYPE: `i8/u8`; 生成 `u8` mask, 真为全一, 假为零.         |
+  | `{t,b}cmp.ne.TYPE`     | 待定    | {t,b}D = A != B            | TYPE: `i8/u8`; 生成 `u8` mask, 真为全一, 假为零.         |
+  | `{t,b}cmp.lt.TYPE`     | 待定    | {t,b}D = A < B             | TYPE: `i8/u8`; 生成 `u8` mask, 真为全一, 假为零.         |
+  | `{t,b}cmp.ge.TYPE`     | 待定    | {t,b}D = A >= B            | TYPE: `i8/u8`; 生成 `u8` mask, 真为全一, 假为零.         |
+  | `{a,v}cmp.eq.TYPE`     | 待定    | {a,v}D = A == B            | TYPE: `i32/u32/f32`; 生成 `u32` mask, 真为全一, 假为零.  |
+  | `{a,v}cmp.ne.TYPE`     | 待定    | {a,v}D = A != B            | TYPE: `i32/u32`; 生成 `u32` mask, 真为全一, 假为零.      |
+  | `{a,v}cmp.lt.TYPE`     | 待定    | {a,v}D = A < B             | TYPE: `i32/u32/f32`; 生成 `u32` mask, 真为全一, 假为零.  |
+  | `{a,v}cmp.ge.TYPE`     | 待定    | {a,v}D = A >= B            | TYPE: `i32/u32`; 生成 `u32` mask, 真为全一, 假为零.      |
+  | `{a,v}cmp.le.f32`      | 待定    | {a,v}D = A <= B            | 源为 f32, 目的为 `u32` mask; 真为全一, 假为零.           |
+  | `{a,v}cmp.unord.f32`   | 待定    | {a,v}D = unordered(A, B)   | 源为 f32, 目的为 `u32` mask; 真为全一, 假为零.           |
+  | `{a,v}cmpx.eq.TYPE`    | 待定    | {a,v}D = A == xS           | TYPE: `i32/u32/f32`; 生成 `u32` mask, 真为全一, 假为零.  |
+  | `{a,v}cmpx.ne.TYPE`    | 待定    | {a,v}D = A != xS           | TYPE: `i32/u32`; 生成 `u32` mask, 真为全一, 假为零.      |
+  | `{a,v}cmpx.lt.TYPE`    | 待定    | {a,v}D = A < xS            | TYPE: `i32/u32/f32`; 生成 `u32` mask, 真为全一, 假为零.  |
+  | `{a,v}cmpx.ge.TYPE`    | 待定    | {a,v}D = A >= xS           | TYPE: `i32/u32`; 生成 `u32` mask, 真为全一, 假为零.      |
+  | `{a,v}cmpx.le.f32`     | 待定    | {a,v}D = A <= xS           | 源为 f32, 目的为 `u32` mask; 真为全一, 假为零.           |
+  | `{a,v}cmpx.unord.f32`  | 待定    | {a,v}D = unordered(A, xS)  | 源为 f32, 目的为 `u32` mask; 真为全一, 假为零.           |
 ]
 
 比较指令产生 mask 数据:
@@ -1670,7 +1668,7 @@ vcmpx.COND.TYPE  vM, vA, xS
 比较结果定义为:
 
 ```text
-true  → m8 lane 为 0xff, m32 lane 为 0xffffffff
+true  → u8 lane 为 0xff, u32 lane 为 0xffffffff
 false → 0
 ```
 
@@ -1689,18 +1687,18 @@ for 0 ≤ j < len(D):
     D[j] = predicate(A[j], B[j])
 ```
 
-比较目的寄存器的 dtype 应是m8/m32.
+比较目的寄存器的 dtype 应是 `u8`/`u32`. 作为 mask 使用的整数元素应取全 0 (假) 或全 1 (真); 非规范值参与位运算组合时, 不保证等价于逻辑运算.
 
 == Select 指令
 
 #instruction-table(caption: [选择指令])[
   | Instruction    | Format  | Operation           | Notes                                                            |
   | -------------- | ------- | ------------------- | ---------------------------------------------------------------- |
-  | `{t,b}select`  | 待定    | {t,b}D = M ? A : B  | 按位选择, 与元素 dtype 无关; mask 为 `m8`, 两个数据源均被读取.   |
-  | `{a,v}select`  | 待定    | {a,v}D = M ? A : B  | 按位选择, 与元素 dtype 无关; mask 为 `m32`, 两个数据源均被读取.  |
+  | `{t,b}select`  | 待定    | {t,b}D = M ? A : B  | 按位选择, 与元素 dtype 无关; mask 为 `u8`, 两个数据源均被读取.   |
+  | `{a,v}select`  | 待定    | {a,v}D = M ? A : B  | 按位选择, 与元素 dtype 无关; mask 为 `u32`, 两个数据源均被读取.  |
 ]
 
-select 根据 mask 在两个已经计算好的值之间选择(t/b 数据使用 m8, a/v 数据使用 m32.):
+select 根据 mask 在两个已经计算好的值之间选择(t/b 数据使用 `u8`, a/v 数据使用 `u32`.):
 
 ```asm
 tselect tD, tM, tA, tB
