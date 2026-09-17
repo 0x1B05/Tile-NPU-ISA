@@ -39,19 +39,19 @@
   columns: (1.2fr, 5fr),
   caption: [通用操作数记号],
 )[
-  | 记号            | 含义                                                          |
-  | --------------- | ------------------------------------------------------------- |
-  | `D`             | 目的寄存器, 对应汇编操作数 `tD`, `aD`, `bD`, `vD`             |
-  | `A`, `B`        | 第一, 第二源寄存器, 对应 `tA`, `tB` 等                        |
-  | `S`             | 单源或广播向量源                                              |
-  | `M`             | mask 寄存器                                                   |
-  | `imm`           | 立即数                                                        |
-  | `xS`            | 来自 Scalar 寄存器的操作数                                    |
-  | `tmJ`, `vmJ`    | 访存描述符 TM / VM 的编号                                     |
-  | `[i,j]`         | 矩阵元素索引                                                  |
-  | `[j]`           | 向量 lane 索引                                                |
-  | `[rd,j]`        | 行操作中目的的指定行; `ra`, `rb` 为两个源的指定行             |
-  | `sat`, `wrap`   | 饱和 / 回绕, 定义见 @elementwise                              |
+  | 记号           | 含义                                               |
+  | -------------- | -------------------------------------------------- |
+  | `D`            | 目的寄存器, 对应汇编操作数 `tD`, `aD`, `bD`, `vD`  |
+  | `A`, `B`       | 第一, 第二源寄存器, 对应 `tA`, `tB` 等             |
+  | `S`            | 单源或广播向量源                                   |
+  | `M`            | mask 寄存器                                        |
+  | `imm`          | 立即数                                             |
+  | `xS`           | 来自 Scalar 寄存器的操作数                         |
+  | `tmJ`, `vmJ`   | 访存描述符 TM / VM 的编号                          |
+  | `[i,j]`        | 矩阵元素索引                                       |
+  | `[j]`          | 向量 lane 索引                                     |
+  | `[rd,j]`       | 行操作中目的的指定行; `ra`, `rb` 为两个源的指定行  |
+  | `sat`, `wrap`  | 饱和 / 回绕, 定义见 @elementwise                   |
 ]
 
 = 指令集概览 <overview>
@@ -64,13 +64,13 @@
   columns: (1fr, 1fr, 1.3fr, 2fr, 2fr),
   caption: [数据寄存器与数据域],
 )[
-  | 寄存器类型 | 汇编名称  | 单寄存器容量                                      | 基础数据解释                          | 主要用途                               |
-  | :--------: | :-------: | ------------------------------------------------- | ------------------------------------- | -------------------------------------- |
-  |    Tile    | `t0..t15` | $32 times 32 times 8$ bit #linebreak() $= 1$ KiB  | `i8`, `u8`, `m8`                      | 矩阵输入, 低精度中间结果               |
-  |    Acc     | `a0..a11` | $32 times 32 times 32$ bit #linebreak() $= 4$ KiB | `i32`, `u32`, `f32`, `m32`            | 矩阵宽累加结果, Attention score/output |
-  |    Vec8    | `b0..b31` | $32 times 8$ bit #linebreak() $= 32$ B            | `i8`, `u8`, `m8`                      | 低精度向量, decode 阶段单 batch query  |
-  |   Vec32    | `v0..v31` | $32 times 32$ bit #linebreak() $= 128$ B          | `i32`, `u32`, `f32`, `m32`            | 行状态, 规约结果, 向量计算输入输出     |
-  |   Scalar   | `x0..x31` | $64$ bit $= 8$ B                                  | 地址, 整数, 低 32 bit 的 `f32` 位模式 | 地址, 循环, 索引和控制值               |
+  | 寄存器类型  | 汇编名称   | 单寄存器容量                                       | 基础数据解释                           | 主要用途                                |
+  | :---------: | :--------: | -------------------------------------------------- | -------------------------------------- | --------------------------------------- |
+  | Tile        | `t0..t15`  | $32 times 32 times 8$ bit #linebreak() $= 1$ KiB   | `i8`, `u8`, `m8`                       | 矩阵输入, 低精度中间结果                |
+  | Acc         | `a0..a11`  | $32 times 32 times 32$ bit #linebreak() $= 4$ KiB  | `i32`, `u32`, `f32`, `m32`             | 矩阵宽累加结果, Attention score/output  |
+  | Vec8        | `b0..b31`  | $32 times 8$ bit #linebreak() $= 32$ B             | `i8`, `u8`, `m8`                       | 低精度向量, decode 阶段单 batch query   |
+  | Vec32       | `v0..v31`  | $32 times 32$ bit #linebreak() $= 128$ B           | `i32`, `u32`, `f32`, `m32`             | 行状态, 规约结果, 向量计算输入输出      |
+  | Scalar      | `x0..x31`  | $64$ bit $= 8$ B                                   | 地址, 整数, 低 32 bit 的 `f32` 位模式  | 地址, 循环, 索引和控制值                |
 ]
 
 以上构成五个不同的*数据域*.
@@ -87,14 +87,14 @@
   columns: (1.05fr, 1fr, 1.2fr, 0.6fr, 2.2fr),
   caption: [计算配置寄存器与访存描述符],
 )[
-  |     寄存器类型     |  汇编名称   | 绑定或适用对象            | 容量 | 配置字段                                                                             |
-  | :----------------: | :---------: | ------------------------- | ---- | ------------------------------------------------------------------------------------ |
-  | TC: Tile 计算配置  | `tc0..tc15` | `tc[i]` ↔ `t[i]`          | 待定 | `dtype`, `rows`, `cols`, `layout`                                                    |
-  |  AC: Acc 计算配置  | `ac0..ac11` | `ac[i]` ↔ `a[i]`          | 待定 | `dtype`, `rows`, `cols`, `layout`                                                    |
-  | BC: Vec8 计算配置  | `bc0..bc31` | `bc[i]` ↔ `b[i]`          | 待定 | `dtype`, `len`                                                                       |
-  | VC: Vec32 计算配置 | `vc0..vc31` | `vc[i]` ↔ `v[i]`          | 待定 | `dtype`, `len`                                                                       |
-  | TM: 矩阵访存描述符 | `tm0..tm15` | Tile / Acc 访存显式选择   | 待定 | `rows`, `cols`, `row_stride_bytes`, `col_stride_bytes`, `storage_dtype`, `transform` |
-  | VM: 向量访存描述符 | `vm0..vm31` | Vec8 / Vec32 访存显式选择 | 待定 | `length`, `stride_bytes`, `storage_dtype`                                            |
+  | 寄存器类型          | 汇编名称     | 绑定或适用对象             | 容量  | 配置字段                                                                              |
+  | :-----------------: | :----------: | -------------------------- | ----- | ------------------------------------------------------------------------------------- |
+  | TC: Tile 计算配置   | `tc0..tc15`  | `tc[i]` ↔ `t[i]`           | 待定  | `dtype`, `rows`, `cols`, `layout`                                                     |
+  | AC: Acc 计算配置    | `ac0..ac11`  | `ac[i]` ↔ `a[i]`           | 待定  | `dtype`, `rows`, `cols`, `layout`                                                     |
+  | BC: Vec8 计算配置   | `bc0..bc31`  | `bc[i]` ↔ `b[i]`           | 待定  | `dtype`, `len`                                                                        |
+  | VC: Vec32 计算配置  | `vc0..vc31`  | `vc[i]` ↔ `v[i]`           | 待定  | `dtype`, `len`                                                                        |
+  | TM: 矩阵访存描述符  | `tm0..tm15`  | Tile / Acc 访存显式选择    | 待定  | `rows`, `cols`, `row_stride_bytes`, `col_stride_bytes`, `storage_dtype`, `transform`  |
+  | VM: 向量访存描述符  | `vm0..vm31`  | Vec8 / Vec32 访存显式选择  | 待定  | `length`, `stride_bytes`, `storage_dtype`                                             |
 ]
 
 == 编程模型 <model>
@@ -113,18 +113,18 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   columns: (1.25fr, 1.45fr, 1.7fr, 2.4fr),
   caption: [功能族总览],
 )[
-  | 功能族         | 主要数据流                                                                    | 架构职责                                  | 助记符入口                                                                                                                                     |
-  | -------------- | ----------------------------------------------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-  | 标量与控制     | Scalar ↔ Scalar #linebreak() Scalar ↔ 内存                                    | 地址, 索引, 标量计算, 控制流, 能力查询    | 标量算术, 分支, 跳转, 循环, `call/return` #linebreak() `getcap`                                                                                |
-  | 配置           | Scalar → TC, AC, BC, VC, TM, VM                                               | 建立数据域的类型, shape, 布局和访存描述   | `cfg.seti`, `cfg.setx`, `cfg.copy`, `cfg.get`                                                                                                  |
-  | 地址与访存     | 内存 ↔ `x/t/a/b/v`                                                            | 按 TM/VM 描述符执行整块, 行和向量访问     | `xload` / `xstore` #linebreak() `{t,a}{load,store}` #linebreak() `{b,v}{load,store}`                                                           |
-  | 初始化与搬运   | 域内 #linebreak() `t` ↔ `b` #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane | 填充, 复制, 行搬运, lane 搬运, 广播和转置 | `{t,a,b,v}{fill,fillx,copy}` #linebreak() `{t,a}{insert,extract}.row` #linebreak() `{b,v}{insert,extract,broadcast}` #linebreak() `ttranspose` |
-  | 矩阵乘与点积   | `t` × `t` → `a` #linebreak() `b` × `t` → `v`                                  | `i8` 乘法, `i32` 累加或点积               | `mma` #linebreak() `bdot`                                                                                                                      |
-  | 逐元素与广播   | `t/a/b/v` 同域 #linebreak() 矩阵 ↔ 向量广播                                   | 算术, 位运算, 移位, 特殊函数, 比较和选择  | `{t,a,b,v}op` #linebreak() `.brow`, `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                                     |
-  | 规约           | `a` → `v` #linebreak() `v` → Scalar                                           | 行规约, 向量规约, 平方和和 argmax         | `areduce` #linebreak() `vreduce`                                                                                                          |
-  | 类型转换与扩大 | `a/v` 内部 #linebreak() `t` → `a`                                             | 数值类型转换和 `i8` → `i32` 扩大          | `acvt`, `vcvt` #linebreak() `twiden`                                                                                                 |
-  | 量化与反量化   | `a` ↔ `t` #linebreak() `v` ↔ `b`                                              | 低精度存储与 `f32` 计算之间的显式转换      | `tquant`, `tdequant` #linebreak() `vquant`, `bdequant`                                                                                         |
-  | 同步与结束     | 后端 → 完成边界 #linebreak() kernel → 完成                                    | 访存, SA, 全后端完成以及 kernel 生命周期  | `fence.mem`, `fence.sa`, `fence.all` #linebreak() `kernel.end`                                                                                 |
+  | 功能族          | 主要数据流                                                                     | 架构职责                                   | 助记符入口                                                                                                                                      |
+  | --------------- | ------------------------------------------------------------------------------ | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+  | 标量与控制      | Scalar ↔ Scalar #linebreak() Scalar ↔ 内存                                     | 地址, 索引, 标量计算, 控制流, 能力查询     | 标量算术, 分支, 跳转, 循环, `call/return` #linebreak() `getcap`                                                                                 |
+  | 配置            | Scalar → TC, AC, BC, VC, TM, VM                                                | 建立数据域的类型, shape, 布局和访存描述    | `cfg.seti`, `cfg.setx`, `cfg.copy`, `cfg.get`                                                                                                   |
+  | 地址与访存      | 内存 ↔ `x/t/a/b/v`                                                             | 按 TM/VM 描述符执行整块, 行和向量访问      | `xload` / `xstore` #linebreak() `{t,a}{load,store}` #linebreak() `{b,v}{load,store}`                                                            |
+  | 初始化与搬运    | 域内 #linebreak() `t` ↔ `b` #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane  | 填充, 复制, 行搬运, lane 搬运, 广播和转置  | `{t,a,b,v}{fill,fillx,copy}` #linebreak() `{t,a}{insert,extract}.row` #linebreak() `{b,v}{insert,extract,broadcast}` #linebreak() `ttranspose`  |
+  | 矩阵乘与点积    | `t` × `t` → `a` #linebreak() `b` × `t` → `v`                                   | `i8` 乘法, `i32` 累加或点积                | `mma` #linebreak() `bdot`                                                                                                                       |
+  | 逐元素与广播    | `t/a/b/v` 同域 #linebreak() 矩阵 ↔ 向量广播                                    | 算术, 位运算, 移位, 特殊函数, 比较和选择   | `{t,a,b,v}op` #linebreak() `.brow`, `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                                                     |
+  | 规约            | `a` → `v` #linebreak() `v` → Scalar                                            | 行规约, 向量规约, 平方和和 argmax          | `areduce` #linebreak() `vreduce`                                                                                                                |
+  | 类型转换与扩大  | `a/v` 内部 #linebreak() `t` → `a`                                              | 数值类型转换和 `i8` → `i32` 扩大           | `acvt`, `vcvt` #linebreak() `twiden`                                                                                                            |
+  | 量化与反量化    | `a` ↔ `t` #linebreak() `v` ↔ `b`                                               | 低精度存储与 `f32` 计算之间的显式转换      | `tquant`, `tdequant` #linebreak() `vquant`, `bdequant`                                                                                          |
+  | 同步与结束      | 后端 → 完成边界 #linebreak() kernel → 完成                                     | 访存, SA, 全后端完成以及 kernel 生命周期   | `fence.mem`, `fence.sa`, `fence.all` #linebreak() `kernel.end`                                                                                  |
 ]
 
 == 指令空间组织 <instruction-space>
@@ -140,13 +140,13 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 标量略
 
 #instruction-table(caption: [能力查询与同步指令])[
-  | Instruction  | Format | Operation                          | Notes         |
-  | ------------ | ------ | ---------------------------------- | ---------------------------- |
-  | `getcap`     | 待定   | 查询资源规格, 扩展和数值能力.     | 操作数与返回字段待定义.     |
-  | `fence.mem`  | 待定   | 等待此前访存完成并达到约定可见点. | 后续访存不得越过此边界.     |
-  | `fence.sa`   | 待定   | 等待此前 SA 操作完成.             | 后续 SA 操作不得越过此边界. |
-  | `fence.all`  | 待定   | 等待此前全部后端工作完成.         | 后续后端操作不得越过此边界. |
-  | `kernel.end` | 待定   | 报告 kernel 完成.                 | 隐含 `fence.all`.           |
+  | Instruction   | Format  | Operation                          | Notes                        |
+  | ------------- | ------- | ---------------------------------- | ---------------------------- |
+  | `getcap`      | 待定    | 查询资源规格, 扩展和数值能力.      | 操作数与返回字段待定义.      |
+  | `fence.mem`   | 待定    | 等待此前访存完成并达到约定可见点.  | 后续访存不得越过此边界.      |
+  | `fence.sa`    | 待定    | 等待此前 SA 操作完成.              | 后续 SA 操作不得越过此边界.  |
+  | `fence.all`   | 待定    | 等待此前全部后端工作完成.          | 后续后端操作不得越过此边界.  |
+  | `kernel.end`  | 待定    | 报告 kernel 完成.                  | 隐含 `fence.all`.            |
 ]
 
 ```asm
@@ -161,12 +161,12 @@ kernel.end      # 隐含 fence.all, 报告 kernel 完成
 下表列出配置指令的语义摘要; `Format` 为尚待定义的二进制编码格式.
 
 #instruction-table(caption: [配置指令])[
-  | Instruction | Format | Operation                                  | Notes                                   |
-  | ----------- | ------ | ------------------------------------------ | ------------------------------------------------------ |
-  | `cfg.seti`  | 待定   | C[field] = extend(imm)    | 校验失败时产生 `CFG_ERROR`.                           |
-  | `cfg.setx`  | 待定   | C[field] = x[xS]           | 字段定义扩展, 截断与范围规则; 失败时产生 `CFG_ERROR`. |
-  | `cfg.copy`  | 待定   | $C_D = C_S$                       | 源和目的配置类型一致时执行复制.                       |
-  | `cfg.get`   | 待定   | x[xD] = extend(C[field])       | 结果为字段的整数或枚举值.                             |
+  | Instruction  | Format  | Operation                 | Notes                                                  |
+  | ------------ | ------- | ------------------------- | ------------------------------------------------------ |
+  | `cfg.seti`   | 待定    | C[field] = extend(imm)    | 校验失败时产生 `CFG_ERROR`.                            |
+  | `cfg.setx`   | 待定    | C[field] = x[xS]          | 字段定义扩展, 截断与范围规则; 失败时产生 `CFG_ERROR`.  |
+  | `cfg.copy`   | 待定    | $C_D = C_S$               | 源和目的配置类型一致时执行复制.                        |
+  | `cfg.get`    | 待定    | x[xD] = extend(C[field])  | 结果为字段的整数或枚举值.                              |
 ]
 
 == `cfg.seti` — 写立即数配置字段
@@ -263,17 +263,17 @@ cfg.get xD, C, field
 本章定义按描述符寻址的访存指令. 矩阵访存 (`tload`, `tstore`, `aload`, `astore` 及行形式) 由 TM 描述, 向量访存 (`bload`, `vload`, `bstore`, `vstore`) 由 VM 描述, Scalar 访存使用 `xload`, `xstore`. 所有 x/t/a/b/v 访存保持统一的程序可见顺序.
 
 #instruction-table(caption: [地址与访存指令])[
-  | Instruction      | Format | Operation                                  | Notes                                             |
-  | ---------------- | ------ | ------------------------------------------ | ------------------------------------------------- |
-  | `xload`          | 待定   | 从内存读取标量参数, 索引, 长度或单值结果.  | 类型化形式和完整操作数定义待补.                   |
-  | `xload.i32`      | 待定   | 读取 i32 标量; 用于取得 token ID 等整数索引. | 具体扩展规则待 Scalar 访存定义.                 |
-  | `xstore`         | 待定   | 将 Scalar 中的单值结果写入内存.            | 类型化形式和完整操作数定义待补.                   |
-  | `{t,a}load`      | 待定   | {t,a}D[i,j] = memory[addr(i,j)]            | 越界元素补零, 整块 load 清零目的其余位置.         |
-  | `{t,a}store`     | 待定   | memory[addr(i,j)] = S[i,j]            | 仅写有效交集; 越界位置不访问内存.                 |
-  | `{t,a}load.row`  | 待定   | {t,a}D[r,j] = memory[addr(r,j)]            | 仅处理目的行; 无效列补零, 其余行保持.             |
-  | `{t,a}store.row` | 待定   | memory[addr(r,j)] = S[r,j]            | 仅写有效交集; 越界位置不访问内存.                 |
-  | `{b,v}load`      | 待定   | {b,v}D[j] = memory[addr(j)]                | 按寄存器有效长度与 VM 范围确定访问, 越界元素补零. |
-  | `{b,v}store`     | 待定   | memory[addr(j)] = S[j]                | 仅写有效交集, 越界位置不访问内存.                 |
+  | Instruction       | Format  | Operation                                     | Notes                                              |
+  | ----------------- | ------- | --------------------------------------------- | -------------------------------------------------- |
+  | `xload`           | 待定    | 从内存读取标量参数, 索引, 长度或单值结果.     | 类型化形式和完整操作数定义待补.                    |
+  | `xload.i32`       | 待定    | 读取 i32 标量; 用于取得 token ID 等整数索引.  | 具体扩展规则待 Scalar 访存定义.                    |
+  | `xstore`          | 待定    | 将 Scalar 中的单值结果写入内存.               | 类型化形式和完整操作数定义待补.                    |
+  | `{t,a}load`       | 待定    | {t,a}D[i,j] = memory[addr(i,j)]               | 越界元素补零, 整块 load 清零目的其余位置.          |
+  | `{t,a}store`      | 待定    | memory[addr(i,j)] = S[i,j]                    | 仅写有效交集; 越界位置不访问内存.                  |
+  | `{t,a}load.row`   | 待定    | {t,a}D[r,j] = memory[addr(r,j)]               | 仅处理目的行; 无效列补零, 其余行保持.              |
+  | `{t,a}store.row`  | 待定    | memory[addr(r,j)] = S[r,j]                    | 仅写有效交集; 越界位置不访问内存.                  |
+  | `{b,v}load`       | 待定    | {b,v}D[j] = memory[addr(j)]                   | 按寄存器有效长度与 VM 范围确定访问, 越界元素补零.  |
+  | `{b,v}store`      | 待定    | memory[addr(j)] = S[j]                        | 仅写有效交集, 越界位置不访问内存.                  |
 ]
 
 == 访存描述符和地址操作数
@@ -300,13 +300,13 @@ $
 $
 
 #manual-table(columns: (2fr, 5fr), caption: [地址计算符号])[
-  | 符号     | 含义                                |
-  | -------- | ----------------------------------- |
-  | `xBase`  | view 逻辑坐标 $[0, 0]$ 对应的基地址 |
-  | `xIndex` | 一维 view 的起始元素坐标            |
-  | `xRow`   | 二维 view 的起始行坐标              |
-  | `xCol`   | 二维 view 的起始列坐标              |
-  | $i$, $j$ | 当前 Tile 或 Vector 内的局部坐标    |
+  | 符号      | 含义                                 |
+  | --------- | ------------------------------------ |
+  | `xBase`   | view 逻辑坐标 $[0, 0]$ 对应的基地址  |
+  | `xIndex`  | 一维 view 的起始元素坐标             |
+  | `xRow`    | 二维 view 的起始行坐标               |
+  | `xCol`    | 二维 view 的起始列坐标               |
+  | $i$, $j$  | 当前 Tile 或 Vector 内的局部坐标     |
 ]
 
 坐标以元素计, stride 以字节计; RF 行号 $r$ 与内存 `xRow` 独立.
@@ -433,12 +433,12 @@ for 0 <= j < len(CS):
   columns: (1.1fr, 1.6fr, 1.1fr, 1.9fr),
   caption: [访存存储格式与转换],
 )[
-  | 寄存器域   | 允许的存储格式      | load 行为    | store 行为              |
-  | ---------- | ------------------- | ------------ | ----------------------- |
-  | `t/b`      | `i8`, `u8`, `m8`    | 原样搬运     | 原样写回                |
-  | `a/v` 整数 | `i32`, `u32`, `m32` | 原样搬运     | 原样写回                |
-  | `a/v` 浮点 | `f32`               | 原样搬运     | 原样写回                |
-  | `a/v` 浮点 | `f16`, `bf16`       | 扩展为 `f32` | 从 `f32` 按规定舍入转换 |
+  | 寄存器域    | 允许的存储格式       | load 行为     | store 行为               |
+  | ----------- | -------------------- | ------------- | ------------------------ |
+  | `t/b`       | `i8`, `u8`, `m8`     | 原样搬运      | 原样写回                 |
+  | `a/v` 整数  | `i32`, `u32`, `m32`  | 原样搬运      | 原样写回                 |
+  | `a/v` 浮点  | `f32`                | 原样搬运      | 原样写回                 |
+  | `a/v` 浮点  | `f16`, `bf16`        | 扩展为 `f32`  | 从 `f32` 按规定舍入转换  |
 ]
 
 格式转换必须使用明确的转换, 量化或反量化指令. 因此:
@@ -493,20 +493,20 @@ f16/bf16 KV scale
 `TYPE` 在 Tile/Vec8 中为 `i8/u8/m8`, 在 Acc/Vec32 中为 `i32/u32/f32/m32`. 不带类型后缀的搬运使用寄存器配置中的 dtype. 行号和 lane 号可以来自立即数或 Scalar.
 
 #instruction-table(caption: [初始化, 搬运与转置指令])[
-  | Instruction        | Format | Operation                    | Notes                                                              |
-  | ------------------ | ------ | ---------------------------- | ------------------------------------------------------------------ |
-  | `{t,a}fill.TYPE`   | 待定   | {t,a}D[i,j] = imm            | TYPE: t 为 `i8/u8/m8`, a 为 `i32/u32/f32/m32`; 无效物理位置保持原值. |
-  | `{t,a}fillx.TYPE`  | 待定   | {t,a}D[i,j] = xS             | TYPE: t 为 `i8/u8/m8`, a 为 `i32/u32/f32/m32`; mask lane 必须为全零或全一. |
-  | `{t,a}copy`        | 待定   | {t,a}D[i,j] = S[i,j]    | 源与目的 dtype, shape, layout 必须一致.                            |
-  | `{b,v}fill.TYPE`   | 待定   | {b,v}D[j] = imm              | TYPE: b 为 `i8/u8/m8`, v 为 `i32/u32/f32/m32`; 无效物理位置保持原值. |
-  | `{b,v}fillx.TYPE`  | 待定   | {b,v}D[j] = xS               | TYPE: b 为 `i8/u8/m8`, v 为 `i32/u32/f32/m32`; mask lane 必须为全零或全一. |
-  | `{b,v}copy`        | 待定   | {b,v}D[j] = S[j]        | 源与目的 dtype, shape, layout 必须一致.                            |
-  | `{t,a}insert.row`  | 待定   | {t,a}D[rd,j] = {b,v}S[j]     | 行号有效, 向量长度等于列数, dtype 相同; 其他行保持.                |
-  | `{t,a}extract.row` | 待定   | {b,v}D[j] = {t,a}S[rs,j]     | 行号有效, 目的长度等于源列数, dtype 相同.                          |
-  | `{b,v}extract`     | 待定   | xD = S[lane]                 | lane 有效; 按源 dtype 扩展或写入浮点位模式.                        |
-  | `{b,v}insert`      | 待定   | {b,v}D[lane] = xS                 | lane 有效; 按目的 dtype 解释数值.                                  |
-  | `{b,v}broadcast`   | 待定   | {b,v}D[j] = S[lane]               | 源与目的同域且 dtype 相同.                                         |
-  | `ttranspose`       | 待定   | tD[i,j] = tS[j,i]            | 仅支持 8-bit Tile; 允许原地执行, 交换有效行列数.                   |
+  | Instruction         | Format  | Operation                 | Notes                                                                       |
+  | ------------------- | ------- | ------------------------- | --------------------------------------------------------------------------- |
+  | `{t,a}fill.TYPE`    | 待定    | {t,a}D[i,j] = imm         | TYPE: t 为 `i8/u8/m8`, a 为 `i32/u32/f32/m32`; 无效物理位置保持原值.        |
+  | `{t,a}fillx.TYPE`   | 待定    | {t,a}D[i,j] = xS          | TYPE: t 为 `i8/u8/m8`, a 为 `i32/u32/f32/m32`; mask lane 必须为全零或全一.  |
+  | `{t,a}copy`         | 待定    | {t,a}D[i,j] = S[i,j]      | 源与目的 dtype, shape, layout 必须一致.                                     |
+  | `{b,v}fill.TYPE`    | 待定    | {b,v}D[j] = imm           | TYPE: b 为 `i8/u8/m8`, v 为 `i32/u32/f32/m32`; 无效物理位置保持原值.        |
+  | `{b,v}fillx.TYPE`   | 待定    | {b,v}D[j] = xS            | TYPE: b 为 `i8/u8/m8`, v 为 `i32/u32/f32/m32`; mask lane 必须为全零或全一.  |
+  | `{b,v}copy`         | 待定    | {b,v}D[j] = S[j]          | 源与目的 dtype, shape, layout 必须一致.                                     |
+  | `{t,a}insert.row`   | 待定    | {t,a}D[rd,j] = {b,v}S[j]  | 行号有效, 向量长度等于列数, dtype 相同; 其他行保持.                         |
+  | `{t,a}extract.row`  | 待定    | {b,v}D[j] = {t,a}S[rs,j]  | 行号有效, 目的长度等于源列数, dtype 相同.                                   |
+  | `{b,v}extract`      | 待定    | xD = S[lane]              | lane 有效; 按源 dtype 扩展或写入浮点位模式.                                 |
+  | `{b,v}insert`       | 待定    | {b,v}D[lane] = xS         | lane 有效; 按目的 dtype 解释数值.                                           |
+  | `{b,v}broadcast`    | 待定    | {b,v}D[j] = S[lane]       | 源与目的同域且 dtype 相同.                                                  |
+  | `ttranspose`        | 待定    | tD[i,j] = tS[j,i]         | 仅支持 8-bit Tile; 允许原地执行, 交换有效行列数.                            |
 ]
 
 == Fill 指令
@@ -800,14 +800,14 @@ tinsert.row tK[rowK], b0
 本节定义基础 `i8` 矩阵乘和 Vec8—Tile 点积指令. 基础指令使用*`i8` 输入, `i32` 输出或累加*.
 
 #instruction-table(caption: [矩阵乘与点积指令])[
-  | Instruction          | Format | Operation                                            | Notes                               |
-  | -------------------- | ------ | ---------------------------------------------------- | -------------------------------------------------- |
-  | `mma.nn.zero.i8.i32` | 待定   | aD = tA tB                             | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配. |
-  | `mma.nn.acc.i8.i32`  | 待定   | aD = aD + tA tB                      | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配. |
-  | `bdot.nn.i8.i32`     | 待定   | vD = bA tB                               | `i8` 输入, `i32` 输出; 跨块累加使用 `vadd.i32`.   |
-  | `mma.nt.zero.i8.i32` | 待定   | aD = tA (tB)^T                        | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配. |
-  | `mma.nt.acc.i8.i32`  | 待定   | aD = aD + tA (tB)^T                 | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配. |
-  | `bdot.nt.i8.i32`     | 待定   | vD = bA (tB)^T                           | `i8` 输入, `i32` 输出; 跨块累加使用 `vadd.i32`.   |
+  | Instruction           | Format  | Operation            | Notes                                              |
+  | --------------------- | ------- | -------------------- | -------------------------------------------------- |
+  | `mma.nn.zero.i8.i32`  | 待定    | aD = tA tB           | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
+  | `mma.nn.acc.i8.i32`   | 待定    | aD = aD + tA tB      | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
+  | `bdot.nn.i8.i32`      | 待定    | vD = bA tB           | `i8` 输入, `i32` 输出; 跨块累加使用 `vadd.i32`.    |
+  | `mma.nt.zero.i8.i32`  | 待定    | aD = tA (tB)^T       | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
+  | `mma.nt.acc.i8.i32`   | 待定    | aD = aD + tA (tB)^T  | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
+  | `bdot.nt.i8.i32`      | 待定    | vD = bA (tB)^T       | `i8` 输入, `i32` 输出; 跨块累加使用 `vadd.i32`.    |
 ]
 
 == 指令格式
@@ -829,13 +829,13 @@ bdot.nt.i8.i32     vD, bA, tB
   columns: (0.9fr, 0.9fr, 3.5fr),
   caption: [矩阵乘与点积操作数],
 )[
-  | 操作数 | 数据域 | 作用                          |
-  | ------ | ------ | ----------------------------- |
-  | `tA`   | Tile   | MMA 或 row-dot 的左操作数     |
-  | `tB`   | Tile   | MMA 或 row-dot 的右操作数     |
-  | `aD`   | Acc    | MMA 的 `i32` 目的和累加寄存器 |
-  | `bA`   | Vec8   | bdot 的 `i8` 向量输入         |
-  | `vD`   | Vec32  | bdot 的 `i32` 向量输出        |
+  | 操作数  | 数据域  | 作用                           |
+  | ------- | ------- | ------------------------------ |
+  | `tA`    | Tile    | MMA 或 row-dot 的左操作数      |
+  | `tB`    | Tile    | MMA 或 row-dot 的右操作数      |
+  | `aD`    | Acc     | MMA 的 `i32` 目的和累加寄存器  |
+  | `bA`    | Vec8    | bdot 的 `i8` 向量输入          |
+  | `vD`    | Vec32   | bdot 的 `i32` 向量输出         |
 ]
 
 数学形式:
@@ -844,12 +844,12 @@ bdot.nt.i8.i32     vD, bA, tB
   columns: (1fr, 4fr),
   caption: [矩阵乘与点积的数学形式],
 )[
-  | 形式      | 运算                                                           |
-  | --------- | -------------------------------------------------------------- |
-  | `mma.nn`  | $A_(M times K) B_(K times N) -> D_(M times N)$           |
-  | `mma.nt`  | $A_(M times K) (B_(N times K))^sans(T) -> D_(M times N)$ |
-  | `bdot.nn` | $"out"_j = sum_(k=0)^(K-1) b_k B_(k,j)$                        |
-  | `bdot.nt` | $"out"_j = sum_(k=0)^(K-1) b_k B_(j,k)$                        |
+  | 形式       | 运算                                                      |
+  | ---------- | --------------------------------------------------------- |
+  | `mma.nn`   | $A_(M times K) B_(K times N) -> D_(M times N)$            |
+  | `mma.nt`   | $A_(M times K) (B_(N times K))^sans(T) -> D_(M times N)$  |
+  | `bdot.nn`  | $"out"_j = sum_(k=0)^(K-1) b_k B_(k,j)$                   |
+  | `bdot.nt`  | $"out"_j = sum_(k=0)^(K-1) b_k B_(j,k)$                   |
 ]
 
 == `nn` 和 `nt` 的矩阵布局
@@ -1224,87 +1224,87 @@ D[element] ← op(A[element], value)
   columns: (1.2fr, 4.5fr),
   caption: [逐元素操作与数据类型],
 )[
-  | dtype          | 基础操作                                                                                           |
-  | -------------- | -------------------------------------------------------------------------------------------------- |
-  | `i8/u8`        | `add`, `sub`, `mul`, `min`, `max`, `and`, `or`, `xor`, `not`, `shl`, `shr`, `sra`, `cmp`, `select` |
-  | `i8`           | 另外支持 `abs`, `neg`                                                                              |
-  | `i32/u32`      | `add`, `sub`, `mul`, `min`, `max`, bitwise, shift, `cmp`, `select`                                 |
-  | `i32`          | 另外支持 `abs`, `neg`                                                                              |
-  | `f32`          | `add`, `sub`, `mul`, `div`, `min`, `max`, `abs`, `neg`, `fma`, `cmp`, `select`                     |
-  | `f32` 近似函数 | `exp2.approx`, `rcp.approx`, `rsqrt.approx`                                                        |
-  | `m8/m32`       | bitwise, copy, select                                                                              |
+  | dtype           | 基础操作                                                                                            |
+  | --------------- | --------------------------------------------------------------------------------------------------- |
+  | `i8/u8`         | `add`, `sub`, `mul`, `min`, `max`, `and`, `or`, `xor`, `not`, `shl`, `shr`, `sra`, `cmp`, `select`  |
+  | `i8`            | 另外支持 `abs`, `neg`                                                                               |
+  | `i32/u32`       | `add`, `sub`, `mul`, `min`, `max`, bitwise, shift, `cmp`, `select`                                  |
+  | `i32`           | 另外支持 `abs`, `neg`                                                                               |
+  | `f32`           | `add`, `sub`, `mul`, `div`, `min`, `max`, `abs`, `neg`, `fma`, `cmp`, `select`                      |
+  | `f32` 近似函数  | `exp2.approx`, `rcp.approx`, `rsqrt.approx`                                                         |
+  | `m8/m32`        | bitwise, copy, select                                                                               |
 ]
 
-以下分 8-bit 域 (Tile/Vec8) 与 32-bit 域 (Acc/Vec32) 两表列出基础操作. 二元操作展开为寄存器和 Scalar (`x`) 两种来源; 低精度整数的 `sat`, `wrap` 分别列出. 一元操作仅列单源形式, 融合乘加, 特殊函数, 比较和 select 在各自小节列出. 每行的 `TYPE` 仅取该行给出的类型集合.
+以下分 8-bit 域 (Tile/Vec8) 与 32-bit 域 (Acc/Vec32) 两表列出基础操作. 二元操作展开为寄存器和 Scalar (`x`) 两种来源; 低精度整数的 `sat`, `wrap` 分别列出. 一元操作仅列单源形式, 融合乘加, 特殊函数, 比较和 select 在各自小节列出. 每行的 `TYPE` 仅取该行给出的类型集合. `and`, `or`, `xor`, `not` 与 `select` 为按位操作, 不带类型后缀, 对域内任意 dtype 适用.
 
 #instruction-table(caption: [Tile/Vec8 基础逐元素指令])[
-  | Instruction           | Format | Operation         | Notes                     |
-  | --------------------- | ------ | ----------------- | ------------------------- |
-  | `{t,b}add.sat.TYPE`                     | 待定   | {t,b}D = sat(A + B)    | TYPE: `i8/u8`; 使用饱和结果.    |
-  | `{t,b}add.wrap.TYPE`                     | 待定   | {t,b}D = wrap(A + B)   | TYPE: `i8/u8`; 保留低 8 bit. |
-  | `{t,b}addx.sat.TYPE`                     | 待定   | {t,b}D = sat(A + xS)   | TYPE: `i8/u8`; 使用饱和结果.    |
-  | `{t,b}addx.wrap.TYPE`                     | 待定   | {t,b}D = wrap(A + xS)  | TYPE: `i8/u8`; 保留低 8 bit. |
-  | `{t,b}sub.sat.TYPE`                     | 待定   | {t,b}D = sat(A - B)    | TYPE: `i8/u8`; 使用饱和结果.    |
-  | `{t,b}sub.wrap.TYPE`                     | 待定   | {t,b}D = wrap(A - B)   | TYPE: `i8/u8`; 保留低 8 bit. |
-  | `{t,b}subx.sat.TYPE`                     | 待定   | {t,b}D = sat(A - xS)   | TYPE: `i8/u8`; 使用饱和结果.    |
-  | `{t,b}subx.wrap.TYPE`                     | 待定   | {t,b}D = wrap(A - xS)  | TYPE: `i8/u8`; 保留低 8 bit. |
-  | `{t,b}mul.sat.TYPE`                     | 待定   | {t,b}D = sat(A × B)    | TYPE: `i8/u8`; 使用饱和结果.    |
-  | `{t,b}mul.wrap.TYPE`                     | 待定   | {t,b}D = wrap(A × B)   | TYPE: `i8/u8`; 保留低 8 bit. |
-  | `{t,b}mulx.sat.TYPE`                     | 待定   | {t,b}D = sat(A × xS)   | TYPE: `i8/u8`; 使用饱和结果.    |
-  | `{t,b}mulx.wrap.TYPE`                     | 待定   | {t,b}D = wrap(A × xS)  | TYPE: `i8/u8`; 保留低 8 bit. |
-  | `{t,b}min.TYPE`                     | 待定   | {t,b}D = min(A, B)     | TYPE: `i8/u8`.            |
-  | `{t,b}minx.TYPE`                     | 待定   | {t,b}D = min(A, xS)    | TYPE: `i8/u8`.            |
-  | `{t,b}max.TYPE`                     | 待定   | {t,b}D = max(A, B)     | TYPE: `i8/u8`.            |
-  | `{t,b}maxx.TYPE`                     | 待定   | {t,b}D = max(A, xS)    | TYPE: `i8/u8`.            |
-  | `{t,b}and.TYPE`                     | 待定   | {t,b}D = A and B       | TYPE: `i8/u8/m8`.         |
-  | `{t,b}andx.TYPE`                     | 待定   | {t,b}D = A and xS      | TYPE: `i8/u8/m8`.         |
-  | `{t,b}or.TYPE`                     | 待定   | {t,b}D = A or B        | TYPE: `i8/u8/m8`.         |
-  | `{t,b}orx.TYPE`                     | 待定   | {t,b}D = A or xS       | TYPE: `i8/u8/m8`.         |
-  | `{t,b}xor.TYPE`                     | 待定   | {t,b}D = A xor B       | TYPE: `i8/u8/m8`.         |
-  | `{t,b}xorx.TYPE`                     | 待定   | {t,b}D = A xor xS      | TYPE: `i8/u8/m8`.         |
-  | `{t,b}shl.TYPE`                     | 待定   | {t,b}D = shl(A, B)     | TYPE: `i8/u8`.            |
-  | `{t,b}shlx.TYPE`                     | 待定   | {t,b}D = shl(A, xS)    | TYPE: `i8/u8`.            |
-  | `{t,b}shr.TYPE`                     | 待定   | {t,b}D = shr(A, B)     | TYPE: `i8/u8`.            |
-  | `{t,b}shrx.TYPE`                     | 待定   | {t,b}D = shr(A, xS)    | TYPE: `i8/u8`.            |
-  | `{t,b}sra.TYPE`                     | 待定   | {t,b}D = sra(A, B)     | TYPE: `i8/u8`.            |
-  | `{t,b}srax.TYPE`                     | 待定   | {t,b}D = sra(A, xS)    | TYPE: `i8/u8`.            |
-  | `{t,b}not.TYPE`                     | 待定   | {t,b}D = not A         | 类型: `i8/u8/m8`; 仅有一个数据源.  |
-  | `{t,b}abs.sat.i8`                     | 待定   | {t,b}D = sat(abs(A))   | 类型: `i8`; 饱和; 仅有一个数据源.    |
-  | `{t,b}abs.wrap.i8`                     | 待定   | {t,b}D = wrap(abs(A))  | 类型: `i8`; 回绕; 仅有一个数据源.    |
-  | `{t,b}neg.sat.i8`                     | 待定   | {t,b}D = sat(-A)       | 类型: `i8`; 饱和; 仅有一个数据源.    |
-  | `{t,b}neg.wrap.i8`                     | 待定   | {t,b}D = wrap(-A)      | 类型: `i8`; 回绕; 仅有一个数据源.    |
+  | Instruction            | Format  | Operation              | Notes                                         |
+  | ---------------------- | ------- | ---------------------- | --------------------------------------------- |
+  | `{t,b}add.sat.TYPE`    | 待定    | {t,b}D = sat(A + B)    | TYPE: `i8/u8`; 使用饱和结果.                  |
+  | `{t,b}add.wrap.TYPE`   | 待定    | {t,b}D = wrap(A + B)   | TYPE: `i8/u8`; 保留低 8 bit.                  |
+  | `{t,b}addx.sat.TYPE`   | 待定    | {t,b}D = sat(A + xS)   | TYPE: `i8/u8`; 使用饱和结果.                  |
+  | `{t,b}addx.wrap.TYPE`  | 待定    | {t,b}D = wrap(A + xS)  | TYPE: `i8/u8`; 保留低 8 bit.                  |
+  | `{t,b}sub.sat.TYPE`    | 待定    | {t,b}D = sat(A - B)    | TYPE: `i8/u8`; 使用饱和结果.                  |
+  | `{t,b}sub.wrap.TYPE`   | 待定    | {t,b}D = wrap(A - B)   | TYPE: `i8/u8`; 保留低 8 bit.                  |
+  | `{t,b}subx.sat.TYPE`   | 待定    | {t,b}D = sat(A - xS)   | TYPE: `i8/u8`; 使用饱和结果.                  |
+  | `{t,b}subx.wrap.TYPE`  | 待定    | {t,b}D = wrap(A - xS)  | TYPE: `i8/u8`; 保留低 8 bit.                  |
+  | `{t,b}mul.sat.TYPE`    | 待定    | {t,b}D = sat(A × B)    | TYPE: `i8/u8`; 使用饱和结果.                  |
+  | `{t,b}mul.wrap.TYPE`   | 待定    | {t,b}D = wrap(A × B)   | TYPE: `i8/u8`; 保留低 8 bit.                  |
+  | `{t,b}mulx.sat.TYPE`   | 待定    | {t,b}D = sat(A × xS)   | TYPE: `i8/u8`; 使用饱和结果.                  |
+  | `{t,b}mulx.wrap.TYPE`  | 待定    | {t,b}D = wrap(A × xS)  | TYPE: `i8/u8`; 保留低 8 bit.                  |
+  | `{t,b}min.TYPE`        | 待定    | {t,b}D = min(A, B)     | TYPE: `i8/u8`.                                |
+  | `{t,b}minx.TYPE`       | 待定    | {t,b}D = min(A, xS)    | TYPE: `i8/u8`.                                |
+  | `{t,b}max.TYPE`        | 待定    | {t,b}D = max(A, B)     | TYPE: `i8/u8`.                                |
+  | `{t,b}maxx.TYPE`       | 待定    | {t,b}D = max(A, xS)    | TYPE: `i8/u8`.                                |
+  | `{t,b}and`             | 待定    | {t,b}D = A and B       | 按位操作, 与元素 dtype 无关.                  |
+  | `{t,b}andx`            | 待定    | {t,b}D = A and xS      | 按位操作, 与元素 dtype 无关.                  |
+  | `{t,b}or`              | 待定    | {t,b}D = A or B        | 按位操作, 与元素 dtype 无关.                  |
+  | `{t,b}orx`             | 待定    | {t,b}D = A or xS       | 按位操作, 与元素 dtype 无关.                  |
+  | `{t,b}xor`             | 待定    | {t,b}D = A xor B       | 按位操作, 与元素 dtype 无关.                  |
+  | `{t,b}xorx`            | 待定    | {t,b}D = A xor xS      | 按位操作, 与元素 dtype 无关.                  |
+  | `{t,b}shl.TYPE`        | 待定    | {t,b}D = shl(A, B)     | TYPE: `i8/u8`.                                |
+  | `{t,b}shlx.TYPE`       | 待定    | {t,b}D = shl(A, xS)    | TYPE: `i8/u8`.                                |
+  | `{t,b}shr.TYPE`        | 待定    | {t,b}D = shr(A, B)     | TYPE: `i8/u8`.                                |
+  | `{t,b}shrx.TYPE`       | 待定    | {t,b}D = shr(A, xS)    | TYPE: `i8/u8`.                                |
+  | `{t,b}sra.TYPE`        | 待定    | {t,b}D = sra(A, B)     | TYPE: `i8/u8`.                                |
+  | `{t,b}srax.TYPE`       | 待定    | {t,b}D = sra(A, xS)    | TYPE: `i8/u8`.                                |
+  | `{t,b}not`             | 待定    | {t,b}D = not A         | 按位操作, 与元素 dtype 无关; 仅有一个数据源.  |
+  | `{t,b}abs.sat.i8`      | 待定    | {t,b}D = sat(abs(A))   | 类型: `i8`; 饱和; 仅有一个数据源.             |
+  | `{t,b}abs.wrap.i8`     | 待定    | {t,b}D = wrap(abs(A))  | 类型: `i8`; 回绕; 仅有一个数据源.             |
+  | `{t,b}neg.sat.i8`      | 待定    | {t,b}D = sat(-A)       | 类型: `i8`; 饱和; 仅有一个数据源.             |
+  | `{t,b}neg.wrap.i8`     | 待定    | {t,b}D = wrap(-A)      | 类型: `i8`; 回绕; 仅有一个数据源.             |
 ]
 
 #instruction-table(caption: [Acc/Vec32 基础逐元素指令])[
-  | Instruction      | Format | Operation       | Notes                                         |
-  | ---------------- | ------ | --------------- | --------------------------------------------- |
-  | `{a,v}add.TYPE`                | 待定   | {a,v}D = A + B       | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
-  | `{a,v}addx.TYPE`                | 待定   | {a,v}D = A + xS      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
-  | `{a,v}sub.TYPE`                | 待定   | {a,v}D = A - B       | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
-  | `{a,v}subx.TYPE`                | 待定   | {a,v}D = A - xS      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
-  | `{a,v}mul.TYPE`                | 待定   | {a,v}D = A × B       | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
-  | `{a,v}mulx.TYPE`                | 待定   | {a,v}D = A × xS      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
-  | `{a,v}div.TYPE`                | 待定   | {a,v}D = A / B       | TYPE: `f32`.                                  |
-  | `{a,v}divx.TYPE`                | 待定   | {a,v}D = A / xS      | TYPE: `f32`.                                  |
-  | `{a,v}min.TYPE`                | 待定   | {a,v}D = min(A, B)   | TYPE: `i32/u32/f32`.                          |
-  | `{a,v}minx.TYPE`                | 待定   | {a,v}D = min(A, xS)  | TYPE: `i32/u32/f32`.                          |
-  | `{a,v}max.TYPE`                | 待定   | {a,v}D = max(A, B)   | TYPE: `i32/u32/f32`.                          |
-  | `{a,v}maxx.TYPE`                | 待定   | {a,v}D = max(A, xS)  | TYPE: `i32/u32/f32`.                          |
-  | `{a,v}and.TYPE`                | 待定   | {a,v}D = A and B     | TYPE: `i32/u32/m32`.                          |
-  | `{a,v}andx.TYPE`                | 待定   | {a,v}D = A and xS    | TYPE: `i32/u32/m32`.                          |
-  | `{a,v}or.TYPE`                | 待定   | {a,v}D = A or B      | TYPE: `i32/u32/m32`.                          |
-  | `{a,v}orx.TYPE`                | 待定   | {a,v}D = A or xS     | TYPE: `i32/u32/m32`.                          |
-  | `{a,v}xor.TYPE`                | 待定   | {a,v}D = A xor B     | TYPE: `i32/u32/m32`.                          |
-  | `{a,v}xorx.TYPE`                | 待定   | {a,v}D = A xor xS    | TYPE: `i32/u32/m32`.                          |
-  | `{a,v}shl.TYPE`                | 待定   | {a,v}D = shl(A, B)   | TYPE: `i32/u32`.                              |
-  | `{a,v}shlx.TYPE`                | 待定   | {a,v}D = shl(A, xS)  | TYPE: `i32/u32`.                              |
-  | `{a,v}shr.TYPE`                | 待定   | {a,v}D = shr(A, B)   | TYPE: `i32/u32`.                              |
-  | `{a,v}shrx.TYPE`                | 待定   | {a,v}D = shr(A, xS)  | TYPE: `i32/u32`.                              |
-  | `{a,v}sra.TYPE`                | 待定   | {a,v}D = sra(A, B)   | TYPE: `i32/u32`.                              |
-  | `{a,v}srax.TYPE`                | 待定   | {a,v}D = sra(A, xS)  | TYPE: `i32/u32`.                              |
-  | `{a,v}not.TYPE`                | 待定   | {a,v}D = not A       | 类型: `i32/u32/m32`; 仅有一个数据源.                   |
-  | `{a,v}abs.TYPE`                | 待定   | {a,v}D = abs(A)      | 类型: `i32/f32`; 仅有一个数据源.                       |
-  | `{a,v}neg.TYPE`                | 待定   | {a,v}D = -A          | 类型: `i32/f32`; 仅有一个数据源.                       |
+  | Instruction       | Format  | Operation            | Notes                                                   |
+  | ----------------- | ------- | -------------------- | ------------------------------------------------------- |
+  | `{a,v}add.TYPE`   | 待定    | {a,v}D = A + B       | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `{a,v}addx.TYPE`  | 待定    | {a,v}D = A + xS      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `{a,v}sub.TYPE`   | 待定    | {a,v}D = A - B       | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `{a,v}subx.TYPE`  | 待定    | {a,v}D = A - xS      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `{a,v}mul.TYPE`   | 待定    | {a,v}D = A × B       | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `{a,v}mulx.TYPE`  | 待定    | {a,v}D = A × xS      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `{a,v}div.TYPE`   | 待定    | {a,v}D = A / B       | TYPE: `f32`.                                            |
+  | `{a,v}divx.TYPE`  | 待定    | {a,v}D = A / xS      | TYPE: `f32`.                                            |
+  | `{a,v}min.TYPE`   | 待定    | {a,v}D = min(A, B)   | TYPE: `i32/u32/f32`.                                    |
+  | `{a,v}minx.TYPE`  | 待定    | {a,v}D = min(A, xS)  | TYPE: `i32/u32/f32`.                                    |
+  | `{a,v}max.TYPE`   | 待定    | {a,v}D = max(A, B)   | TYPE: `i32/u32/f32`.                                    |
+  | `{a,v}maxx.TYPE`  | 待定    | {a,v}D = max(A, xS)  | TYPE: `i32/u32/f32`.                                    |
+  | `{a,v}and`        | 待定    | {a,v}D = A and B     | 按位操作, 与元素 dtype 无关.                            |
+  | `{a,v}andx`       | 待定    | {a,v}D = A and xS    | 按位操作, 与元素 dtype 无关.                            |
+  | `{a,v}or`         | 待定    | {a,v}D = A or B      | 按位操作, 与元素 dtype 无关.                            |
+  | `{a,v}orx`        | 待定    | {a,v}D = A or xS     | 按位操作, 与元素 dtype 无关.                            |
+  | `{a,v}xor`        | 待定    | {a,v}D = A xor B     | 按位操作, 与元素 dtype 无关.                            |
+  | `{a,v}xorx`       | 待定    | {a,v}D = A xor xS    | 按位操作, 与元素 dtype 无关.                            |
+  | `{a,v}shl.TYPE`   | 待定    | {a,v}D = shl(A, B)   | TYPE: `i32/u32`.                                        |
+  | `{a,v}shlx.TYPE`  | 待定    | {a,v}D = shl(A, xS)  | TYPE: `i32/u32`.                                        |
+  | `{a,v}shr.TYPE`   | 待定    | {a,v}D = shr(A, B)   | TYPE: `i32/u32`.                                        |
+  | `{a,v}shrx.TYPE`  | 待定    | {a,v}D = shr(A, xS)  | TYPE: `i32/u32`.                                        |
+  | `{a,v}sra.TYPE`   | 待定    | {a,v}D = sra(A, B)   | TYPE: `i32/u32`.                                        |
+  | `{a,v}srax.TYPE`  | 待定    | {a,v}D = sra(A, xS)  | TYPE: `i32/u32`.                                        |
+  | `{a,v}not`        | 待定    | {a,v}D = not A       | 按位操作, 与元素 dtype 无关; 仅有一个数据源.            |
+  | `{a,v}abs.TYPE`   | 待定    | {a,v}D = abs(A)      | 类型: `i32/f32`; 仅有一个数据源.                        |
+  | `{a,v}neg.TYPE`   | 待定    | {a,v}D = -A          | 类型: `i32/f32`; 仅有一个数据源.                        |
 ]
 
 
@@ -1363,9 +1363,9 @@ $
 `fma` 运算使用 `fmadd` 助记符; 按 Acc/Vec32 的 f32 数据域列出. 这里只列三数据源形式, 其他操作数变体尚未定义.
 
 #instruction-table(caption: [融合乘加指令])[
-  | Instruction      | Format | Operation         | Notes                                                     |
-  | ---------------- | ------ | ----------------- | --------------------------------------------------------- |
-  | `{a,v}fmadd.f32` | 待定   | {a,v}D = fma(A, B, C)  | 一次融合乘加, 一次 f32 舍入; 不能任意替换独立 mul/add.    |
+  | Instruction       | Format  | Operation              | Notes                                                   |
+  | ----------------- | ------- | ---------------------- | ------------------------------------------------------- |
+  | `{a,v}fmadd.f32`  | 待定    | {a,v}D = fma(A, B, C)  | 一次融合乘加, 一次 f32 舍入; 不能任意替换独立 mul/add.  |
 ]
 
 f32 逐元素运算包括:
@@ -1395,11 +1395,11 @@ $ D_i = op("round")_("f32")(A_i B_i + C_i) $
 近似特殊函数对 Acc 或 Vec32 的 f32 有效区域逐元素求值.
 
 #instruction-table(caption: [近似特殊函数指令])[
-  | Instruction         | Format | Operation                 | Notes                              |
-  | ------------------- | ------ | ------------------------- | ---------------------------------- |
-  | `{a,v}exp2.approx`  | 待定   | {a,v}D = exp2_approx(A)   | 源和目的为 f32 Acc/Vec32; 采用近似函数规则. |
-  | `{a,v}rcp.approx`   | 待定   | {a,v}D = rcp_approx(A)    | 源和目的为 f32 Acc/Vec32; 采用近似函数规则. |
-  | `{a,v}rsqrt.approx` | 待定   | {a,v}D = rsqrt_approx(A)  | 源和目的为 f32 Acc/Vec32; 采用近似函数规则. |
+  | Instruction          | Format  | Operation                 | Notes                                        |
+  | -------------------- | ------- | ------------------------- | -------------------------------------------- |
+  | `{a,v}exp2.approx`   | 待定    | {a,v}D = exp2_approx(A)   | 源和目的为 f32 Acc/Vec32; 采用近似函数规则.  |
+  | `{a,v}rcp.approx`    | 待定    | {a,v}D = rcp_approx(A)    | 源和目的为 f32 Acc/Vec32; 采用近似函数规则.  |
+  | `{a,v}rsqrt.approx`  | 待定    | {a,v}D = rsqrt_approx(A)  | 源和目的为 f32 Acc/Vec32; 采用近似函数规则.  |
 ]
 
 基础 f32 近似函数为:
@@ -1436,34 +1436,34 @@ for 0 ≤ i < rows(D):
 右矩阵指定行的各列元素广播到每个目的行.
 
 #instruction-table(caption: [矩阵源行广播指令])[
-  | Instruction           | Format | Operation                                       | Notes                                    |
-  | --------------------- | ------ | ----------------------------------------------- | ------------------------------------------------------- |
-  | `tadd.brow.sat.TYPE`  | 待定   | D[i,j] = sat(A[i,j] + B[rb,j]) | TYPE: `i8/u8`; 使用饱和结果.                           |
-  | `tadd.brow.wrap.TYPE` | 待定   | D[i,j] = wrap(A[i,j] + B[rb,j]) | TYPE: `i8/u8`; 保留低 8 bit.                           |
-  | `tsub.brow.sat.TYPE`  | 待定   | D[i,j] = sat(A[i,j] - B[rb,j]) | TYPE: `i8/u8`; 使用饱和结果.                           |
-  | `tsub.brow.wrap.TYPE` | 待定   | D[i,j] = wrap(A[i,j] - B[rb,j]) | TYPE: `i8/u8`; 保留低 8 bit.                           |
-  | `tmul.brow.sat.TYPE`  | 待定   | D[i,j] = sat(A[i,j] × B[rb,j]) | TYPE: `i8/u8`; 使用饱和结果.                           |
-  | `tmul.brow.wrap.TYPE` | 待定   | D[i,j] = wrap(A[i,j] × B[rb,j]) | TYPE: `i8/u8`; 保留低 8 bit.                           |
-  | `tmin.brow.TYPE`      | 待定   | D[i,j] = min(A[i,j], B[rb,j])  | TYPE: `i8/u8`.                                         |
-  | `tmax.brow.TYPE`      | 待定   | D[i,j] = max(A[i,j], B[rb,j])  | TYPE: `i8/u8`.                                         |
-  | `tand.brow.TYPE`      | 待定   | D[i,j] = A[i,j] and B[rb,j]   | TYPE: `i8/u8/m8`.                                      |
-  | `tor.brow.TYPE`       | 待定   | D[i,j] = A[i,j] or B[rb,j]    | TYPE: `i8/u8/m8`.                                      |
-  | `txor.brow.TYPE`      | 待定   | D[i,j] = A[i,j] xor B[rb,j]  | TYPE: `i8/u8/m8`.                                      |
-  | `tshl.brow.TYPE`      | 待定   | D[i,j] = shl(A[i,j], B[rb,j])  | TYPE: `i8/u8`.                                         |
-  | `tshr.brow.TYPE`      | 待定   | D[i,j] = shr(A[i,j], B[rb,j]) | TYPE: `i8/u8`.                                         |
-  | `tsra.brow.TYPE`      | 待定   | D[i,j] = sra(A[i,j], B[rb,j]) | TYPE: `i8/u8`.                                         |
-  | `aadd.brow.TYPE`      | 待定   | D[i,j] = A[i,j] + B[rb,j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
-  | `asub.brow.TYPE`      | 待定   | D[i,j] = A[i,j] - B[rb,j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
-  | `amul.brow.TYPE`      | 待定   | D[i,j] = A[i,j] × B[rb,j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
-  | `adiv.brow.TYPE`      | 待定   | D[i,j] = A[i,j] / B[rb,j]      | TYPE: `f32`.                                           |
-  | `amin.brow.TYPE`      | 待定   | D[i,j] = min(A[i,j], B[rb,j])  | TYPE: `i32/u32/f32`.                                   |
-  | `amax.brow.TYPE`      | 待定   | D[i,j] = max(A[i,j], B[rb,j])  | TYPE: `i32/u32/f32`.                                   |
-  | `aand.brow.TYPE`      | 待定   | D[i,j] = A[i,j] and B[rb,j]   | TYPE: `i32/u32/m32`.                                   |
-  | `aor.brow.TYPE`       | 待定   | D[i,j] = A[i,j] or B[rb,j]    | TYPE: `i32/u32/m32`.                                   |
-  | `axor.brow.TYPE`      | 待定   | D[i,j] = A[i,j] xor B[rb,j]  | TYPE: `i32/u32/m32`.                                   |
-  | `ashl.brow.TYPE`      | 待定   | D[i,j] = shl(A[i,j], B[rb,j])  | TYPE: `i32/u32`.                                       |
-  | `ashr.brow.TYPE`      | 待定   | D[i,j] = shr(A[i,j], B[rb,j]) | TYPE: `i32/u32`.                                       |
-  | `asra.brow.TYPE`      | 待定   | D[i,j] = sra(A[i,j], B[rb,j]) | TYPE: `i32/u32`.                                       |
+  | Instruction            | Format  | Operation                        | Notes                                                   |
+  | ---------------------- | ------- | -------------------------------- | ------------------------------------------------------- |
+  | `tadd.brow.sat.TYPE`   | 待定    | D[i,j] = sat(A[i,j] + B[rb,j])   | TYPE: `i8/u8`; 使用饱和结果.                            |
+  | `tadd.brow.wrap.TYPE`  | 待定    | D[i,j] = wrap(A[i,j] + B[rb,j])  | TYPE: `i8/u8`; 保留低 8 bit.                            |
+  | `tsub.brow.sat.TYPE`   | 待定    | D[i,j] = sat(A[i,j] - B[rb,j])   | TYPE: `i8/u8`; 使用饱和结果.                            |
+  | `tsub.brow.wrap.TYPE`  | 待定    | D[i,j] = wrap(A[i,j] - B[rb,j])  | TYPE: `i8/u8`; 保留低 8 bit.                            |
+  | `tmul.brow.sat.TYPE`   | 待定    | D[i,j] = sat(A[i,j] × B[rb,j])   | TYPE: `i8/u8`; 使用饱和结果.                            |
+  | `tmul.brow.wrap.TYPE`  | 待定    | D[i,j] = wrap(A[i,j] × B[rb,j])  | TYPE: `i8/u8`; 保留低 8 bit.                            |
+  | `tmin.brow.TYPE`       | 待定    | D[i,j] = min(A[i,j], B[rb,j])    | TYPE: `i8/u8`.                                          |
+  | `tmax.brow.TYPE`       | 待定    | D[i,j] = max(A[i,j], B[rb,j])    | TYPE: `i8/u8`.                                          |
+  | `tand.brow`            | 待定    | D[i,j] = A[i,j] and B[rb,j]      | 按位操作, 与元素 dtype 无关.                            |
+  | `tor.brow`             | 待定    | D[i,j] = A[i,j] or B[rb,j]       | 按位操作, 与元素 dtype 无关.                            |
+  | `txor.brow`            | 待定    | D[i,j] = A[i,j] xor B[rb,j]      | 按位操作, 与元素 dtype 无关.                            |
+  | `tshl.brow.TYPE`       | 待定    | D[i,j] = shl(A[i,j], B[rb,j])    | TYPE: `i8/u8`.                                          |
+  | `tshr.brow.TYPE`       | 待定    | D[i,j] = shr(A[i,j], B[rb,j])    | TYPE: `i8/u8`.                                          |
+  | `tsra.brow.TYPE`       | 待定    | D[i,j] = sra(A[i,j], B[rb,j])    | TYPE: `i8/u8`.                                          |
+  | `aadd.brow.TYPE`       | 待定    | D[i,j] = A[i,j] + B[rb,j]        | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `asub.brow.TYPE`       | 待定    | D[i,j] = A[i,j] - B[rb,j]        | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `amul.brow.TYPE`       | 待定    | D[i,j] = A[i,j] × B[rb,j]        | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `adiv.brow.TYPE`       | 待定    | D[i,j] = A[i,j] / B[rb,j]        | TYPE: `f32`.                                            |
+  | `amin.brow.TYPE`       | 待定    | D[i,j] = min(A[i,j], B[rb,j])    | TYPE: `i32/u32/f32`.                                    |
+  | `amax.brow.TYPE`       | 待定    | D[i,j] = max(A[i,j], B[rb,j])    | TYPE: `i32/u32/f32`.                                    |
+  | `aand.brow`            | 待定    | D[i,j] = A[i,j] and B[rb,j]      | 按位操作, 与元素 dtype 无关.                            |
+  | `aor.brow`             | 待定    | D[i,j] = A[i,j] or B[rb,j]       | 按位操作, 与元素 dtype 无关.                            |
+  | `axor.brow`            | 待定    | D[i,j] = A[i,j] xor B[rb,j]      | 按位操作, 与元素 dtype 无关.                            |
+  | `ashl.brow.TYPE`       | 待定    | D[i,j] = shl(A[i,j], B[rb,j])    | TYPE: `i32/u32`.                                        |
+  | `ashr.brow.TYPE`       | 待定    | D[i,j] = shr(A[i,j], B[rb,j])    | TYPE: `i32/u32`.                                        |
+  | `asra.brow.TYPE`       | 待定    | D[i,j] = sra(A[i,j], B[rb,j])    | TYPE: `i32/u32`.                                        |
 ]
 
 Tile 或 Acc 可以将右操作数的一行广播到目的对象的每一行:
@@ -1497,34 +1497,34 @@ $ "t0"_(i,j) = op("sat")_("i8")("t1"_(i,j) - "t2"_(0,j)) $
 Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 i 个元素广播到矩阵第 i 行.
 
 #instruction-table(caption: [向量按行广播指令])[
-  | Instruction             | Format | Operation                                       | Notes                                    |
-  | ----------------------- | ------ | ----------------------------------------------- | ------------------------------------------------------- |
-  | `taddb.byrow.sat.TYPE`  | 待定   | D[i,j] = sat(A[i,j] + S[i]) | TYPE: `i8/u8`; 使用饱和结果.                           |
-  | `taddb.byrow.wrap.TYPE` | 待定   | D[i,j] = wrap(A[i,j] + S[i]) | TYPE: `i8/u8`; 保留低 8 bit.                           |
-  | `tsubb.byrow.sat.TYPE`  | 待定   | D[i,j] = sat(A[i,j] - S[i]) | TYPE: `i8/u8`; 使用饱和结果.                           |
-  | `tsubb.byrow.wrap.TYPE` | 待定   | D[i,j] = wrap(A[i,j] - S[i]) | TYPE: `i8/u8`; 保留低 8 bit.                           |
-  | `tmulb.byrow.sat.TYPE`  | 待定   | D[i,j] = sat(A[i,j] × S[i]) | TYPE: `i8/u8`; 使用饱和结果.                           |
-  | `tmulb.byrow.wrap.TYPE` | 待定   | D[i,j] = wrap(A[i,j] × S[i]) | TYPE: `i8/u8`; 保留低 8 bit.                           |
-  | `tminb.byrow.TYPE`      | 待定   | D[i,j] = min(A[i,j], S[i])     | TYPE: `i8/u8`.                                         |
-  | `tmaxb.byrow.TYPE`      | 待定   | D[i,j] = max(A[i,j], S[i])     | TYPE: `i8/u8`.                                         |
-  | `tandb.byrow.TYPE`      | 待定   | D[i,j] = A[i,j] and S[i]      | TYPE: `i8/u8/m8`.                                      |
-  | `torb.byrow.TYPE`       | 待定   | D[i,j] = A[i,j] or S[i]       | TYPE: `i8/u8/m8`.                                      |
-  | `txorb.byrow.TYPE`      | 待定   | D[i,j] = A[i,j] xor S[i]     | TYPE: `i8/u8/m8`.                                      |
-  | `tshlb.byrow.TYPE`      | 待定   | D[i,j] = shl(A[i,j], S[i])     | TYPE: `i8/u8`.                                         |
-  | `tshrb.byrow.TYPE`      | 待定   | D[i,j] = shr(A[i,j], S[i])   | TYPE: `i8/u8`.                                         |
-  | `tsrab.byrow.TYPE`      | 待定   | D[i,j] = sra(A[i,j], S[i])   | TYPE: `i8/u8`.                                         |
-  | `aaddv.byrow.TYPE`      | 待定   | D[i,j] = A[i,j] + S[i]         | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
-  | `asubv.byrow.TYPE`      | 待定   | D[i,j] = A[i,j] - S[i]         | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
-  | `amulv.byrow.TYPE`      | 待定   | D[i,j] = A[i,j] × S[i]         | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
-  | `adivv.byrow.TYPE`      | 待定   | D[i,j] = A[i,j] / S[i]         | TYPE: `f32`.                                           |
-  | `aminv.byrow.TYPE`      | 待定   | D[i,j] = min(A[i,j], S[i])     | TYPE: `i32/u32/f32`.                                   |
-  | `amaxv.byrow.TYPE`      | 待定   | D[i,j] = max(A[i,j], S[i])     | TYPE: `i32/u32/f32`.                                   |
-  | `aandv.byrow.TYPE`      | 待定   | D[i,j] = A[i,j] and S[i]      | TYPE: `i32/u32/m32`.                                   |
-  | `aorv.byrow.TYPE`       | 待定   | D[i,j] = A[i,j] or S[i]       | TYPE: `i32/u32/m32`.                                   |
-  | `axorv.byrow.TYPE`      | 待定   | D[i,j] = A[i,j] xor S[i]     | TYPE: `i32/u32/m32`.                                   |
-  | `ashlv.byrow.TYPE`      | 待定   | D[i,j] = shl(A[i,j], S[i])     | TYPE: `i32/u32`.                                       |
-  | `ashrv.byrow.TYPE`      | 待定   | D[i,j] = shr(A[i,j], S[i])   | TYPE: `i32/u32`.                                       |
-  | `asrav.byrow.TYPE`      | 待定   | D[i,j] = sra(A[i,j], S[i])   | TYPE: `i32/u32`.                                       |
+  | Instruction              | Format  | Operation                     | Notes                                                   |
+  | ------------------------ | ------- | ----------------------------- | ------------------------------------------------------- |
+  | `taddb.byrow.sat.TYPE`   | 待定    | D[i,j] = sat(A[i,j] + S[i])   | TYPE: `i8/u8`; 使用饱和结果.                            |
+  | `taddb.byrow.wrap.TYPE`  | 待定    | D[i,j] = wrap(A[i,j] + S[i])  | TYPE: `i8/u8`; 保留低 8 bit.                            |
+  | `tsubb.byrow.sat.TYPE`   | 待定    | D[i,j] = sat(A[i,j] - S[i])   | TYPE: `i8/u8`; 使用饱和结果.                            |
+  | `tsubb.byrow.wrap.TYPE`  | 待定    | D[i,j] = wrap(A[i,j] - S[i])  | TYPE: `i8/u8`; 保留低 8 bit.                            |
+  | `tmulb.byrow.sat.TYPE`   | 待定    | D[i,j] = sat(A[i,j] × S[i])   | TYPE: `i8/u8`; 使用饱和结果.                            |
+  | `tmulb.byrow.wrap.TYPE`  | 待定    | D[i,j] = wrap(A[i,j] × S[i])  | TYPE: `i8/u8`; 保留低 8 bit.                            |
+  | `tminb.byrow.TYPE`       | 待定    | D[i,j] = min(A[i,j], S[i])    | TYPE: `i8/u8`.                                          |
+  | `tmaxb.byrow.TYPE`       | 待定    | D[i,j] = max(A[i,j], S[i])    | TYPE: `i8/u8`.                                          |
+  | `tandb.byrow`            | 待定    | D[i,j] = A[i,j] and S[i]      | 按位操作, 与元素 dtype 无关.                            |
+  | `torb.byrow`             | 待定    | D[i,j] = A[i,j] or S[i]       | 按位操作, 与元素 dtype 无关.                            |
+  | `txorb.byrow`            | 待定    | D[i,j] = A[i,j] xor S[i]      | 按位操作, 与元素 dtype 无关.                            |
+  | `tshlb.byrow.TYPE`       | 待定    | D[i,j] = shl(A[i,j], S[i])    | TYPE: `i8/u8`.                                          |
+  | `tshrb.byrow.TYPE`       | 待定    | D[i,j] = shr(A[i,j], S[i])    | TYPE: `i8/u8`.                                          |
+  | `tsrab.byrow.TYPE`       | 待定    | D[i,j] = sra(A[i,j], S[i])    | TYPE: `i8/u8`.                                          |
+  | `aaddv.byrow.TYPE`       | 待定    | D[i,j] = A[i,j] + S[i]        | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `asubv.byrow.TYPE`       | 待定    | D[i,j] = A[i,j] - S[i]        | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `amulv.byrow.TYPE`       | 待定    | D[i,j] = A[i,j] × S[i]        | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `adivv.byrow.TYPE`       | 待定    | D[i,j] = A[i,j] / S[i]        | TYPE: `f32`.                                            |
+  | `aminv.byrow.TYPE`       | 待定    | D[i,j] = min(A[i,j], S[i])    | TYPE: `i32/u32/f32`.                                    |
+  | `amaxv.byrow.TYPE`       | 待定    | D[i,j] = max(A[i,j], S[i])    | TYPE: `i32/u32/f32`.                                    |
+  | `aandv.byrow`            | 待定    | D[i,j] = A[i,j] and S[i]      | 按位操作, 与元素 dtype 无关.                            |
+  | `aorv.byrow`             | 待定    | D[i,j] = A[i,j] or S[i]       | 按位操作, 与元素 dtype 无关.                            |
+  | `axorv.byrow`            | 待定    | D[i,j] = A[i,j] xor S[i]      | 按位操作, 与元素 dtype 无关.                            |
+  | `ashlv.byrow.TYPE`       | 待定    | D[i,j] = shl(A[i,j], S[i])    | TYPE: `i32/u32`.                                        |
+  | `ashrv.byrow.TYPE`       | 待定    | D[i,j] = shr(A[i,j], S[i])    | TYPE: `i32/u32`.                                        |
+  | `asrav.byrow.TYPE`       | 待定    | D[i,j] = sra(A[i,j], S[i])    | TYPE: `i32/u32`.                                        |
 ]
 
 Tile 使用 Vec8 作为每一行的标量源:
@@ -1562,34 +1562,34 @@ $ "a0"_(i,j) = "a1"_(i,j) "v0"_i $
 Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 j 个元素广播到矩阵第 j 列.
 
 #instruction-table(caption: [向量按列广播指令])[
-  | Instruction             | Format | Operation                                       | Notes                                    |
-  | ----------------------- | ------ | ----------------------------------------------- | ------------------------------------------------------- |
-  | `taddb.bycol.sat.TYPE`  | 待定   | D[i,j] = sat(A[i,j] + S[j]) | TYPE: `i8/u8`; 使用饱和结果.                           |
-  | `taddb.bycol.wrap.TYPE` | 待定   | D[i,j] = wrap(A[i,j] + S[j]) | TYPE: `i8/u8`; 保留低 8 bit.                           |
-  | `tsubb.bycol.sat.TYPE`  | 待定   | D[i,j] = sat(A[i,j] - S[j]) | TYPE: `i8/u8`; 使用饱和结果.                           |
-  | `tsubb.bycol.wrap.TYPE` | 待定   | D[i,j] = wrap(A[i,j] - S[j]) | TYPE: `i8/u8`; 保留低 8 bit.                           |
-  | `tmulb.bycol.sat.TYPE`  | 待定   | D[i,j] = sat(A[i,j] × S[j]) | TYPE: `i8/u8`; 使用饱和结果.                           |
-  | `tmulb.bycol.wrap.TYPE` | 待定   | D[i,j] = wrap(A[i,j] × S[j]) | TYPE: `i8/u8`; 保留低 8 bit.                           |
-  | `tminb.bycol.TYPE`      | 待定   | D[i,j] = min(A[i,j], S[j])     | TYPE: `i8/u8`.                                         |
-  | `tmaxb.bycol.TYPE`      | 待定   | D[i,j] = max(A[i,j], S[j])     | TYPE: `i8/u8`.                                         |
-  | `tandb.bycol.TYPE`      | 待定   | D[i,j] = A[i,j] and S[j]      | TYPE: `i8/u8/m8`.                                      |
-  | `torb.bycol.TYPE`       | 待定   | D[i,j] = A[i,j] or S[j]       | TYPE: `i8/u8/m8`.                                      |
-  | `txorb.bycol.TYPE`      | 待定   | D[i,j] = A[i,j] xor S[j]     | TYPE: `i8/u8/m8`.                                      |
-  | `tshlb.bycol.TYPE`      | 待定   | D[i,j] = shl(A[i,j], S[j])     | TYPE: `i8/u8`.                                         |
-  | `tshrb.bycol.TYPE`      | 待定   | D[i,j] = shr(A[i,j], S[j])   | TYPE: `i8/u8`.                                         |
-  | `tsrab.bycol.TYPE`      | 待定   | D[i,j] = sra(A[i,j], S[j])   | TYPE: `i8/u8`.                                         |
-  | `aaddv.bycol.TYPE`      | 待定   | D[i,j] = A[i,j] + S[j]         | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
-  | `asubv.bycol.TYPE`      | 待定   | D[i,j] = A[i,j] - S[j]         | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
-  | `amulv.bycol.TYPE`      | 待定   | D[i,j] = A[i,j] × S[j]         | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则. |
-  | `adivv.bycol.TYPE`      | 待定   | D[i,j] = A[i,j] / S[j]         | TYPE: `f32`.                                           |
-  | `aminv.bycol.TYPE`      | 待定   | D[i,j] = min(A[i,j], S[j])     | TYPE: `i32/u32/f32`.                                   |
-  | `amaxv.bycol.TYPE`      | 待定   | D[i,j] = max(A[i,j], S[j])     | TYPE: `i32/u32/f32`.                                   |
-  | `aandv.bycol.TYPE`      | 待定   | D[i,j] = A[i,j] and S[j]      | TYPE: `i32/u32/m32`.                                   |
-  | `aorv.bycol.TYPE`       | 待定   | D[i,j] = A[i,j] or S[j]       | TYPE: `i32/u32/m32`.                                   |
-  | `axorv.bycol.TYPE`      | 待定   | D[i,j] = A[i,j] xor S[j]     | TYPE: `i32/u32/m32`.                                   |
-  | `ashlv.bycol.TYPE`      | 待定   | D[i,j] = shl(A[i,j], S[j])     | TYPE: `i32/u32`.                                       |
-  | `ashrv.bycol.TYPE`      | 待定   | D[i,j] = shr(A[i,j], S[j])   | TYPE: `i32/u32`.                                       |
-  | `asrav.bycol.TYPE`      | 待定   | D[i,j] = sra(A[i,j], S[j])   | TYPE: `i32/u32`.                                       |
+  | Instruction              | Format  | Operation                     | Notes                                                   |
+  | ------------------------ | ------- | ----------------------------- | ------------------------------------------------------- |
+  | `taddb.bycol.sat.TYPE`   | 待定    | D[i,j] = sat(A[i,j] + S[j])   | TYPE: `i8/u8`; 使用饱和结果.                            |
+  | `taddb.bycol.wrap.TYPE`  | 待定    | D[i,j] = wrap(A[i,j] + S[j])  | TYPE: `i8/u8`; 保留低 8 bit.                            |
+  | `tsubb.bycol.sat.TYPE`   | 待定    | D[i,j] = sat(A[i,j] - S[j])   | TYPE: `i8/u8`; 使用饱和结果.                            |
+  | `tsubb.bycol.wrap.TYPE`  | 待定    | D[i,j] = wrap(A[i,j] - S[j])  | TYPE: `i8/u8`; 保留低 8 bit.                            |
+  | `tmulb.bycol.sat.TYPE`   | 待定    | D[i,j] = sat(A[i,j] × S[j])   | TYPE: `i8/u8`; 使用饱和结果.                            |
+  | `tmulb.bycol.wrap.TYPE`  | 待定    | D[i,j] = wrap(A[i,j] × S[j])  | TYPE: `i8/u8`; 保留低 8 bit.                            |
+  | `tminb.bycol.TYPE`       | 待定    | D[i,j] = min(A[i,j], S[j])    | TYPE: `i8/u8`.                                          |
+  | `tmaxb.bycol.TYPE`       | 待定    | D[i,j] = max(A[i,j], S[j])    | TYPE: `i8/u8`.                                          |
+  | `tandb.bycol`            | 待定    | D[i,j] = A[i,j] and S[j]      | 按位操作, 与元素 dtype 无关.                            |
+  | `torb.bycol`             | 待定    | D[i,j] = A[i,j] or S[j]       | 按位操作, 与元素 dtype 无关.                            |
+  | `txorb.bycol`            | 待定    | D[i,j] = A[i,j] xor S[j]      | 按位操作, 与元素 dtype 无关.                            |
+  | `tshlb.bycol.TYPE`       | 待定    | D[i,j] = shl(A[i,j], S[j])    | TYPE: `i8/u8`.                                          |
+  | `tshrb.bycol.TYPE`       | 待定    | D[i,j] = shr(A[i,j], S[j])    | TYPE: `i8/u8`.                                          |
+  | `tsrab.bycol.TYPE`       | 待定    | D[i,j] = sra(A[i,j], S[j])    | TYPE: `i8/u8`.                                          |
+  | `aaddv.bycol.TYPE`       | 待定    | D[i,j] = A[i,j] + S[j]        | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `asubv.bycol.TYPE`       | 待定    | D[i,j] = A[i,j] - S[j]        | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `amulv.bycol.TYPE`       | 待定    | D[i,j] = A[i,j] × S[j]        | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `adivv.bycol.TYPE`       | 待定    | D[i,j] = A[i,j] / S[j]        | TYPE: `f32`.                                            |
+  | `aminv.bycol.TYPE`       | 待定    | D[i,j] = min(A[i,j], S[j])    | TYPE: `i32/u32/f32`.                                    |
+  | `amaxv.bycol.TYPE`       | 待定    | D[i,j] = max(A[i,j], S[j])    | TYPE: `i32/u32/f32`.                                    |
+  | `aandv.bycol`            | 待定    | D[i,j] = A[i,j] and S[j]      | 按位操作, 与元素 dtype 无关.                            |
+  | `aorv.bycol`             | 待定    | D[i,j] = A[i,j] or S[j]       | 按位操作, 与元素 dtype 无关.                            |
+  | `axorv.bycol`            | 待定    | D[i,j] = A[i,j] xor S[j]      | 按位操作, 与元素 dtype 无关.                            |
+  | `ashlv.bycol.TYPE`       | 待定    | D[i,j] = shl(A[i,j], S[j])    | TYPE: `i32/u32`.                                        |
+  | `ashrv.bycol.TYPE`       | 待定    | D[i,j] = shr(A[i,j], S[j])    | TYPE: `i32/u32`.                                        |
+  | `asrav.bycol.TYPE`       | 待定    | D[i,j] = sra(A[i,j], S[j])    | TYPE: `i32/u32`.                                        |
 ]
 
 Tile 使用 Vec8 作为每一列的标量源:
@@ -1629,24 +1629,24 @@ $ "a0"_(i,j) = "a1"_(i,j) "v0"_j $
 条件取独立子集: 整数为 `eq/ne/lt/ge`, `gt` 与 `le` 由交换两个源操作数获得; f32 为 `eq/lt/le/unord`, `ord` 由 `unord` 结果取反获得, `ne` 由 `eq` 结果取反获得. Tile 与 Vec8 只定义寄存器比较形式, Acc 与 Vec32 另有 Scalar 形式. `TYPE` 为源数值类型, 目的为同宽 mask.
 
 #instruction-table(caption: [比较指令])[
-  | Instruction           | Format | Operation             | Notes                                     |
-  | --------------------- | ------ | --------------------- | ----------------------------------------- |
-  | `{t,b}cmp.eq.TYPE`    | 待定   | {t,b}D = A == B       | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.        |
-  | `{t,b}cmp.ne.TYPE`    | 待定   | {t,b}D = A != B       | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.        |
-  | `{t,b}cmp.lt.TYPE`    | 待定   | {t,b}D = A < B        | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.        |
-  | `{t,b}cmp.ge.TYPE`    | 待定   | {t,b}D = A >= B       | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.        |
-  | `{a,v}cmp.eq.TYPE`    | 待定   | {a,v}D = A == B       | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmp.ne.TYPE`    | 待定   | {a,v}D = A != B       | TYPE: `i32/u32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmp.lt.TYPE`    | 待定   | {a,v}D = A < B        | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmp.ge.TYPE`    | 待定   | {a,v}D = A >= B       | TYPE: `i32/u32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmp.le.f32`     | 待定   | {a,v}D = A <= B       | 源为 f32, 目的为 m32; 真为全一, 假为零. |
-  | `{a,v}cmp.unord.f32`  | 待定   | {a,v}D = unordered(A, B) | 源为 f32, 目的为 m32; 真为全一, 假为零. |
-  | `{a,v}cmpx.eq.TYPE`   | 待定   | {a,v}D = A == xS      | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmpx.ne.TYPE`   | 待定   | {a,v}D = A != xS      | TYPE: `i32/u32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmpx.lt.TYPE`   | 待定   | {a,v}D = A < xS       | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmpx.ge.TYPE`   | 待定   | {a,v}D = A >= xS      | TYPE: `i32/u32`; 生成 `m32`, 真为全一, 假为零. |
-  | `{a,v}cmpx.le.f32`    | 待定   | {a,v}D = A <= xS      | 源为 f32, 目的为 m32; 真为全一, 假为零. |
-  | `{a,v}cmpx.unord.f32` | 待定   | {a,v}D = unordered(A, xS) | 源为 f32, 目的为 m32; 真为全一, 假为零. |
+  | Instruction            | Format  | Operation                  | Notes                                               |
+  | ---------------------- | ------- | -------------------------- | --------------------------------------------------- |
+  | `{t,b}cmp.eq.TYPE`     | 待定    | {t,b}D = A == B            | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.         |
+  | `{t,b}cmp.ne.TYPE`     | 待定    | {t,b}D = A != B            | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.         |
+  | `{t,b}cmp.lt.TYPE`     | 待定    | {t,b}D = A < B             | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.         |
+  | `{t,b}cmp.ge.TYPE`     | 待定    | {t,b}D = A >= B            | TYPE: `i8/u8`; 生成 `m8`, 真为全一, 假为零.         |
+  | `{a,v}cmp.eq.TYPE`     | 待定    | {a,v}D = A == B            | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零.  |
+  | `{a,v}cmp.ne.TYPE`     | 待定    | {a,v}D = A != B            | TYPE: `i32/u32`; 生成 `m32`, 真为全一, 假为零.      |
+  | `{a,v}cmp.lt.TYPE`     | 待定    | {a,v}D = A < B             | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零.  |
+  | `{a,v}cmp.ge.TYPE`     | 待定    | {a,v}D = A >= B            | TYPE: `i32/u32`; 生成 `m32`, 真为全一, 假为零.      |
+  | `{a,v}cmp.le.f32`      | 待定    | {a,v}D = A <= B            | 源为 f32, 目的为 m32; 真为全一, 假为零.             |
+  | `{a,v}cmp.unord.f32`   | 待定    | {a,v}D = unordered(A, B)   | 源为 f32, 目的为 m32; 真为全一, 假为零.             |
+  | `{a,v}cmpx.eq.TYPE`    | 待定    | {a,v}D = A == xS           | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零.  |
+  | `{a,v}cmpx.ne.TYPE`    | 待定    | {a,v}D = A != xS           | TYPE: `i32/u32`; 生成 `m32`, 真为全一, 假为零.      |
+  | `{a,v}cmpx.lt.TYPE`    | 待定    | {a,v}D = A < xS            | TYPE: `i32/u32/f32`; 生成 `m32`, 真为全一, 假为零.  |
+  | `{a,v}cmpx.ge.TYPE`    | 待定    | {a,v}D = A >= xS           | TYPE: `i32/u32`; 生成 `m32`, 真为全一, 假为零.      |
+  | `{a,v}cmpx.le.f32`     | 待定    | {a,v}D = A <= xS           | 源为 f32, 目的为 m32; 真为全一, 假为零.             |
+  | `{a,v}cmpx.unord.f32`  | 待定    | {a,v}D = unordered(A, xS)  | 源为 f32, 目的为 m32; 真为全一, 假为零.             |
 ]
 
 比较指令产生 mask 数据:
@@ -1694,19 +1694,19 @@ for 0 ≤ j < len(D):
 == Select 指令
 
 #instruction-table(caption: [选择指令])[
-  | Instruction        | Format | Operation       | Notes                                                          |
-  | ------------------ | ------ | --------------- | -------------------------------------------------------------- |
-  | `{t,b}select.TYPE` | 待定   | {t,b}D = M ? A : B   | TYPE: `i8/u8/m8`; mask 为 `m8`, 两个数据源均被读取.           |
-  | `{a,v}select.TYPE` | 待定   | {a,v}D = M ? A : B   | TYPE: `i32/u32/f32/m32`; mask 为 `m32`, 两个数据源均被读取.   |
+  | Instruction    | Format  | Operation           | Notes                                                            |
+  | -------------- | ------- | ------------------- | ---------------------------------------------------------------- |
+  | `{t,b}select`  | 待定    | {t,b}D = M ? A : B  | 按位选择, 与元素 dtype 无关; mask 为 `m8`, 两个数据源均被读取.   |
+  | `{a,v}select`  | 待定    | {a,v}D = M ? A : B  | 按位选择, 与元素 dtype 无关; mask 为 `m32`, 两个数据源均被读取.  |
 ]
 
 select 根据 mask 在两个已经计算好的值之间选择(t/b 数据使用 m8, a/v 数据使用 m32.):
 
 ```asm
-tselect.TYPE tD, tM, tA, tB
-aselect.TYPE aD, aM, aA, aB
-bselect.TYPE bD, bM, bA, bB
-vselect.TYPE vD, vM, vA, vB
+tselect tD, tM, tA, tB
+aselect aD, aM, aA, aB
+bselect bD, bM, bA, bB
+vselect vD, vM, vA, vB
 ```
 
 执行语义为:
@@ -1725,12 +1725,12 @@ select 必须读取两个数据源: M 为 true 时选择 A; M 为 false 时选�
 mask 使用寄存器配置中的 dtype; 它改写数据值, 保留区域之外写入显式 fill 值.
 
 #instruction-table(caption: [Mask 指令])[
-  | Instruction      | Format | Operation                                        | Notes                                       |
-  | ---------------- | ------ | ------------------------------------------------ | ------------------------------------------- |
-  | `{t,a}mask.tail` | 待定   | {t,a}D[i,j] = (i < xRows and j < xCols) ? S[i,j] : fill | 其余有效寄存器位置写 fill; 不缩短有效 shape. |
-  | `{t,a}mask.tril` | 待定   | {t,a}D[i,j] = (j - i <= xDelta) ? S[i,j] : fill  | 有符号偏移; 包含边界, 其余位置写 fill.      |
-  | `{t,a}mask.triu` | 待定   | {t,a}D[i,j] = (j - i >= xDelta) ? S[i,j] : fill  | 有符号偏移; 包含边界, 其余位置写 fill.      |
-  | `{b,v}mask.tail` | 待定   | {b,v}D[j] = (j < xLen) ? S[j] : fill             | 其余有效 lane 写 fill; 不缩短有效长度.      |
+  | Instruction       | Format  | Operation                                                | Notes                                         |
+  | ----------------- | ------- | -------------------------------------------------------- | --------------------------------------------- |
+  | `{t,a}mask.tail`  | 待定    | {t,a}D[i,j] = (i < xRows and j < xCols) ? S[i,j] : fill  | 其余有效寄存器位置写 fill; 不缩短有效 shape.  |
+  | `{t,a}mask.tril`  | 待定    | {t,a}D[i,j] = (j - i <= xDelta) ? S[i,j] : fill          | 有符号偏移; 包含边界, 其余位置写 fill.        |
+  | `{t,a}mask.triu`  | 待定    | {t,a}D[i,j] = (j - i >= xDelta) ? S[i,j] : fill          | 有符号偏移; 包含边界, 其余位置写 fill.        |
+  | `{b,v}mask.tail`  | 待定    | {b,v}D[j] = (j < xLen) ? S[j] : fill                     | 其余有效 lane 写 fill; 不缩短有效长度.        |
 ]
 
 mask 指令将源数据的某些位置替换为指定 fill 值.
@@ -1848,17 +1848,17 @@ vdiv.f32       vOut, v2, vSum
 行规约每行产生一个 Vec32 元素. 除基础 `sum/max/min` 外, 正文示例还定义了 `areduce.rows.sumsq.f32`; 向量规约另含 f32 `sumsq` 与 `argmax`.
 
 #instruction-table(caption: [规约指令])[
-  | Instruction               | Format | Operation                                       | Notes                            |
-  | ------------------------- | ------ | ----------------------------------------------- | ----------------------------------------------- |
-  | `areduce.rows.sum.f32`    | 待定   | vD[i] = sum_j aS[i,j]                    | 源与目的为 f32; 只规约源有效元素.              |
-  | `areduce.rows.max.f32`    | 待定   | vD[i] = max_j aS[i,j]                   | 源与目的为 f32; 只规约源有效元素.              |
-  | `areduce.rows.min.f32`    | 待定   | vD[i] = min_j aS[i,j]                   | 源与目的为 f32; 只规约源有效元素.              |
-  | `areduce.rows.sumsq.f32`  | 待定   | vD[i] = sum_j aS[i,j]^2           | 源与目的为 f32; RMSNorm 示例中的行规约.        |
-  | `vreduce.sum.f32`         | 待定   | xD = sum_j vS[j]                        | 按对应 fold 规则规约; 空结果使用规定单位元.    |
-  | `vreduce.max.f32`         | 待定   | xD = max_j vS[j]                       | 按对应 fold 规则规约; 空结果使用规定单位元.    |
-  | `vreduce.min.f32`         | 待定   | xD = min_j vS[j]                       | 按对应 fold 规则规约; 空结果使用规定单位元.    |
-  | `vreduce.sumsq.f32`       | 待定   | xD = sum_j vS[j]^2                     | 按对应 fold 规则规约; 空结果使用规定单位元.    |
-  | `vreduce.argmax.f32`      | 待定   | (xIndex, xValue) = argmax(vS) | 并列取较小索引; NaN 选择规则及空结果见正文.    |
+  | Instruction               | Format  | Operation                      | Notes                                        |
+  | ------------------------- | ------- | ------------------------------ | -------------------------------------------- |
+  | `areduce.rows.sum.f32`    | 待定    | vD[i] = sum_j aS[i,j]          | 源与目的为 f32; 只规约源有效元素.            |
+  | `areduce.rows.max.f32`    | 待定    | vD[i] = max_j aS[i,j]          | 源与目的为 f32; 只规约源有效元素.            |
+  | `areduce.rows.min.f32`    | 待定    | vD[i] = min_j aS[i,j]          | 源与目的为 f32; 只规约源有效元素.            |
+  | `areduce.rows.sumsq.f32`  | 待定    | vD[i] = sum_j aS[i,j]^2        | 源与目的为 f32; RMSNorm 示例中的行规约.      |
+  | `vreduce.sum.f32`         | 待定    | xD = sum_j vS[j]               | 按对应 fold 规则规约; 空结果使用规定单位元.  |
+  | `vreduce.max.f32`         | 待定    | xD = max_j vS[j]               | 按对应 fold 规则规约; 空结果使用规定单位元.  |
+  | `vreduce.min.f32`         | 待定    | xD = min_j vS[j]               | 按对应 fold 规则规约; 空结果使用规定单位元.  |
+  | `vreduce.sumsq.f32`       | 待定    | xD = sum_j vS[j]^2             | 按对应 fold 规则规约; 空结果使用规定单位元.  |
+  | `vreduce.argmax.f32`      | 待定    | (xIndex, xValue) = argmax(vS)  | 并列取较小索引; NaN 选择规则及空结果见正文.  |
 ]
 
 基础矩阵规约形式为:
@@ -1886,25 +1886,6 @@ vreduce.min.f32       xD, vS
 vreduce.sumsq.f32     xD, vS
 vreduce.argmax.f32    xIndex, xValue, vS
 ```
-
-本节的转换助记符采用:
-
-```text
-<source type>.<destination type>
-```
-
-例如:
-
-1. `i32.f32`: i32 转 f32
-2. `i8.i32`: i8 扩大到 i32
-
-因此:
-
-```asm
-acvt.i32.f32 aD, aS
-```
-
-表示源类型为 i32; 目的类型为 f32.
 
 == 矩阵按行规约
 
@@ -2057,13 +2038,13 @@ else:
   columns: (1.1fr, 3.5fr),
   caption: [空规约结果与单位元],
 )[
-  | 规约       | 空结果                                |
-  | ---------- | ------------------------------------- |
-  | f32 sum    | $+0.0$                                |
-  | f32 sumsq  | $+0.0$                                |
-  | f32 max    | $-infinity$                           |
-  | f32 min    | $+infinity$                           |
-  | f32 argmax | $"index" = -1$, $"value" = -infinity$ |
+  | 规约        | 空结果                                 |
+  | ----------- | -------------------------------------- |
+  | f32 sum     | $+0.0$                                 |
+  | f32 sumsq   | $+0.0$                                 |
+  | f32 max     | $-infinity$                            |
+  | f32 min     | $+infinity$                            |
+  | f32 argmax  | $"index" = -1$, $"value" = -infinity$  |
 ]
 
 空规约可能由以下情况产生: 源的 $"rows" = 0$, $"cols" = 0$ 或 $"len" = 0$; 逻辑 view 与有效 shape 的交集为空.
@@ -2071,19 +2052,25 @@ else:
 == 类型转换指令
 
 #instruction-table(caption: [类型转换与扩大指令])[
-  | Instruction     | Format | Operation                                   | Notes                     |
-  | --------------- | ------ | ------------------------------------------- | ---------------------------------------- |
-  | `acvt.i32.f32`  | 待定   | aD[i,j] = f32(aS[i,j])              | 允许原地执行; 成功接收时更新目的 dtype. |
-  | `vcvt.i32.f32`  | 待定   | vD[j] = f32(vS[j])                    | 允许原地执行; 成功接收时更新目的 dtype. |
-  | `twiden.i8.i32` | 待定   | aD[i,j] = sign_ext(tS[i,j])        | 跨数据域, 不能原地执行; 保持有效 shape. |
+  | Instruction      | Format  | Operation                    | Notes                                    |
+  | ---------------- | ------- | ---------------------------- | ---------------------------------------- |
+  | `acvt.i32.f32`   | 待定    | aD[i,j] = f32(aS[i,j])       | 允许原地执行; 成功接收时更新目的 dtype.  |
+  | `vcvt.i32.f32`   | 待定    | vD[j] = f32(vS[j])           | 允许原地执行; 成功接收时更新目的 dtype.  |
+  | `twiden.i8.i32`  | 待定    | aD[i,j] = sign_ext(tS[i,j])  | 跨数据域, 不能原地执行; 保持有效 shape.  |
 ]
+
+本节的转换助记符采用源类型在前, 目的类型在后:
+
+```text
+<source type>.<destination type>
+```
+
+将 `i32` 数据逐元素转换为 `f32`:
 
 ```asm
 acvt.i32.f32 aD, aS
 vcvt.i32.f32 vD, vS
 ```
-
-将 `i32` 数据逐元素转换为 `f32`; 助记符中源类型在前, 目的类型在后.
 
 `acvt` 操作:
 
@@ -2195,12 +2182,12 @@ vScore = vScore × scale
 bits 和 scale 都是显式操作数. Q8 MMA, decode scale 重建与 P×V 量化流程是基础指令序列, 不另外分配复合指令助记符.
 
 #instruction-table(caption: [量化与反量化指令])[
-  | Instruction         | Format | Operation                                          | Notes                           |
-  | ------------------- | ------ | -------------------------------------------------- | ---------------------------------------------- |
-  | `tquant.rows.q8s32` | 待定   | (tD[i,:], vScale[i]) = quant_q8s32(aS[i,:]) | Tile bits 与 Vec32 scale 是两个显式目的.      |
-  | `vquant.q8s32`      | 待定   | (bD, vScale[lane]) = quant_q8s32(vS)   | Vec8 bits 与 Vec32 scale lane 是两个显式目的. |
-  | `tdequant.rows.f32` | 待定   | aD[i,j] = tS[i,j] vScale[i]              | Tile bits 和 Vec32 scale 都是显式源.          |
-  | `bdequant.f32`      | 待定   | vD[j] = bS[j] vScale[lane]                | Vec8 bits 和 Vec32 scale lane 都是显式源.     |
+  | Instruction          | Format  | Operation                                    | Notes                                          |
+  | -------------------- | ------- | -------------------------------------------- | ---------------------------------------------- |
+  | `tquant.rows.q8s32`  | 待定    | (tD[i,:], vScale[i]) = quant_q8s32(aS[i,:])  | Tile bits 与 Vec32 scale 是两个显式目的.       |
+  | `vquant.q8s32`       | 待定    | (bD, vScale[lane]) = quant_q8s32(vS)         | Vec8 bits 与 Vec32 scale lane 是两个显式目的.  |
+  | `tdequant.rows.f32`  | 待定    | aD[i,j] = tS[i,j] vScale[i]                  | Tile bits 和 Vec32 scale 都是显式源.           |
+  | `bdequant.f32`       | 待定    | vD[j] = bS[j] vScale[lane]                   | Vec8 bits 和 Vec32 scale lane 都是显式源.      |
 ]
 
 ```asm
@@ -2245,13 +2232,13 @@ $ "Pscaled" = P "Vscale" $
 详细语义见 @scalar-sync.
 
 #instruction-listing(caption: [能力查询与同步指令清单])[
-  | Instruction  | Format | Opcode | Function | Summary                            |
-  | ------------ | ------ | ------ | -------- | ---------------------------------- |
-  | `getcap`     | 待定   | 待定   | 待定     | 查询资源规格, 扩展和数值能力.     |
-  | `fence.mem`  | 待定   | 待定   | 待定     | 等待此前访存完成并达到约定可见点. |
-  | `fence.sa`   | 待定   | 待定   | 待定     | 等待此前 SA 操作完成.             |
-  | `fence.all`  | 待定   | 待定   | 待定     | 等待此前全部后端工作完成.         |
-  | `kernel.end` | 待定   | 待定   | 待定     | 报告 kernel 完成.                 |
+  | Instruction   | Format  | Opcode  | Function  | Summary                            |
+  | ------------- | ------- | ------- | --------- | ---------------------------------- |
+  | `getcap`      | 待定    | 待定    | 待定      | 查询资源规格, 扩展和数值能力.      |
+  | `fence.mem`   | 待定    | 待定    | 待定      | 等待此前访存完成并达到约定可见点.  |
+  | `fence.sa`    | 待定    | 待定    | 待定      | 等待此前 SA 操作完成.              |
+  | `fence.all`   | 待定    | 待定    | 待定      | 等待此前全部后端工作完成.          |
+  | `kernel.end`  | 待定    | 待定    | 待定      | 报告 kernel 完成.                  |
 ]
 
 == 配置指令
@@ -2259,12 +2246,12 @@ $ "Pscaled" = P "Vscale" $
 详细语义见 @configuration.
 
 #instruction-listing(caption: [配置指令清单])[
-  | Instruction | Format | Opcode | Function | Summary                                    |
-  | ----------- | ------ | ------ | -------- | ------------------------------------------ |
-  | `cfg.seti`  | 待定   | 待定   | 待定     | 扩展立即数, 校验后写入指定配置字段.       |
-  | `cfg.setx`  | 待定   | 待定   | 待定     | 从 Scalar 读取完整值, 校验后写入配置字段. |
-  | `cfg.copy`  | 待定   | 待定   | 待定     | 复制同类型配置寄存器的全部字段.           |
-  | `cfg.get`   | 待定   | 待定   | 待定     | 读取配置字段, 扩展后写入 Scalar.          |
+  | Instruction  | Format  | Opcode  | Function  | Summary                                    |
+  | ------------ | ------- | ------- | --------- | ------------------------------------------ |
+  | `cfg.seti`   | 待定    | 待定    | 待定      | 扩展立即数, 校验后写入指定配置字段.        |
+  | `cfg.setx`   | 待定    | 待定    | 待定      | 从 Scalar 读取完整值, 校验后写入配置字段.  |
+  | `cfg.copy`   | 待定    | 待定    | 待定      | 复制同类型配置寄存器的全部字段.            |
+  | `cfg.get`    | 待定    | 待定    | 待定      | 读取配置字段, 扩展后写入 Scalar.           |
 ]
 
 == 地址与访存指令
@@ -2272,23 +2259,23 @@ $ "Pscaled" = P "Vscale" $
 详细语义见 @memory.
 
 #instruction-listing(caption: [地址与访存指令清单])[
-  | Instruction  | Format | Opcode | Function | Summary                                       |
-  | ------------ | ------ | ------ | -------- | --------------------------------------------- |
-  | `xload`      | 待定   | 待定   | 待定     | Scalar 读取; 正文示例使用 `xload.i32`.       |
-  | `xload.i32`  | 待定   | 待定   | 待定     | 读取 i32 标量; 用于取得 token ID 等整数索引. |
-  | `xstore`     | 待定   | 待定   | 待定     | 将 Scalar 中的单值结果写入内存.              |
-  | `tload`      | 待定   | 待定   | 待定     | 从 TM 描述的内存读取到 Tile 有效区域.        |
-  | `tstore`     | 待定   | 待定   | 待定     | 将 Tile 有效区域写入 TM 描述的内存.          |
-  | `tload.row`  | 待定   | 待定   | 待定     | 从 TM 描述的内存读取到 Tile 指定行.          |
-  | `tstore.row` | 待定   | 待定   | 待定     | 将 Tile 指定行写入 TM 描述的内存.            |
-  | `aload`      | 待定   | 待定   | 待定     | 从 TM 描述的内存读取到 Acc 有效区域.         |
-  | `astore`     | 待定   | 待定   | 待定     | 将 Acc 有效区域写入 TM 描述的内存.           |
-  | `aload.row`  | 待定   | 待定   | 待定     | 从 TM 描述的内存读取到 Acc 指定行.           |
-  | `astore.row` | 待定   | 待定   | 待定     | 将 Acc 指定行写入 TM 描述的内存.             |
-  | `bload`      | 待定   | 待定   | 待定     | 从 VM 描述的内存读取 Vec8 向量.              |
-  | `bstore`     | 待定   | 待定   | 待定     | 将 Vec8 向量写入 VM 描述的内存.              |
-  | `vload`      | 待定   | 待定   | 待定     | 从 VM 描述的内存读取 Vec32 向量.             |
-  | `vstore`     | 待定   | 待定   | 待定     | 将 Vec32 向量写入 VM 描述的内存.             |
+  | Instruction   | Format  | Opcode  | Function  | Summary                                       |
+  | ------------- | ------- | ------- | --------- | --------------------------------------------- |
+  | `xload`       | 待定    | 待定    | 待定      | Scalar 读取; 正文示例使用 `xload.i32`.        |
+  | `xload.i32`   | 待定    | 待定    | 待定      | 读取 i32 标量; 用于取得 token ID 等整数索引.  |
+  | `xstore`      | 待定    | 待定    | 待定      | 将 Scalar 中的单值结果写入内存.               |
+  | `tload`       | 待定    | 待定    | 待定      | 从 TM 描述的内存读取到 Tile 有效区域.         |
+  | `tstore`      | 待定    | 待定    | 待定      | 将 Tile 有效区域写入 TM 描述的内存.           |
+  | `tload.row`   | 待定    | 待定    | 待定      | 从 TM 描述的内存读取到 Tile 指定行.           |
+  | `tstore.row`  | 待定    | 待定    | 待定      | 将 Tile 指定行写入 TM 描述的内存.             |
+  | `aload`       | 待定    | 待定    | 待定      | 从 TM 描述的内存读取到 Acc 有效区域.          |
+  | `astore`      | 待定    | 待定    | 待定      | 将 Acc 有效区域写入 TM 描述的内存.            |
+  | `aload.row`   | 待定    | 待定    | 待定      | 从 TM 描述的内存读取到 Acc 指定行.            |
+  | `astore.row`  | 待定    | 待定    | 待定      | 将 Acc 指定行写入 TM 描述的内存.              |
+  | `bload`       | 待定    | 待定    | 待定      | 从 VM 描述的内存读取 Vec8 向量.               |
+  | `bstore`      | 待定    | 待定    | 待定      | 将 Vec8 向量写入 VM 描述的内存.               |
+  | `vload`       | 待定    | 待定    | 待定      | 从 VM 描述的内存读取 Vec32 向量.              |
+  | `vstore`      | 待定    | 待定    | 待定      | 将 Vec32 向量写入 VM 描述的内存.              |
 ]
 
 == 初始化, 搬运与转置
@@ -2296,31 +2283,31 @@ $ "Pscaled" = P "Vscale" $
 详细语义见 @data-movement.
 
 #instruction-listing(caption: [初始化, 搬运与转置指令清单])[
-  | Instruction    | Format | Opcode | Function | Summary                                     |
-  | -------------- | ------ | ------ | -------- | ------------------------------------------- |
-  | `tfill.TYPE`   | 待定   | 待定   | 待定     | 将立即数填入 Tile 的有效区域.              |
-  | `tfillx.TYPE`  | 待定   | 待定   | 待定     | 用 Scalar 值填充 Tile 的有效区域.          |
-  | `tcopy`        | 待定   | 待定   | 待定     | 复制同域 Tile 的有效数据.                  |
-  | `afill.TYPE`   | 待定   | 待定   | 待定     | 将立即数填入 Acc 的有效区域.               |
-  | `afillx.TYPE`  | 待定   | 待定   | 待定     | 用 Scalar 值填充 Acc 的有效区域.           |
-  | `acopy`        | 待定   | 待定   | 待定     | 复制同域 Acc 的有效数据.                   |
-  | `bfill.TYPE`   | 待定   | 待定   | 待定     | 将立即数填入 Vec8 的有效区域.              |
-  | `bfillx.TYPE`  | 待定   | 待定   | 待定     | 用 Scalar 值填充 Vec8 的有效区域.          |
-  | `bcopy`        | 待定   | 待定   | 待定     | 复制同域 Vec8 的有效数据.                  |
-  | `vfill.TYPE`   | 待定   | 待定   | 待定     | 将立即数填入 Vec32 的有效区域.             |
-  | `vfillx.TYPE`  | 待定   | 待定   | 待定     | 用 Scalar 值填充 Vec32 的有效区域.         |
-  | `vcopy`        | 待定   | 待定   | 待定     | 复制同域 Vec32 的有效数据.                 |
-  | `tinsert.row`  | 待定   | 待定   | 待定     | 将 Vec8 写入 Tile 的指定行.                |
-  | `textract.row` | 待定   | 待定   | 待定     | 从 Tile 指定行提取到 Vec8.                 |
-  | `ainsert.row`  | 待定   | 待定   | 待定     | 将 Vec32 写入 Acc 的指定行.                |
-  | `aextract.row` | 待定   | 待定   | 待定     | 从 Acc 指定行提取到 Vec32.                 |
-  | `bextract`     | 待定   | 待定   | 待定     | 将 Vec8 的指定 lane 提取到 Scalar.         |
-  | `binsert`      | 待定   | 待定   | 待定     | 将 Scalar 值写入 Vec8 的指定 lane.         |
-  | `bbroadcast`   | 待定   | 待定   | 待定     | 将源 Vec8 的一个 lane 广播到目的有效区域.  |
-  | `vextract`     | 待定   | 待定   | 待定     | 将 Vec32 的指定 lane 提取到 Scalar.        |
-  | `vinsert`      | 待定   | 待定   | 待定     | 将 Scalar 值写入 Vec32 的指定 lane.        |
-  | `vbroadcast`   | 待定   | 待定   | 待定     | 将源 Vec32 的一个 lane 广播到目的有效区域. |
-  | `ttranspose`   | 待定   | 待定   | 待定     | 交换 Tile 的行列, 将元素转置写入目的 Tile. |
+  | Instruction     | Format  | Opcode  | Function  | Summary                                     |
+  | --------------- | ------- | ------- | --------- | ------------------------------------------- |
+  | `tfill.TYPE`    | 待定    | 待定    | 待定      | 将立即数填入 Tile 的有效区域.               |
+  | `tfillx.TYPE`   | 待定    | 待定    | 待定      | 用 Scalar 值填充 Tile 的有效区域.           |
+  | `tcopy`         | 待定    | 待定    | 待定      | 复制同域 Tile 的有效数据.                   |
+  | `afill.TYPE`    | 待定    | 待定    | 待定      | 将立即数填入 Acc 的有效区域.                |
+  | `afillx.TYPE`   | 待定    | 待定    | 待定      | 用 Scalar 值填充 Acc 的有效区域.            |
+  | `acopy`         | 待定    | 待定    | 待定      | 复制同域 Acc 的有效数据.                    |
+  | `bfill.TYPE`    | 待定    | 待定    | 待定      | 将立即数填入 Vec8 的有效区域.               |
+  | `bfillx.TYPE`   | 待定    | 待定    | 待定      | 用 Scalar 值填充 Vec8 的有效区域.           |
+  | `bcopy`         | 待定    | 待定    | 待定      | 复制同域 Vec8 的有效数据.                   |
+  | `vfill.TYPE`    | 待定    | 待定    | 待定      | 将立即数填入 Vec32 的有效区域.              |
+  | `vfillx.TYPE`   | 待定    | 待定    | 待定      | 用 Scalar 值填充 Vec32 的有效区域.          |
+  | `vcopy`         | 待定    | 待定    | 待定      | 复制同域 Vec32 的有效数据.                  |
+  | `tinsert.row`   | 待定    | 待定    | 待定      | 将 Vec8 写入 Tile 的指定行.                 |
+  | `textract.row`  | 待定    | 待定    | 待定      | 从 Tile 指定行提取到 Vec8.                  |
+  | `ainsert.row`   | 待定    | 待定    | 待定      | 将 Vec32 写入 Acc 的指定行.                 |
+  | `aextract.row`  | 待定    | 待定    | 待定      | 从 Acc 指定行提取到 Vec32.                  |
+  | `bextract`      | 待定    | 待定    | 待定      | 将 Vec8 的指定 lane 提取到 Scalar.          |
+  | `binsert`       | 待定    | 待定    | 待定      | 将 Scalar 值写入 Vec8 的指定 lane.          |
+  | `bbroadcast`    | 待定    | 待定    | 待定      | 将源 Vec8 的一个 lane 广播到目的有效区域.   |
+  | `vextract`      | 待定    | 待定    | 待定      | 将 Vec32 的指定 lane 提取到 Scalar.         |
+  | `vinsert`       | 待定    | 待定    | 待定      | 将 Scalar 值写入 Vec32 的指定 lane.         |
+  | `vbroadcast`    | 待定    | 待定    | 待定      | 将源 Vec32 的一个 lane 广播到目的有效区域.  |
+  | `ttranspose`    | 待定    | 待定    | 待定      | 交换 Tile 的行列, 将元素转置写入目的 Tile.  |
 ]
 
 == 矩阵乘与向量—矩阵乘
@@ -2328,14 +2315,14 @@ $ "Pscaled" = P "Vscale" $
 详细语义见 @matrix.
 
 #instruction-listing(caption: [矩阵乘与点积指令清单])[
-  | Instruction          | Format | Opcode | Function | Summary                                              |
-  | -------------------- | ------ | ------ | -------- | ---------------------------------------------------- |
-  | `mma.nn.zero.i8.i32` | 待定   | 待定   | 待定     | 按普通右矩阵执行矩阵乘, 写入 `i32` Acc.             |
-  | `mma.nn.acc.i8.i32`  | 待定   | 待定   | 待定     | 按普通右矩阵执行矩阵乘, 累加到旧 `i32` Acc.         |
-  | `bdot.nn.i8.i32`     | 待定   | 待定   | 待定     | Vec8 与 Tile 各列执行点积, 结果写入 Vec32.          |
-  | `mma.nt.zero.i8.i32` | 待定   | 待定   | 待定     | 将右 Tile 逻辑转置后执行矩阵乘, 写入 `i32` Acc.     |
-  | `mma.nt.acc.i8.i32`  | 待定   | 待定   | 待定     | 将右 Tile 逻辑转置后执行矩阵乘, 累加到旧 `i32` Acc. |
-  | `bdot.nt.i8.i32`     | 待定   | 待定   | 待定     | Vec8 与 Tile 各行执行点积, 结果写入 Vec32.          |
+  | Instruction           | Format  | Opcode  | Function  | Summary                                              |
+  | --------------------- | ------- | ------- | --------- | ---------------------------------------------------- |
+  | `mma.nn.zero.i8.i32`  | 待定    | 待定    | 待定      | 按普通右矩阵执行矩阵乘, 写入 `i32` Acc.              |
+  | `mma.nn.acc.i8.i32`   | 待定    | 待定    | 待定      | 按普通右矩阵执行矩阵乘, 累加到旧 `i32` Acc.          |
+  | `bdot.nn.i8.i32`      | 待定    | 待定    | 待定      | Vec8 与 Tile 各列执行点积, 结果写入 Vec32.           |
+  | `mma.nt.zero.i8.i32`  | 待定    | 待定    | 待定      | 将右 Tile 逻辑转置后执行矩阵乘, 写入 `i32` Acc.      |
+  | `mma.nt.acc.i8.i32`   | 待定    | 待定    | 待定      | 将右 Tile 逻辑转置后执行矩阵乘, 累加到旧 `i32` Acc.  |
+  | `bdot.nt.i8.i32`      | 待定    | 待定    | 待定      | Vec8 与 Tile 各行执行点积, 结果写入 Vec32.           |
 ]
 
 == 逐元素, 广播和 mask
@@ -2343,315 +2330,315 @@ $ "Pscaled" = P "Vscale" $
 详细语义见 @elementwise.
 
 #instruction-listing(caption: [Tile 基础逐元素指令清单])[
-  | Instruction       | Format | Opcode | Function | Summary                               |
-  | ----------------- | ------ | ------ | -------- | ------------------------------------- |
-  | `tadd.sat.TYPE`   | 待定   | 待定   | 待定     | 同域逐元素加法, 饱和; `i8/u8`.       |
-  | `tadd.wrap.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素加法, 回绕; `i8/u8`.       |
-  | `taddx.sat.TYPE`  | 待定   | 待定   | 待定     | Scalar 值逐元素加法, 饱和; `i8/u8`.  |
-  | `taddx.wrap.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素加法, 回绕; `i8/u8`.  |
-  | `tsub.sat.TYPE`   | 待定   | 待定   | 待定     | 同域逐元素减法, 饱和; `i8/u8`.       |
-  | `tsub.wrap.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素减法, 回绕; `i8/u8`.       |
-  | `tsubx.sat.TYPE`  | 待定   | 待定   | 待定     | Scalar 值逐元素减法, 饱和; `i8/u8`.  |
-  | `tsubx.wrap.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素减法, 回绕; `i8/u8`.  |
-  | `tmul.sat.TYPE`   | 待定   | 待定   | 待定     | 同域逐元素乘法, 饱和; `i8/u8`.       |
-  | `tmul.wrap.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素乘法, 回绕; `i8/u8`.       |
-  | `tmulx.sat.TYPE`  | 待定   | 待定   | 待定     | Scalar 值逐元素乘法, 饱和; `i8/u8`.  |
-  | `tmulx.wrap.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素乘法, 回绕; `i8/u8`.  |
-  | `tmin.TYPE`       | 待定   | 待定   | 待定     | 同域逐元素取小; `i8/u8`.             |
-  | `tminx.TYPE`      | 待定   | 待定   | 待定     | Scalar 值逐元素取小; `i8/u8`.        |
-  | `tmax.TYPE`       | 待定   | 待定   | 待定     | 同域逐元素取大; `i8/u8`.             |
-  | `tmaxx.TYPE`      | 待定   | 待定   | 待定     | Scalar 值逐元素取大; `i8/u8`.        |
-  | `tand.TYPE`       | 待定   | 待定   | 待定     | 同域逐元素按位与; `i8/u8/m8`.        |
-  | `tandx.TYPE`      | 待定   | 待定   | 待定     | Scalar 值逐元素按位与; `i8/u8/m8`.   |
-  | `tor.TYPE`        | 待定   | 待定   | 待定     | 同域逐元素按位或; `i8/u8/m8`.        |
-  | `torx.TYPE`       | 待定   | 待定   | 待定     | Scalar 值逐元素按位或; `i8/u8/m8`.   |
-  | `txor.TYPE`       | 待定   | 待定   | 待定     | 同域逐元素按位异或; `i8/u8/m8`.      |
-  | `txorx.TYPE`      | 待定   | 待定   | 待定     | Scalar 值逐元素按位异或; `i8/u8/m8`. |
-  | `tshl.TYPE`       | 待定   | 待定   | 待定     | 同域逐元素左移; `i8/u8`.             |
-  | `tshlx.TYPE`      | 待定   | 待定   | 待定     | Scalar 值逐元素左移; `i8/u8`.        |
-  | `tshr.TYPE`       | 待定   | 待定   | 待定     | 同域逐元素逻辑右移; `i8/u8`.         |
-  | `tshrx.TYPE`      | 待定   | 待定   | 待定     | Scalar 值逐元素逻辑右移; `i8/u8`.    |
-  | `tsra.TYPE`       | 待定   | 待定   | 待定     | 同域逐元素算术右移; `i8/u8`.         |
-  | `tsrax.TYPE`      | 待定   | 待定   | 待定     | Scalar 值逐元素算术右移; `i8/u8`.    |
-  | `tnot.TYPE`       | 待定   | 待定   | 待定     | 逐元素按位取反; `i8/u8/m8`.          |
-  | `tabs.sat.i8`     | 待定   | 待定   | 待定     | 逐元素绝对值; 饱和; `i8`.            |
-  | `tabs.wrap.i8`    | 待定   | 待定   | 待定     | 逐元素绝对值; 回绕; `i8`.            |
-  | `tneg.sat.i8`     | 待定   | 待定   | 待定     | 逐元素取负; 饱和; `i8`.              |
-  | `tneg.wrap.i8`    | 待定   | 待定   | 待定     | 逐元素取负; 回绕; `i8`.              |
+  | Instruction        | Format  | Opcode  | Function  | Summary                              |
+  | ------------------ | ------- | ------- | --------- | ------------------------------------ |
+  | `tadd.sat.TYPE`    | 待定    | 待定    | 待定      | 同域逐元素加法, 饱和; `i8/u8`.       |
+  | `tadd.wrap.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素加法, 回绕; `i8/u8`.       |
+  | `taddx.sat.TYPE`   | 待定    | 待定    | 待定      | Scalar 值逐元素加法, 饱和; `i8/u8`.  |
+  | `taddx.wrap.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素加法, 回绕; `i8/u8`.  |
+  | `tsub.sat.TYPE`    | 待定    | 待定    | 待定      | 同域逐元素减法, 饱和; `i8/u8`.       |
+  | `tsub.wrap.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素减法, 回绕; `i8/u8`.       |
+  | `tsubx.sat.TYPE`   | 待定    | 待定    | 待定      | Scalar 值逐元素减法, 饱和; `i8/u8`.  |
+  | `tsubx.wrap.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素减法, 回绕; `i8/u8`.  |
+  | `tmul.sat.TYPE`    | 待定    | 待定    | 待定      | 同域逐元素乘法, 饱和; `i8/u8`.       |
+  | `tmul.wrap.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素乘法, 回绕; `i8/u8`.       |
+  | `tmulx.sat.TYPE`   | 待定    | 待定    | 待定      | Scalar 值逐元素乘法, 饱和; `i8/u8`.  |
+  | `tmulx.wrap.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素乘法, 回绕; `i8/u8`.  |
+  | `tmin.TYPE`        | 待定    | 待定    | 待定      | 同域逐元素取小; `i8/u8`.             |
+  | `tminx.TYPE`       | 待定    | 待定    | 待定      | Scalar 值逐元素取小; `i8/u8`.        |
+  | `tmax.TYPE`        | 待定    | 待定    | 待定      | 同域逐元素取大; `i8/u8`.             |
+  | `tmaxx.TYPE`       | 待定    | 待定    | 待定      | Scalar 值逐元素取大; `i8/u8`.        |
+  | `tand`             | 待定    | 待定    | 待定      | 同域逐元素按位与.                    |
+  | `tandx`            | 待定    | 待定    | 待定      | Scalar 值逐元素按位与.               |
+  | `tor`              | 待定    | 待定    | 待定      | 同域逐元素按位或.                    |
+  | `torx`             | 待定    | 待定    | 待定      | Scalar 值逐元素按位或.               |
+  | `txor`             | 待定    | 待定    | 待定      | 同域逐元素按位异或.                  |
+  | `txorx`            | 待定    | 待定    | 待定      | Scalar 值逐元素按位异或.             |
+  | `tshl.TYPE`        | 待定    | 待定    | 待定      | 同域逐元素左移; `i8/u8`.             |
+  | `tshlx.TYPE`       | 待定    | 待定    | 待定      | Scalar 值逐元素左移; `i8/u8`.        |
+  | `tshr.TYPE`        | 待定    | 待定    | 待定      | 同域逐元素逻辑右移; `i8/u8`.         |
+  | `tshrx.TYPE`       | 待定    | 待定    | 待定      | Scalar 值逐元素逻辑右移; `i8/u8`.    |
+  | `tsra.TYPE`        | 待定    | 待定    | 待定      | 同域逐元素算术右移; `i8/u8`.         |
+  | `tsrax.TYPE`       | 待定    | 待定    | 待定      | Scalar 值逐元素算术右移; `i8/u8`.    |
+  | `tnot`             | 待定    | 待定    | 待定      | 逐元素按位取反.                      |
+  | `tabs.sat.i8`      | 待定    | 待定    | 待定      | 逐元素绝对值; 饱和; `i8`.            |
+  | `tabs.wrap.i8`     | 待定    | 待定    | 待定      | 逐元素绝对值; 回绕; `i8`.            |
+  | `tneg.sat.i8`      | 待定    | 待定    | 待定      | 逐元素取负; 饱和; `i8`.              |
+  | `tneg.wrap.i8`     | 待定    | 待定    | 待定      | 逐元素取负; 回绕; `i8`.              |
 ]
 
 #instruction-listing(caption: [Acc 基础逐元素指令清单])[
-  | Instruction  | Format | Opcode | Function | Summary                                  |
-  | ------------ | ------ | ------ | -------- | ---------------------------------------- |
-  | `aadd.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素加法; `i32/u32/f32`.          |
-  | `aaddx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素加法; `i32/u32/f32`.     |
-  | `asub.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素减法; `i32/u32/f32`.          |
-  | `asubx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素减法; `i32/u32/f32`.     |
-  | `amul.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素乘法; `i32/u32/f32`.          |
-  | `amulx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素乘法; `i32/u32/f32`.     |
-  | `adiv.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素除法; `f32`.                  |
-  | `adivx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素除法; `f32`.             |
-  | `amin.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素取小; `i32/u32/f32`.          |
-  | `aminx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素取小; `i32/u32/f32`.     |
-  | `amax.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素取大; `i32/u32/f32`.          |
-  | `amaxx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素取大; `i32/u32/f32`.     |
-  | `aand.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素按位与; `i32/u32/m32`.        |
-  | `aandx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素按位与; `i32/u32/m32`.   |
-  | `aor.TYPE`   | 待定   | 待定   | 待定     | 同域逐元素按位或; `i32/u32/m32`.        |
-  | `aorx.TYPE`  | 待定   | 待定   | 待定     | Scalar 值逐元素按位或; `i32/u32/m32`.   |
-  | `axor.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素按位异或; `i32/u32/m32`.      |
-  | `axorx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素按位异或; `i32/u32/m32`. |
-  | `ashl.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素左移; `i32/u32`.              |
-  | `ashlx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素左移; `i32/u32`.         |
-  | `ashr.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素逻辑右移; `i32/u32`.          |
-  | `ashrx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素逻辑右移; `i32/u32`.     |
-  | `asra.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素算术右移; `i32/u32`.          |
-  | `asrax.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素算术右移; `i32/u32`.     |
-  | `anot.TYPE`  | 待定   | 待定   | 待定     | 逐元素按位取反; `i32/u32/m32`.          |
-  | `aabs.TYPE`  | 待定   | 待定   | 待定     | 逐元素绝对值; `i32/f32`.                |
-  | `aneg.TYPE`  | 待定   | 待定   | 待定     | 逐元素取负; `i32/f32`.                  |
+  | Instruction   | Format  | Opcode  | Function  | Summary                              |
+  | ------------- | ------- | ------- | --------- | ------------------------------------ |
+  | `aadd.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素加法; `i32/u32/f32`.       |
+  | `aaddx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素加法; `i32/u32/f32`.  |
+  | `asub.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素减法; `i32/u32/f32`.       |
+  | `asubx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素减法; `i32/u32/f32`.  |
+  | `amul.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素乘法; `i32/u32/f32`.       |
+  | `amulx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素乘法; `i32/u32/f32`.  |
+  | `adiv.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素除法; `f32`.               |
+  | `adivx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素除法; `f32`.          |
+  | `amin.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素取小; `i32/u32/f32`.       |
+  | `aminx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素取小; `i32/u32/f32`.  |
+  | `amax.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素取大; `i32/u32/f32`.       |
+  | `amaxx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素取大; `i32/u32/f32`.  |
+  | `aand`        | 待定    | 待定    | 待定      | 同域逐元素按位与.                    |
+  | `aandx`       | 待定    | 待定    | 待定      | Scalar 值逐元素按位与.               |
+  | `aor`         | 待定    | 待定    | 待定      | 同域逐元素按位或.                    |
+  | `aorx`        | 待定    | 待定    | 待定      | Scalar 值逐元素按位或.               |
+  | `axor`        | 待定    | 待定    | 待定      | 同域逐元素按位异或.                  |
+  | `axorx`       | 待定    | 待定    | 待定      | Scalar 值逐元素按位异或.             |
+  | `ashl.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素左移; `i32/u32`.           |
+  | `ashlx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素左移; `i32/u32`.      |
+  | `ashr.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素逻辑右移; `i32/u32`.       |
+  | `ashrx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素逻辑右移; `i32/u32`.  |
+  | `asra.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素算术右移; `i32/u32`.       |
+  | `asrax.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素算术右移; `i32/u32`.  |
+  | `anot`        | 待定    | 待定    | 待定      | 逐元素按位取反.                      |
+  | `aabs.TYPE`   | 待定    | 待定    | 待定      | 逐元素绝对值; `i32/f32`.             |
+  | `aneg.TYPE`   | 待定    | 待定    | 待定      | 逐元素取负; `i32/f32`.               |
 ]
 
 #instruction-listing(caption: [Vec8 基础逐元素指令清单])[
-  | Instruction       | Format | Opcode | Function | Summary                               |
-  | ----------------- | ------ | ------ | -------- | ------------------------------------- |
-  | `badd.sat.TYPE`   | 待定   | 待定   | 待定     | 同域逐元素加法, 饱和; `i8/u8`.       |
-  | `badd.wrap.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素加法, 回绕; `i8/u8`.       |
-  | `baddx.sat.TYPE`  | 待定   | 待定   | 待定     | Scalar 值逐元素加法, 饱和; `i8/u8`.  |
-  | `baddx.wrap.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素加法, 回绕; `i8/u8`.  |
-  | `bsub.sat.TYPE`   | 待定   | 待定   | 待定     | 同域逐元素减法, 饱和; `i8/u8`.       |
-  | `bsub.wrap.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素减法, 回绕; `i8/u8`.       |
-  | `bsubx.sat.TYPE`  | 待定   | 待定   | 待定     | Scalar 值逐元素减法, 饱和; `i8/u8`.  |
-  | `bsubx.wrap.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素减法, 回绕; `i8/u8`.  |
-  | `bmul.sat.TYPE`   | 待定   | 待定   | 待定     | 同域逐元素乘法, 饱和; `i8/u8`.       |
-  | `bmul.wrap.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素乘法, 回绕; `i8/u8`.       |
-  | `bmulx.sat.TYPE`  | 待定   | 待定   | 待定     | Scalar 值逐元素乘法, 饱和; `i8/u8`.  |
-  | `bmulx.wrap.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素乘法, 回绕; `i8/u8`.  |
-  | `bmin.TYPE`       | 待定   | 待定   | 待定     | 同域逐元素取小; `i8/u8`.             |
-  | `bminx.TYPE`      | 待定   | 待定   | 待定     | Scalar 值逐元素取小; `i8/u8`.        |
-  | `bmax.TYPE`       | 待定   | 待定   | 待定     | 同域逐元素取大; `i8/u8`.             |
-  | `bmaxx.TYPE`      | 待定   | 待定   | 待定     | Scalar 值逐元素取大; `i8/u8`.        |
-  | `band.TYPE`       | 待定   | 待定   | 待定     | 同域逐元素按位与; `i8/u8/m8`.        |
-  | `bandx.TYPE`      | 待定   | 待定   | 待定     | Scalar 值逐元素按位与; `i8/u8/m8`.   |
-  | `bor.TYPE`        | 待定   | 待定   | 待定     | 同域逐元素按位或; `i8/u8/m8`.        |
-  | `borx.TYPE`       | 待定   | 待定   | 待定     | Scalar 值逐元素按位或; `i8/u8/m8`.   |
-  | `bxor.TYPE`       | 待定   | 待定   | 待定     | 同域逐元素按位异或; `i8/u8/m8`.      |
-  | `bxorx.TYPE`      | 待定   | 待定   | 待定     | Scalar 值逐元素按位异或; `i8/u8/m8`. |
-  | `bshl.TYPE`       | 待定   | 待定   | 待定     | 同域逐元素左移; `i8/u8`.             |
-  | `bshlx.TYPE`      | 待定   | 待定   | 待定     | Scalar 值逐元素左移; `i8/u8`.        |
-  | `bshr.TYPE`       | 待定   | 待定   | 待定     | 同域逐元素逻辑右移; `i8/u8`.         |
-  | `bshrx.TYPE`      | 待定   | 待定   | 待定     | Scalar 值逐元素逻辑右移; `i8/u8`.    |
-  | `bsra.TYPE`       | 待定   | 待定   | 待定     | 同域逐元素算术右移; `i8/u8`.         |
-  | `bsrax.TYPE`      | 待定   | 待定   | 待定     | Scalar 值逐元素算术右移; `i8/u8`.    |
-  | `bnot.TYPE`       | 待定   | 待定   | 待定     | 逐元素按位取反; `i8/u8/m8`.          |
-  | `babs.sat.i8`     | 待定   | 待定   | 待定     | 逐元素绝对值; 饱和; `i8`.            |
-  | `babs.wrap.i8`    | 待定   | 待定   | 待定     | 逐元素绝对值; 回绕; `i8`.            |
-  | `bneg.sat.i8`     | 待定   | 待定   | 待定     | 逐元素取负; 饱和; `i8`.              |
-  | `bneg.wrap.i8`    | 待定   | 待定   | 待定     | 逐元素取负; 回绕; `i8`.              |
+  | Instruction        | Format  | Opcode  | Function  | Summary                              |
+  | ------------------ | ------- | ------- | --------- | ------------------------------------ |
+  | `badd.sat.TYPE`    | 待定    | 待定    | 待定      | 同域逐元素加法, 饱和; `i8/u8`.       |
+  | `badd.wrap.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素加法, 回绕; `i8/u8`.       |
+  | `baddx.sat.TYPE`   | 待定    | 待定    | 待定      | Scalar 值逐元素加法, 饱和; `i8/u8`.  |
+  | `baddx.wrap.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素加法, 回绕; `i8/u8`.  |
+  | `bsub.sat.TYPE`    | 待定    | 待定    | 待定      | 同域逐元素减法, 饱和; `i8/u8`.       |
+  | `bsub.wrap.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素减法, 回绕; `i8/u8`.       |
+  | `bsubx.sat.TYPE`   | 待定    | 待定    | 待定      | Scalar 值逐元素减法, 饱和; `i8/u8`.  |
+  | `bsubx.wrap.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素减法, 回绕; `i8/u8`.  |
+  | `bmul.sat.TYPE`    | 待定    | 待定    | 待定      | 同域逐元素乘法, 饱和; `i8/u8`.       |
+  | `bmul.wrap.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素乘法, 回绕; `i8/u8`.       |
+  | `bmulx.sat.TYPE`   | 待定    | 待定    | 待定      | Scalar 值逐元素乘法, 饱和; `i8/u8`.  |
+  | `bmulx.wrap.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素乘法, 回绕; `i8/u8`.  |
+  | `bmin.TYPE`        | 待定    | 待定    | 待定      | 同域逐元素取小; `i8/u8`.             |
+  | `bminx.TYPE`       | 待定    | 待定    | 待定      | Scalar 值逐元素取小; `i8/u8`.        |
+  | `bmax.TYPE`        | 待定    | 待定    | 待定      | 同域逐元素取大; `i8/u8`.             |
+  | `bmaxx.TYPE`       | 待定    | 待定    | 待定      | Scalar 值逐元素取大; `i8/u8`.        |
+  | `band`             | 待定    | 待定    | 待定      | 同域逐元素按位与.                    |
+  | `bandx`            | 待定    | 待定    | 待定      | Scalar 值逐元素按位与.               |
+  | `bor`              | 待定    | 待定    | 待定      | 同域逐元素按位或.                    |
+  | `borx`             | 待定    | 待定    | 待定      | Scalar 值逐元素按位或.               |
+  | `bxor`             | 待定    | 待定    | 待定      | 同域逐元素按位异或.                  |
+  | `bxorx`            | 待定    | 待定    | 待定      | Scalar 值逐元素按位异或.             |
+  | `bshl.TYPE`        | 待定    | 待定    | 待定      | 同域逐元素左移; `i8/u8`.             |
+  | `bshlx.TYPE`       | 待定    | 待定    | 待定      | Scalar 值逐元素左移; `i8/u8`.        |
+  | `bshr.TYPE`        | 待定    | 待定    | 待定      | 同域逐元素逻辑右移; `i8/u8`.         |
+  | `bshrx.TYPE`       | 待定    | 待定    | 待定      | Scalar 值逐元素逻辑右移; `i8/u8`.    |
+  | `bsra.TYPE`        | 待定    | 待定    | 待定      | 同域逐元素算术右移; `i8/u8`.         |
+  | `bsrax.TYPE`       | 待定    | 待定    | 待定      | Scalar 值逐元素算术右移; `i8/u8`.    |
+  | `bnot`             | 待定    | 待定    | 待定      | 逐元素按位取反.                      |
+  | `babs.sat.i8`      | 待定    | 待定    | 待定      | 逐元素绝对值; 饱和; `i8`.            |
+  | `babs.wrap.i8`     | 待定    | 待定    | 待定      | 逐元素绝对值; 回绕; `i8`.            |
+  | `bneg.sat.i8`      | 待定    | 待定    | 待定      | 逐元素取负; 饱和; `i8`.              |
+  | `bneg.wrap.i8`     | 待定    | 待定    | 待定      | 逐元素取负; 回绕; `i8`.              |
 ]
 
 #instruction-listing(caption: [Vec32 基础逐元素指令清单])[
-  | Instruction  | Format | Opcode | Function | Summary                                  |
-  | ------------ | ------ | ------ | -------- | ---------------------------------------- |
-  | `vadd.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素加法; `i32/u32/f32`.          |
-  | `vaddx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素加法; `i32/u32/f32`.     |
-  | `vsub.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素减法; `i32/u32/f32`.          |
-  | `vsubx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素减法; `i32/u32/f32`.     |
-  | `vmul.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素乘法; `i32/u32/f32`.          |
-  | `vmulx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素乘法; `i32/u32/f32`.     |
-  | `vdiv.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素除法; `f32`.                  |
-  | `vdivx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素除法; `f32`.             |
-  | `vmin.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素取小; `i32/u32/f32`.          |
-  | `vminx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素取小; `i32/u32/f32`.     |
-  | `vmax.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素取大; `i32/u32/f32`.          |
-  | `vmaxx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素取大; `i32/u32/f32`.     |
-  | `vand.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素按位与; `i32/u32/m32`.        |
-  | `vandx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素按位与; `i32/u32/m32`.   |
-  | `vor.TYPE`   | 待定   | 待定   | 待定     | 同域逐元素按位或; `i32/u32/m32`.        |
-  | `vorx.TYPE`  | 待定   | 待定   | 待定     | Scalar 值逐元素按位或; `i32/u32/m32`.   |
-  | `vxor.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素按位异或; `i32/u32/m32`.      |
-  | `vxorx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素按位异或; `i32/u32/m32`. |
-  | `vshl.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素左移; `i32/u32`.              |
-  | `vshlx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素左移; `i32/u32`.         |
-  | `vshr.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素逻辑右移; `i32/u32`.          |
-  | `vshrx.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素逻辑右移; `i32/u32`.     |
-  | `vsra.TYPE`  | 待定   | 待定   | 待定     | 同域逐元素算术右移; `i32/u32`.          |
-  | `vsrax.TYPE` | 待定   | 待定   | 待定     | Scalar 值逐元素算术右移; `i32/u32`.     |
-  | `vnot.TYPE`  | 待定   | 待定   | 待定     | 逐元素按位取反; `i32/u32/m32`.          |
-  | `vabs.TYPE`  | 待定   | 待定   | 待定     | 逐元素绝对值; `i32/f32`.                |
-  | `vneg.TYPE`  | 待定   | 待定   | 待定     | 逐元素取负; `i32/f32`.                  |
+  | Instruction   | Format  | Opcode  | Function  | Summary                              |
+  | ------------- | ------- | ------- | --------- | ------------------------------------ |
+  | `vadd.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素加法; `i32/u32/f32`.       |
+  | `vaddx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素加法; `i32/u32/f32`.  |
+  | `vsub.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素减法; `i32/u32/f32`.       |
+  | `vsubx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素减法; `i32/u32/f32`.  |
+  | `vmul.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素乘法; `i32/u32/f32`.       |
+  | `vmulx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素乘法; `i32/u32/f32`.  |
+  | `vdiv.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素除法; `f32`.               |
+  | `vdivx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素除法; `f32`.          |
+  | `vmin.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素取小; `i32/u32/f32`.       |
+  | `vminx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素取小; `i32/u32/f32`.  |
+  | `vmax.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素取大; `i32/u32/f32`.       |
+  | `vmaxx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素取大; `i32/u32/f32`.  |
+  | `vand`        | 待定    | 待定    | 待定      | 同域逐元素按位与.                    |
+  | `vandx`       | 待定    | 待定    | 待定      | Scalar 值逐元素按位与.               |
+  | `vor`         | 待定    | 待定    | 待定      | 同域逐元素按位或.                    |
+  | `vorx`        | 待定    | 待定    | 待定      | Scalar 值逐元素按位或.               |
+  | `vxor`        | 待定    | 待定    | 待定      | 同域逐元素按位异或.                  |
+  | `vxorx`       | 待定    | 待定    | 待定      | Scalar 值逐元素按位异或.             |
+  | `vshl.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素左移; `i32/u32`.           |
+  | `vshlx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素左移; `i32/u32`.      |
+  | `vshr.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素逻辑右移; `i32/u32`.       |
+  | `vshrx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素逻辑右移; `i32/u32`.  |
+  | `vsra.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素算术右移; `i32/u32`.       |
+  | `vsrax.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素算术右移; `i32/u32`.  |
+  | `vnot`        | 待定    | 待定    | 待定      | 逐元素按位取反.                      |
+  | `vabs.TYPE`   | 待定    | 待定    | 待定      | 逐元素绝对值; `i32/f32`.             |
+  | `vneg.TYPE`   | 待定    | 待定    | 待定      | 逐元素取负; `i32/f32`.               |
 ]
 
 #instruction-listing(caption: [融合乘加指令清单])[
-  | Instruction  | Format | Opcode | Function | Summary                         |
-  | ------------ | ------ | ------ | -------- | ------------------------------- |
-  | `afmadd.f32` | 待定   | 待定   | 待定     | Acc 融合乘加, 单次 f32 舍入.   |
-  | `vfmadd.f32` | 待定   | 待定   | 待定     | Vec32 融合乘加, 单次 f32 舍入. |
+  | Instruction   | Format  | Opcode  | Function  | Summary                         |
+  | ------------- | ------- | ------- | --------- | ------------------------------- |
+  | `afmadd.f32`  | 待定    | 待定    | 待定      | Acc 融合乘加, 单次 f32 舍入.    |
+  | `vfmadd.f32`  | 待定    | 待定    | 待定      | Vec32 融合乘加, 单次 f32 舍入.  |
 ]
 
 #instruction-listing(caption: [近似特殊函数指令清单])[
-  | Instruction     | Format | Opcode | Function | Summary                  |
-  | --------------- | ------ | ------ | -------- | ------------------------ |
-  | `aexp2.approx`  | 待定   | 待定   | 待定     | 逐元素计算 2 的幂.      |
-  | `arcp.approx`   | 待定   | 待定   | 待定     | 逐元素计算倒数.         |
-  | `arsqrt.approx` | 待定   | 待定   | 待定     | 逐元素计算倒数平方根.   |
-  | `vexp2.approx`  | 待定   | 待定   | 待定     | 逐 lane 计算 2 的幂.    |
-  | `vrcp.approx`   | 待定   | 待定   | 待定     | 逐 lane 计算倒数.       |
-  | `vrsqrt.approx` | 待定   | 待定   | 待定     | 逐 lane 计算倒数平方根. |
+  | Instruction      | Format  | Opcode  | Function  | Summary                  |
+  | ---------------- | ------- | ------- | --------- | ------------------------ |
+  | `aexp2.approx`   | 待定    | 待定    | 待定      | 逐元素计算 2 的幂.       |
+  | `arcp.approx`    | 待定    | 待定    | 待定      | 逐元素计算倒数.          |
+  | `arsqrt.approx`  | 待定    | 待定    | 待定      | 逐元素计算倒数平方根.    |
+  | `vexp2.approx`   | 待定    | 待定    | 待定      | 逐 lane 计算 2 的幂.     |
+  | `vrcp.approx`    | 待定    | 待定    | 待定      | 逐 lane 计算倒数.        |
+  | `vrsqrt.approx`  | 待定    | 待定    | 待定      | 逐 lane 计算倒数平方根.  |
 ]
 
 
 
 #instruction-listing(caption: [矩阵源行广播指令清单])[
-  | Instruction           | Format | Opcode | Function | Summary                               |
-  | --------------------- | ------ | ------ | -------- | ------------------------------------- |
-  | `tadd.brow.sat.TYPE`  | 待定   | 待定   | 待定     | 矩阵源行广播加法, 饱和; `i8/u8`.     |
-  | `tadd.brow.wrap.TYPE` | 待定   | 待定   | 待定     | 矩阵源行广播加法, 回绕; `i8/u8`.     |
-  | `tsub.brow.sat.TYPE`  | 待定   | 待定   | 待定     | 矩阵源行广播减法, 饱和; `i8/u8`.     |
-  | `tsub.brow.wrap.TYPE` | 待定   | 待定   | 待定     | 矩阵源行广播减法, 回绕; `i8/u8`.     |
-  | `tmul.brow.sat.TYPE`  | 待定   | 待定   | 待定     | 矩阵源行广播乘法, 饱和; `i8/u8`.     |
-  | `tmul.brow.wrap.TYPE` | 待定   | 待定   | 待定     | 矩阵源行广播乘法, 回绕; `i8/u8`.     |
-  | `tmin.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播取小; `i8/u8`.           |
-  | `tmax.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播取大; `i8/u8`.           |
-  | `tand.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播按位与; `i8/u8/m8`.      |
-  | `tor.brow.TYPE`       | 待定   | 待定   | 待定     | 矩阵源行广播按位或; `i8/u8/m8`.      |
-  | `txor.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播按位异或; `i8/u8/m8`.    |
-  | `tshl.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播左移; `i8/u8`.           |
-  | `tshr.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播逻辑右移; `i8/u8`.       |
-  | `tsra.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播算术右移; `i8/u8`.       |
-  | `aadd.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播加法; `i32/u32/f32`.     |
-  | `asub.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播减法; `i32/u32/f32`.     |
-  | `amul.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播乘法; `i32/u32/f32`.     |
-  | `adiv.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播除法; `f32`.             |
-  | `amin.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播取小; `i32/u32/f32`.     |
-  | `amax.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播取大; `i32/u32/f32`.     |
-  | `aand.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播按位与; `i32/u32/m32`.   |
-  | `aor.brow.TYPE`       | 待定   | 待定   | 待定     | 矩阵源行广播按位或; `i32/u32/m32`.   |
-  | `axor.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播按位异或; `i32/u32/m32`. |
-  | `ashl.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播左移; `i32/u32`.         |
-  | `ashr.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播逻辑右移; `i32/u32`.     |
-  | `asra.brow.TYPE`      | 待定   | 待定   | 待定     | 矩阵源行广播算术右移; `i32/u32`.     |
+  | Instruction            | Format  | Opcode  | Function  | Summary                           |
+  | ---------------------- | ------- | ------- | --------- | --------------------------------- |
+  | `tadd.brow.sat.TYPE`   | 待定    | 待定    | 待定      | 矩阵源行广播加法, 饱和; `i8/u8`.  |
+  | `tadd.brow.wrap.TYPE`  | 待定    | 待定    | 待定      | 矩阵源行广播加法, 回绕; `i8/u8`.  |
+  | `tsub.brow.sat.TYPE`   | 待定    | 待定    | 待定      | 矩阵源行广播减法, 饱和; `i8/u8`.  |
+  | `tsub.brow.wrap.TYPE`  | 待定    | 待定    | 待定      | 矩阵源行广播减法, 回绕; `i8/u8`.  |
+  | `tmul.brow.sat.TYPE`   | 待定    | 待定    | 待定      | 矩阵源行广播乘法, 饱和; `i8/u8`.  |
+  | `tmul.brow.wrap.TYPE`  | 待定    | 待定    | 待定      | 矩阵源行广播乘法, 回绕; `i8/u8`.  |
+  | `tmin.brow.TYPE`       | 待定    | 待定    | 待定      | 矩阵源行广播取小; `i8/u8`.        |
+  | `tmax.brow.TYPE`       | 待定    | 待定    | 待定      | 矩阵源行广播取大; `i8/u8`.        |
+  | `tand.brow`            | 待定    | 待定    | 待定      | 矩阵源行广播按位与.               |
+  | `tor.brow`             | 待定    | 待定    | 待定      | 矩阵源行广播按位或.               |
+  | `txor.brow`            | 待定    | 待定    | 待定      | 矩阵源行广播按位异或.             |
+  | `tshl.brow.TYPE`       | 待定    | 待定    | 待定      | 矩阵源行广播左移; `i8/u8`.        |
+  | `tshr.brow.TYPE`       | 待定    | 待定    | 待定      | 矩阵源行广播逻辑右移; `i8/u8`.    |
+  | `tsra.brow.TYPE`       | 待定    | 待定    | 待定      | 矩阵源行广播算术右移; `i8/u8`.    |
+  | `aadd.brow.TYPE`       | 待定    | 待定    | 待定      | 矩阵源行广播加法; `i32/u32/f32`.  |
+  | `asub.brow.TYPE`       | 待定    | 待定    | 待定      | 矩阵源行广播减法; `i32/u32/f32`.  |
+  | `amul.brow.TYPE`       | 待定    | 待定    | 待定      | 矩阵源行广播乘法; `i32/u32/f32`.  |
+  | `adiv.brow.TYPE`       | 待定    | 待定    | 待定      | 矩阵源行广播除法; `f32`.          |
+  | `amin.brow.TYPE`       | 待定    | 待定    | 待定      | 矩阵源行广播取小; `i32/u32/f32`.  |
+  | `amax.brow.TYPE`       | 待定    | 待定    | 待定      | 矩阵源行广播取大; `i32/u32/f32`.  |
+  | `aand.brow`            | 待定    | 待定    | 待定      | 矩阵源行广播按位与.               |
+  | `aor.brow`             | 待定    | 待定    | 待定      | 矩阵源行广播按位或.               |
+  | `axor.brow`            | 待定    | 待定    | 待定      | 矩阵源行广播按位异或.             |
+  | `ashl.brow.TYPE`       | 待定    | 待定    | 待定      | 矩阵源行广播左移; `i32/u32`.      |
+  | `ashr.brow.TYPE`       | 待定    | 待定    | 待定      | 矩阵源行广播逻辑右移; `i32/u32`.  |
+  | `asra.brow.TYPE`       | 待定    | 待定    | 待定      | 矩阵源行广播算术右移; `i32/u32`.  |
 ]
 
 #instruction-listing(caption: [向量按行广播指令清单])[
-  | Instruction             | Format | Opcode | Function | Summary                               |
-  | ----------------------- | ------ | ------ | -------- | ------------------------------------- |
-  | `taddb.byrow.sat.TYPE`  | 待定   | 待定   | 待定     | 向量按行广播加法, 饱和; `i8/u8`.     |
-  | `taddb.byrow.wrap.TYPE` | 待定   | 待定   | 待定     | 向量按行广播加法, 回绕; `i8/u8`.     |
-  | `tsubb.byrow.sat.TYPE`  | 待定   | 待定   | 待定     | 向量按行广播减法, 饱和; `i8/u8`.     |
-  | `tsubb.byrow.wrap.TYPE` | 待定   | 待定   | 待定     | 向量按行广播减法, 回绕; `i8/u8`.     |
-  | `tmulb.byrow.sat.TYPE`  | 待定   | 待定   | 待定     | 向量按行广播乘法, 饱和; `i8/u8`.     |
-  | `tmulb.byrow.wrap.TYPE` | 待定   | 待定   | 待定     | 向量按行广播乘法, 回绕; `i8/u8`.     |
-  | `tminb.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播取小; `i8/u8`.           |
-  | `tmaxb.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播取大; `i8/u8`.           |
-  | `tandb.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播按位与; `i8/u8/m8`.      |
-  | `torb.byrow.TYPE`       | 待定   | 待定   | 待定     | 向量按行广播按位或; `i8/u8/m8`.      |
-  | `txorb.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播按位异或; `i8/u8/m8`.    |
-  | `tshlb.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播左移; `i8/u8`.           |
-  | `tshrb.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播逻辑右移; `i8/u8`.       |
-  | `tsrab.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播算术右移; `i8/u8`.       |
-  | `aaddv.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播加法; `i32/u32/f32`.     |
-  | `asubv.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播减法; `i32/u32/f32`.     |
-  | `amulv.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播乘法; `i32/u32/f32`.     |
-  | `adivv.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播除法; `f32`.             |
-  | `aminv.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播取小; `i32/u32/f32`.     |
-  | `amaxv.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播取大; `i32/u32/f32`.     |
-  | `aandv.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播按位与; `i32/u32/m32`.   |
-  | `aorv.byrow.TYPE`       | 待定   | 待定   | 待定     | 向量按行广播按位或; `i32/u32/m32`.   |
-  | `axorv.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播按位异或; `i32/u32/m32`. |
-  | `ashlv.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播左移; `i32/u32`.         |
-  | `ashrv.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播逻辑右移; `i32/u32`.     |
-  | `asrav.byrow.TYPE`      | 待定   | 待定   | 待定     | 向量按行广播算术右移; `i32/u32`.     |
+  | Instruction              | Format  | Opcode  | Function  | Summary                           |
+  | ------------------------ | ------- | ------- | --------- | --------------------------------- |
+  | `taddb.byrow.sat.TYPE`   | 待定    | 待定    | 待定      | 向量按行广播加法, 饱和; `i8/u8`.  |
+  | `taddb.byrow.wrap.TYPE`  | 待定    | 待定    | 待定      | 向量按行广播加法, 回绕; `i8/u8`.  |
+  | `tsubb.byrow.sat.TYPE`   | 待定    | 待定    | 待定      | 向量按行广播减法, 饱和; `i8/u8`.  |
+  | `tsubb.byrow.wrap.TYPE`  | 待定    | 待定    | 待定      | 向量按行广播减法, 回绕; `i8/u8`.  |
+  | `tmulb.byrow.sat.TYPE`   | 待定    | 待定    | 待定      | 向量按行广播乘法, 饱和; `i8/u8`.  |
+  | `tmulb.byrow.wrap.TYPE`  | 待定    | 待定    | 待定      | 向量按行广播乘法, 回绕; `i8/u8`.  |
+  | `tminb.byrow.TYPE`       | 待定    | 待定    | 待定      | 向量按行广播取小; `i8/u8`.        |
+  | `tmaxb.byrow.TYPE`       | 待定    | 待定    | 待定      | 向量按行广播取大; `i8/u8`.        |
+  | `tandb.byrow`            | 待定    | 待定    | 待定      | 向量按行广播按位与.               |
+  | `torb.byrow`             | 待定    | 待定    | 待定      | 向量按行广播按位或.               |
+  | `txorb.byrow`            | 待定    | 待定    | 待定      | 向量按行广播按位异或.             |
+  | `tshlb.byrow.TYPE`       | 待定    | 待定    | 待定      | 向量按行广播左移; `i8/u8`.        |
+  | `tshrb.byrow.TYPE`       | 待定    | 待定    | 待定      | 向量按行广播逻辑右移; `i8/u8`.    |
+  | `tsrab.byrow.TYPE`       | 待定    | 待定    | 待定      | 向量按行广播算术右移; `i8/u8`.    |
+  | `aaddv.byrow.TYPE`       | 待定    | 待定    | 待定      | 向量按行广播加法; `i32/u32/f32`.  |
+  | `asubv.byrow.TYPE`       | 待定    | 待定    | 待定      | 向量按行广播减法; `i32/u32/f32`.  |
+  | `amulv.byrow.TYPE`       | 待定    | 待定    | 待定      | 向量按行广播乘法; `i32/u32/f32`.  |
+  | `adivv.byrow.TYPE`       | 待定    | 待定    | 待定      | 向量按行广播除法; `f32`.          |
+  | `aminv.byrow.TYPE`       | 待定    | 待定    | 待定      | 向量按行广播取小; `i32/u32/f32`.  |
+  | `amaxv.byrow.TYPE`       | 待定    | 待定    | 待定      | 向量按行广播取大; `i32/u32/f32`.  |
+  | `aandv.byrow`            | 待定    | 待定    | 待定      | 向量按行广播按位与.               |
+  | `aorv.byrow`             | 待定    | 待定    | 待定      | 向量按行广播按位或.               |
+  | `axorv.byrow`            | 待定    | 待定    | 待定      | 向量按行广播按位异或.             |
+  | `ashlv.byrow.TYPE`       | 待定    | 待定    | 待定      | 向量按行广播左移; `i32/u32`.      |
+  | `ashrv.byrow.TYPE`       | 待定    | 待定    | 待定      | 向量按行广播逻辑右移; `i32/u32`.  |
+  | `asrav.byrow.TYPE`       | 待定    | 待定    | 待定      | 向量按行广播算术右移; `i32/u32`.  |
 ]
 
 #instruction-listing(caption: [向量按列广播指令清单])[
-  | Instruction             | Format | Opcode | Function | Summary                               |
-  | ----------------------- | ------ | ------ | -------- | ------------------------------------- |
-  | `taddb.bycol.sat.TYPE`  | 待定   | 待定   | 待定     | 向量按列广播加法, 饱和; `i8/u8`.     |
-  | `taddb.bycol.wrap.TYPE` | 待定   | 待定   | 待定     | 向量按列广播加法, 回绕; `i8/u8`.     |
-  | `tsubb.bycol.sat.TYPE`  | 待定   | 待定   | 待定     | 向量按列广播减法, 饱和; `i8/u8`.     |
-  | `tsubb.bycol.wrap.TYPE` | 待定   | 待定   | 待定     | 向量按列广播减法, 回绕; `i8/u8`.     |
-  | `tmulb.bycol.sat.TYPE`  | 待定   | 待定   | 待定     | 向量按列广播乘法, 饱和; `i8/u8`.     |
-  | `tmulb.bycol.wrap.TYPE` | 待定   | 待定   | 待定     | 向量按列广播乘法, 回绕; `i8/u8`.     |
-  | `tminb.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播取小; `i8/u8`.           |
-  | `tmaxb.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播取大; `i8/u8`.           |
-  | `tandb.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播按位与; `i8/u8/m8`.      |
-  | `torb.bycol.TYPE`       | 待定   | 待定   | 待定     | 向量按列广播按位或; `i8/u8/m8`.      |
-  | `txorb.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播按位异或; `i8/u8/m8`.    |
-  | `tshlb.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播左移; `i8/u8`.           |
-  | `tshrb.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播逻辑右移; `i8/u8`.       |
-  | `tsrab.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播算术右移; `i8/u8`.       |
-  | `aaddv.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播加法; `i32/u32/f32`.     |
-  | `asubv.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播减法; `i32/u32/f32`.     |
-  | `amulv.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播乘法; `i32/u32/f32`.     |
-  | `adivv.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播除法; `f32`.             |
-  | `aminv.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播取小; `i32/u32/f32`.     |
-  | `amaxv.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播取大; `i32/u32/f32`.     |
-  | `aandv.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播按位与; `i32/u32/m32`.   |
-  | `aorv.bycol.TYPE`       | 待定   | 待定   | 待定     | 向量按列广播按位或; `i32/u32/m32`.   |
-  | `axorv.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播按位异或; `i32/u32/m32`. |
-  | `ashlv.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播左移; `i32/u32`.         |
-  | `ashrv.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播逻辑右移; `i32/u32`.     |
-  | `asrav.bycol.TYPE`      | 待定   | 待定   | 待定     | 向量按列广播算术右移; `i32/u32`.     |
+  | Instruction              | Format  | Opcode  | Function  | Summary                           |
+  | ------------------------ | ------- | ------- | --------- | --------------------------------- |
+  | `taddb.bycol.sat.TYPE`   | 待定    | 待定    | 待定      | 向量按列广播加法, 饱和; `i8/u8`.  |
+  | `taddb.bycol.wrap.TYPE`  | 待定    | 待定    | 待定      | 向量按列广播加法, 回绕; `i8/u8`.  |
+  | `tsubb.bycol.sat.TYPE`   | 待定    | 待定    | 待定      | 向量按列广播减法, 饱和; `i8/u8`.  |
+  | `tsubb.bycol.wrap.TYPE`  | 待定    | 待定    | 待定      | 向量按列广播减法, 回绕; `i8/u8`.  |
+  | `tmulb.bycol.sat.TYPE`   | 待定    | 待定    | 待定      | 向量按列广播乘法, 饱和; `i8/u8`.  |
+  | `tmulb.bycol.wrap.TYPE`  | 待定    | 待定    | 待定      | 向量按列广播乘法, 回绕; `i8/u8`.  |
+  | `tminb.bycol.TYPE`       | 待定    | 待定    | 待定      | 向量按列广播取小; `i8/u8`.        |
+  | `tmaxb.bycol.TYPE`       | 待定    | 待定    | 待定      | 向量按列广播取大; `i8/u8`.        |
+  | `tandb.bycol`            | 待定    | 待定    | 待定      | 向量按列广播按位与.               |
+  | `torb.bycol`             | 待定    | 待定    | 待定      | 向量按列广播按位或.               |
+  | `txorb.bycol`            | 待定    | 待定    | 待定      | 向量按列广播按位异或.             |
+  | `tshlb.bycol.TYPE`       | 待定    | 待定    | 待定      | 向量按列广播左移; `i8/u8`.        |
+  | `tshrb.bycol.TYPE`       | 待定    | 待定    | 待定      | 向量按列广播逻辑右移; `i8/u8`.    |
+  | `tsrab.bycol.TYPE`       | 待定    | 待定    | 待定      | 向量按列广播算术右移; `i8/u8`.    |
+  | `aaddv.bycol.TYPE`       | 待定    | 待定    | 待定      | 向量按列广播加法; `i32/u32/f32`.  |
+  | `asubv.bycol.TYPE`       | 待定    | 待定    | 待定      | 向量按列广播减法; `i32/u32/f32`.  |
+  | `amulv.bycol.TYPE`       | 待定    | 待定    | 待定      | 向量按列广播乘法; `i32/u32/f32`.  |
+  | `adivv.bycol.TYPE`       | 待定    | 待定    | 待定      | 向量按列广播除法; `f32`.          |
+  | `aminv.bycol.TYPE`       | 待定    | 待定    | 待定      | 向量按列广播取小; `i32/u32/f32`.  |
+  | `amaxv.bycol.TYPE`       | 待定    | 待定    | 待定      | 向量按列广播取大; `i32/u32/f32`.  |
+  | `aandv.bycol`            | 待定    | 待定    | 待定      | 向量按列广播按位与.               |
+  | `aorv.bycol`             | 待定    | 待定    | 待定      | 向量按列广播按位或.               |
+  | `axorv.bycol`            | 待定    | 待定    | 待定      | 向量按列广播按位异或.             |
+  | `ashlv.bycol.TYPE`       | 待定    | 待定    | 待定      | 向量按列广播左移; `i32/u32`.      |
+  | `ashrv.bycol.TYPE`       | 待定    | 待定    | 待定      | 向量按列广播逻辑右移; `i32/u32`.  |
+  | `asrav.bycol.TYPE`       | 待定    | 待定    | 待定      | 向量按列广播算术右移; `i32/u32`.  |
 ]
 
 #instruction-listing(caption: [比较指令清单])[
-  | Instruction       | Format | Opcode | Function | Summary                                |
-  | ----------------- | ------ | ------ | -------- | -------------------------------------- |
-  | `tcmp.eq.TYPE`    | 待定   | 待定   | 待定     | 同域右源相等比较; `i8/u8`.            |
-  | `tcmp.ne.TYPE`    | 待定   | 待定   | 待定     | 同域右源不等比较; `i8/u8`.            |
-  | `tcmp.lt.TYPE`    | 待定   | 待定   | 待定     | 同域右源小于比较; `i8/u8`.            |
-  | `tcmp.ge.TYPE`    | 待定   | 待定   | 待定     | 同域右源大于等于比较; `i8/u8`.        |
-  | `acmp.eq.TYPE`    | 待定   | 待定   | 待定     | 同域右源相等比较; `i32/u32/f32`.      |
-  | `acmp.ne.TYPE`    | 待定   | 待定   | 待定     | 同域右源不等比较; `i32/u32`.          |
-  | `acmp.lt.TYPE`    | 待定   | 待定   | 待定     | 同域右源小于比较; `i32/u32/f32`.      |
-  | `acmp.ge.TYPE`    | 待定   | 待定   | 待定     | 同域右源大于等于比较; `i32/u32`.      |
-  | `acmp.le.f32`     | 待定   | 待定   | 待定     | 同域右源小于等于比较; `f32`.          |
-  | `acmp.unord.f32`  | 待定   | 待定   | 待定     | 同域右源浮点无序比较.                 |
-  | `acmpx.eq.TYPE`   | 待定   | 待定   | 待定     | Scalar 值相等比较; `i32/u32/f32`.     |
-  | `acmpx.ne.TYPE`   | 待定   | 待定   | 待定     | Scalar 值不等比较; `i32/u32`.         |
-  | `acmpx.lt.TYPE`   | 待定   | 待定   | 待定     | Scalar 值小于比较; `i32/u32/f32`.     |
-  | `acmpx.ge.TYPE`   | 待定   | 待定   | 待定     | Scalar 值大于等于比较; `i32/u32`.     |
-  | `acmpx.le.f32`    | 待定   | 待定   | 待定     | Scalar 值小于等于比较; `f32`.         |
-  | `acmpx.unord.f32` | 待定   | 待定   | 待定     | Scalar 值浮点无序比较.                |
-  | `bcmp.eq.TYPE`    | 待定   | 待定   | 待定     | 同域右源相等比较; `i8/u8`.            |
-  | `bcmp.ne.TYPE`    | 待定   | 待定   | 待定     | 同域右源不等比较; `i8/u8`.            |
-  | `bcmp.lt.TYPE`    | 待定   | 待定   | 待定     | 同域右源小于比较; `i8/u8`.            |
-  | `bcmp.ge.TYPE`    | 待定   | 待定   | 待定     | 同域右源大于等于比较; `i8/u8`.        |
-  | `vcmp.eq.TYPE`    | 待定   | 待定   | 待定     | 同域右源相等比较; `i32/u32/f32`.      |
-  | `vcmp.ne.TYPE`    | 待定   | 待定   | 待定     | 同域右源不等比较; `i32/u32`.          |
-  | `vcmp.lt.TYPE`    | 待定   | 待定   | 待定     | 同域右源小于比较; `i32/u32/f32`.      |
-  | `vcmp.ge.TYPE`    | 待定   | 待定   | 待定     | 同域右源大于等于比较; `i32/u32`.      |
-  | `vcmp.le.f32`     | 待定   | 待定   | 待定     | 同域右源小于等于比较; `f32`.          |
-  | `vcmp.unord.f32`  | 待定   | 待定   | 待定     | 同域右源浮点无序比较.                 |
-  | `vcmpx.eq.TYPE`   | 待定   | 待定   | 待定     | Scalar 值相等比较; `i32/u32/f32`.     |
-  | `vcmpx.ne.TYPE`   | 待定   | 待定   | 待定     | Scalar 值不等比较; `i32/u32`.         |
-  | `vcmpx.lt.TYPE`   | 待定   | 待定   | 待定     | Scalar 值小于比较; `i32/u32/f32`.     |
-  | `vcmpx.ge.TYPE`   | 待定   | 待定   | 待定     | Scalar 值大于等于比较; `i32/u32`.     |
-  | `vcmpx.le.f32`    | 待定   | 待定   | 待定     | Scalar 值小于等于比较; `f32`.         |
-  | `vcmpx.unord.f32` | 待定   | 待定   | 待定     | Scalar 值浮点无序比较.                |
+  | Instruction        | Format  | Opcode  | Function  | Summary                            |
+  | ------------------ | ------- | ------- | --------- | ---------------------------------- |
+  | `tcmp.eq.TYPE`     | 待定    | 待定    | 待定      | 同域右源相等比较; `i8/u8`.         |
+  | `tcmp.ne.TYPE`     | 待定    | 待定    | 待定      | 同域右源不等比较; `i8/u8`.         |
+  | `tcmp.lt.TYPE`     | 待定    | 待定    | 待定      | 同域右源小于比较; `i8/u8`.         |
+  | `tcmp.ge.TYPE`     | 待定    | 待定    | 待定      | 同域右源大于等于比较; `i8/u8`.     |
+  | `acmp.eq.TYPE`     | 待定    | 待定    | 待定      | 同域右源相等比较; `i32/u32/f32`.   |
+  | `acmp.ne.TYPE`     | 待定    | 待定    | 待定      | 同域右源不等比较; `i32/u32`.       |
+  | `acmp.lt.TYPE`     | 待定    | 待定    | 待定      | 同域右源小于比较; `i32/u32/f32`.   |
+  | `acmp.ge.TYPE`     | 待定    | 待定    | 待定      | 同域右源大于等于比较; `i32/u32`.   |
+  | `acmp.le.f32`      | 待定    | 待定    | 待定      | 同域右源小于等于比较; `f32`.       |
+  | `acmp.unord.f32`   | 待定    | 待定    | 待定      | 同域右源浮点无序比较.              |
+  | `acmpx.eq.TYPE`    | 待定    | 待定    | 待定      | Scalar 值相等比较; `i32/u32/f32`.  |
+  | `acmpx.ne.TYPE`    | 待定    | 待定    | 待定      | Scalar 值不等比较; `i32/u32`.      |
+  | `acmpx.lt.TYPE`    | 待定    | 待定    | 待定      | Scalar 值小于比较; `i32/u32/f32`.  |
+  | `acmpx.ge.TYPE`    | 待定    | 待定    | 待定      | Scalar 值大于等于比较; `i32/u32`.  |
+  | `acmpx.le.f32`     | 待定    | 待定    | 待定      | Scalar 值小于等于比较; `f32`.      |
+  | `acmpx.unord.f32`  | 待定    | 待定    | 待定      | Scalar 值浮点无序比较.             |
+  | `bcmp.eq.TYPE`     | 待定    | 待定    | 待定      | 同域右源相等比较; `i8/u8`.         |
+  | `bcmp.ne.TYPE`     | 待定    | 待定    | 待定      | 同域右源不等比较; `i8/u8`.         |
+  | `bcmp.lt.TYPE`     | 待定    | 待定    | 待定      | 同域右源小于比较; `i8/u8`.         |
+  | `bcmp.ge.TYPE`     | 待定    | 待定    | 待定      | 同域右源大于等于比较; `i8/u8`.     |
+  | `vcmp.eq.TYPE`     | 待定    | 待定    | 待定      | 同域右源相等比较; `i32/u32/f32`.   |
+  | `vcmp.ne.TYPE`     | 待定    | 待定    | 待定      | 同域右源不等比较; `i32/u32`.       |
+  | `vcmp.lt.TYPE`     | 待定    | 待定    | 待定      | 同域右源小于比较; `i32/u32/f32`.   |
+  | `vcmp.ge.TYPE`     | 待定    | 待定    | 待定      | 同域右源大于等于比较; `i32/u32`.   |
+  | `vcmp.le.f32`      | 待定    | 待定    | 待定      | 同域右源小于等于比较; `f32`.       |
+  | `vcmp.unord.f32`   | 待定    | 待定    | 待定      | 同域右源浮点无序比较.              |
+  | `vcmpx.eq.TYPE`    | 待定    | 待定    | 待定      | Scalar 值相等比较; `i32/u32/f32`.  |
+  | `vcmpx.ne.TYPE`    | 待定    | 待定    | 待定      | Scalar 值不等比较; `i32/u32`.      |
+  | `vcmpx.lt.TYPE`    | 待定    | 待定    | 待定      | Scalar 值小于比较; `i32/u32/f32`.  |
+  | `vcmpx.ge.TYPE`    | 待定    | 待定    | 待定      | Scalar 值大于等于比较; `i32/u32`.  |
+  | `vcmpx.le.f32`     | 待定    | 待定    | 待定      | Scalar 值小于等于比较; `f32`.      |
+  | `vcmpx.unord.f32`  | 待定    | 待定    | 待定      | Scalar 值浮点无序比较.             |
 ]
 
 #instruction-listing(caption: [选择指令清单])[
-  | Instruction    | Format | Opcode | Function | Summary                         |
-  | -------------- | ------ | ------ | -------- | ------------------------------- |
-  | `tselect.TYPE` | 待定   | 待定   | 待定     | mask 非零时选择 A, 否则选择 B. |
-  | `aselect.TYPE` | 待定   | 待定   | 待定     | mask 非零时选择 A, 否则选择 B. |
-  | `bselect.TYPE` | 待定   | 待定   | 待定     | mask 非零时选择 A, 否则选择 B. |
-  | `vselect.TYPE` | 待定   | 待定   | 待定     | mask 非零时选择 A, 否则选择 B. |
+  | Instruction  | Format  | Opcode  | Function  | Summary                         |
+  | ------------ | ------- | ------- | --------- | ------------------------------- |
+  | `tselect`    | 待定    | 待定    | 待定      | mask 非零时选择 A, 否则选择 B.  |
+  | `aselect`    | 待定    | 待定    | 待定      | mask 非零时选择 A, 否则选择 B.  |
+  | `bselect`    | 待定    | 待定    | 待定      | mask 非零时选择 A, 否则选择 B.  |
+  | `vselect`    | 待定    | 待定    | 待定      | mask 非零时选择 A, 否则选择 B.  |
 ]
 
 #instruction-listing(caption: [Mask 指令清单])[
-  | Instruction  | Format | Opcode | Function | Summary                                  |
-  | ------------ | ------ | ------ | -------- | ---------------------------------------- |
-  | `tmask.tail` | 待定   | 待定   | 待定     | 保留行列坐标小于 xRows, xCols 的源元素. |
-  | `tmask.tril` | 待定   | 待定   | 待定     | 保留满足 $j-i <= "xDelta"$ 的源元素.    |
-  | `tmask.triu` | 待定   | 待定   | 待定     | 保留满足 $j-i >= "xDelta"$ 的源元素.    |
-  | `amask.tail` | 待定   | 待定   | 待定     | 保留行列坐标小于 xRows, xCols 的源元素. |
-  | `amask.tril` | 待定   | 待定   | 待定     | 保留满足 $j-i <= "xDelta"$ 的源元素.    |
-  | `amask.triu` | 待定   | 待定   | 待定     | 保留满足 $j-i >= "xDelta"$ 的源元素.    |
-  | `bmask.tail` | 待定   | 待定   | 待定     | 保留 lane 索引小于 xLen 的源元素.       |
-  | `vmask.tail` | 待定   | 待定   | 待定     | 保留 lane 索引小于 xLen 的源元素.       |
+  | Instruction   | Format  | Opcode  | Function  | Summary                                  |
+  | ------------- | ------- | ------- | --------- | ---------------------------------------- |
+  | `tmask.tail`  | 待定    | 待定    | 待定      | 保留行列坐标小于 xRows, xCols 的源元素.  |
+  | `tmask.tril`  | 待定    | 待定    | 待定      | 保留满足 $j-i <= "xDelta"$ 的源元素.     |
+  | `tmask.triu`  | 待定    | 待定    | 待定      | 保留满足 $j-i >= "xDelta"$ 的源元素.     |
+  | `amask.tail`  | 待定    | 待定    | 待定      | 保留行列坐标小于 xRows, xCols 的源元素.  |
+  | `amask.tril`  | 待定    | 待定    | 待定      | 保留满足 $j-i <= "xDelta"$ 的源元素.     |
+  | `amask.triu`  | 待定    | 待定    | 待定      | 保留满足 $j-i >= "xDelta"$ 的源元素.     |
+  | `bmask.tail`  | 待定    | 待定    | 待定      | 保留 lane 索引小于 xLen 的源元素.        |
+  | `vmask.tail`  | 待定    | 待定    | 待定      | 保留 lane 索引小于 xLen 的源元素.        |
 ]
 
 == 规约与类型转换
@@ -2659,25 +2646,25 @@ $ "Pscaled" = P "Vscale" $
 详细语义见 @reduction-conversion.
 
 #instruction-listing(caption: [规约指令清单])[
-  | Instruction               | Format | Opcode | Function | Summary                                         |
-  | ------------------------- | ------ | ------ | -------- | ----------------------------------------------- |
-  | `areduce.rows.sum.f32`    | 待定   | 待定   | 待定     | 将 Acc 按行求和到 Vec32.                       |
-  | `areduce.rows.max.f32`    | 待定   | 待定   | 待定     | 将 Acc 按行取最大到 Vec32.                     |
-  | `areduce.rows.min.f32`    | 待定   | 待定   | 待定     | 将 Acc 按行取最小到 Vec32.                     |
-  | `areduce.rows.sumsq.f32`  | 待定   | 待定   | 待定     | 将 Acc 每行有效元素的平方和写入 Vec32.         |
-  | `vreduce.sum.f32`         | 待定   | 待定   | 待定     | 将 f32 Vec32 的有效 lane 求和到 Scalar.        |
-  | `vreduce.max.f32`         | 待定   | 待定   | 待定     | 将 f32 Vec32 的有效 lane 取最大到 Scalar.      |
-  | `vreduce.min.f32`         | 待定   | 待定   | 待定     | 将 f32 Vec32 的有效 lane 取最小到 Scalar.      |
-  | `vreduce.sumsq.f32`       | 待定   | 待定   | 待定     | 将 f32 Vec32 的有效 lane 平方和到 Scalar.      |
-  | `vreduce.argmax.f32`      | 待定   | 待定   | 待定     | 输出最大值的逻辑索引与浮点位模式到两个 Scalar. |
+  | Instruction               | Format  | Opcode  | Function  | Summary                                         |
+  | ------------------------- | ------- | ------- | --------- | ----------------------------------------------- |
+  | `areduce.rows.sum.f32`    | 待定    | 待定    | 待定      | 将 Acc 按行求和到 Vec32.                        |
+  | `areduce.rows.max.f32`    | 待定    | 待定    | 待定      | 将 Acc 按行取最大到 Vec32.                      |
+  | `areduce.rows.min.f32`    | 待定    | 待定    | 待定      | 将 Acc 按行取最小到 Vec32.                      |
+  | `areduce.rows.sumsq.f32`  | 待定    | 待定    | 待定      | 将 Acc 每行有效元素的平方和写入 Vec32.          |
+  | `vreduce.sum.f32`         | 待定    | 待定    | 待定      | 将 f32 Vec32 的有效 lane 求和到 Scalar.         |
+  | `vreduce.max.f32`         | 待定    | 待定    | 待定      | 将 f32 Vec32 的有效 lane 取最大到 Scalar.       |
+  | `vreduce.min.f32`         | 待定    | 待定    | 待定      | 将 f32 Vec32 的有效 lane 取最小到 Scalar.       |
+  | `vreduce.sumsq.f32`       | 待定    | 待定    | 待定      | 将 f32 Vec32 的有效 lane 平方和到 Scalar.       |
+  | `vreduce.argmax.f32`      | 待定    | 待定    | 待定      | 输出最大值的逻辑索引与浮点位模式到两个 Scalar.  |
 ]
 
 #instruction-listing(caption: [类型转换与扩大指令清单])[
-  | Instruction     | Format | Opcode | Function | Summary                                     |
-  | --------------- | ------ | ------ | -------- | ------------------------------------------- |
-  | `acvt.i32.f32`  | 待定   | 待定   | 待定     | 将 Acc 中的 `i32` 逐元素转为 `f32`.         |
-  | `vcvt.i32.f32`  | 待定   | 待定   | 待定     | 将 Vec32 中的 `i32` 逐 lane 转为 `f32`.     |
-  | `twiden.i8.i32` | 待定   | 待定   | 待定     | 将 Tile 的 `i8` 符号扩展到 Acc 的 `i32`.   |
+  | Instruction      | Format  | Opcode  | Function  | Summary                                   |
+  | ---------------- | ------- | ------- | --------- | ----------------------------------------- |
+  | `acvt.i32.f32`   | 待定    | 待定    | 待定      | 将 Acc 中的 `i32` 逐元素转为 `f32`.       |
+  | `vcvt.i32.f32`   | 待定    | 待定    | 待定      | 将 Vec32 中的 `i32` 逐 lane 转为 `f32`.   |
+  | `twiden.i8.i32`  | 待定    | 待定    | 待定      | 将 Tile 的 `i8` 符号扩展到 Acc 的 `i32`.  |
 ]
 
 == 量化与反量化
@@ -2685,12 +2672,12 @@ $ "Pscaled" = P "Vscale" $
 详细语义见 @quantization.
 
 #instruction-listing(caption: [量化与反量化指令清单])[
-  | Instruction | Format | Opcode | Function | Summary |
-  | --- | --- | --- | --- | --- |
-  | `tquant.rows.q8s32` | 待定 | 待定 | 待定 | 将 Acc 按行量化到 Tile, 每行产生一个 Vec32 scale. |
-  | `vquant.q8s32` | 待定 | 待定 | 待定 | 将 Vec32 量化到 Vec8, 产生一个指定 lane 的 scale. |
-  | `tdequant.rows.f32` | 待定 | 待定 | 待定 | 用每行的 Vec32 scale 将 Tile 反量化到 f32 Acc. |
-  | `bdequant.f32` | 待定 | 待定 | 待定 | 用指定 scale lane 将 Vec8 反量化到 f32 Vec32. |
+  | Instruction          | Format  | Opcode  | Function  | Summary                                            |
+  | -------------------- | ------- | ------- | --------- | -------------------------------------------------- |
+  | `tquant.rows.q8s32`  | 待定    | 待定    | 待定      | 将 Acc 按行量化到 Tile, 每行产生一个 Vec32 scale.  |
+  | `vquant.q8s32`       | 待定    | 待定    | 待定      | 将 Vec32 量化到 Vec8, 产生一个指定 lane 的 scale.  |
+  | `tdequant.rows.f32`  | 待定    | 待定    | 待定      | 用每行的 Vec32 scale 将 Tile 反量化到 f32 Acc.     |
+  | `bdequant.f32`       | 待定    | 待定    | 待定      | 用指定 scale lane 将 Vec8 反量化到 f32 Vec32.      |
 ]
 
 = 附录: 助记符速查 <quickref>
@@ -2699,16 +2686,16 @@ $ "Pscaled" = P "Vscale" $
   columns: (1.1fr, 2fr, 2.9fr),
   caption: [ISA 助记符速查],
 )[
-  | 前缀或功能族       | 主要对象                   | 读法示例                                                                                     |
-  | ------------------ | -------------------------- | -------------------------------------------------------------------------------------------- |
-  | `xload` / `xstore` | Scalar `x` 与内存          | `xload.i32` 读取整数参数或索引.                                                             |
-  | `t` / `a`          | Tile / Acc 矩阵数据域      | `tload` / `aload` 使用 `TM`; `tcopy` / `acopy` 执行同域复制.                                |
-  | `b` / `v`          | Vec8 / Vec32 向量数据域    | `bload` / `vload` 使用 `VM`; `badd` / `vadd` 执行同域向量加法.                              |
-  | `cfg`              | `TC/AC/BC/VC/TM/VM`        | `cfg.seti` 写立即数字段; `cfg.setx` 从 Scalar 写字段.                                       |
-  | `mma`              | Tile × Tile → Acc          | `mma.nt.acc.i8.i32` 以 `i8` 输入执行逻辑转置矩阵乘, 并累加到 `i32` Acc.                     |
-  | `bdot`             | Vec8 × Tile → Vec32        | `bdot.nn.i8.i32` 产生 `i32` 向量; 跨块累加使用 `vadd.i32`.                                  |
-  | 跨域转换           | 指令显式规定输入与输出域   | `twiden`: Tile → Acc; `tquant`: Acc → Tile; `vquant`: Vec32 → Vec8. |
-  | `fence` / `kernel` | 后端完成与 kernel 生命周期 | `fence.mem` / `fence.sa` / `fence.all` 建立完成边界; `kernel.end` 结束 kernel.              |
+  | 前缀或功能族        | 主要对象                    | 读法示例                                                                        |
+  | ------------------- | --------------------------- | ------------------------------------------------------------------------------- |
+  | `xload` / `xstore`  | Scalar `x` 与内存           | `xload.i32` 读取整数参数或索引.                                                 |
+  | `t` / `a`           | Tile / Acc 矩阵数据域       | `tload` / `aload` 使用 `TM`; `tcopy` / `acopy` 执行同域复制.                    |
+  | `b` / `v`           | Vec8 / Vec32 向量数据域     | `bload` / `vload` 使用 `VM`; `badd` / `vadd` 执行同域向量加法.                  |
+  | `cfg`               | `TC/AC/BC/VC/TM/VM`         | `cfg.seti` 写立即数字段; `cfg.setx` 从 Scalar 写字段.                           |
+  | `mma`               | Tile × Tile → Acc           | `mma.nt.acc.i8.i32` 以 `i8` 输入执行逻辑转置矩阵乘, 并累加到 `i32` Acc.         |
+  | `bdot`              | Vec8 × Tile → Vec32         | `bdot.nn.i8.i32` 产生 `i32` 向量; 跨块累加使用 `vadd.i32`.                      |
+  | 跨域转换            | 指令显式规定输入与输出域    | `twiden`: Tile → Acc; `tquant`: Acc → Tile; `vquant`: Vec32 → Vec8.             |
+  | `fence` / `kernel`  | 后端完成与 kernel 生命周期  | `fence.mem` / `fence.sa` / `fence.all` 建立完成边界; `kernel.end` 结束 kernel.  |
 ]
 
 前缀表示指令所属的数据域或功能族, 跨域指令须结合操作数阅读. 例如 `treduce` 的目的为 Vec32, `vreduce` 的目的为 Scalar, 不能仅根据前缀推断目的寄存器.
