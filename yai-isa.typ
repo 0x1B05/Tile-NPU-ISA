@@ -160,7 +160,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 )[
   | 格式  | 操作数形态                              | 覆盖指令                                                                                                                                                        |
   | ----- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | T_R3  | `D, A, B` + TYPE/mode                   | 三源逐元素, 比较, 矩阵乘与点积, 量化与反量化 (bits 与 scale 为两个显式目的/源, 为双目的变体); `.row`, `.brow`, `.byrow`, `.bycol` 与 sat/wrap 由 mode 字段区分  |
+  | T_R3  | `D, A, B` + mode                        | 三源逐元素, 比较, 矩阵乘与点积, 量化与反量化 (bits 与 scale 为两个显式目的/源, 为双目的变体); `.row`, `.brow`, `.byrow`, `.bycol` 与 sat/wrap 由 mode 字段区分  |
   | T_R4  | `D, A, B, C`                            | `select` (D, M, A, B), `fmadd`                                                                                                                                  |
   | T_RX  | `D, A, xS`                              | `opx`, `cmpx`, mask (`tail`, `tril`, `triu`), 带行号或 lane 号的行搬运与 lane 操作                                                                              |
   | T_U   | `D, S` 或 `D, imm`                      | 规约, 类型转换与扩大, 近似函数, fill, copy, 转置; `vreduce.argmax` 产生两个 Scalar 目的, 为 T_U 变体                                                            |
@@ -169,7 +169,9 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | T_S   | 近零操作数                              | `fence.*`, `getcap`, `kernel.end`                                                                                                                               |
 ]
 
-编码原则: 指令定长 32-bit; 目的寄存器字段固定在最低类别位之上; `TYPE`, mode 与 `COND` 等参数字段在所有格式中占据相同位段.
+编码原则:
++ 指令不包含 dtype 信息, 操作数的元素类型由绑定的配置寄存器 (TC/AC/BC/VC) 的 dtype 字段给出, 助记符中的 `.TYPE` 后缀是汇编层的可读性标注.;
++ mode 与 `COND` 等参数字段在所有格式中占据相同位段.
 
 字段位宽按操作数计数确定(各格式的具体位段位置待指令格式定稿后补充):
 
@@ -182,7 +184,6 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | Tile/Acc 编号           | 4bit    |                                                                            |
   | Vec8/Vec32/Scalar 编号  | 5bit    |                                                                            |
   | Tm/Vm 编号              | 4bit    |                                                                            |
-  | dtype                   | 3bit    | i8/u8/i32/u32/f32, 3种预留                                                 |
   | mode                    | 2-3bit  | sat/wrap #linebreak() 广播方向.brow, .byrow, .bycol #linebreak() 访存形式  |
   | cond                    | 2-3bit  | 整数eq,ne,lt,ge #linebreak() f32 eq,lt,le,unord                            |
 ]
