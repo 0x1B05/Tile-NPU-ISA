@@ -57,7 +57,7 @@
 
 ```
   31   28 27  23 22  18 17  15 14  12 11   7 6    2 1  0
- [ op ][ B  ][ A  ][C3][m3][ f5 ][ D  ][ q ]
+ [ op ][ B  ][ A  ][SB][m3][ f5 ][ D  ][ q ]
 ```
 
 #manual-table(
@@ -68,9 +68,9 @@
   | --------- | ----- | ---------------------------------------------------------------------------------------- |
   | `[1:0]`   | q     | 类别标签 (见上表)                                                                        |
   | `[6:2]`   | D     | 目的寄存器编号, 5 bit; Tile/Acc 只用低 4 bit, 最高位为 0                                 |
-  | `[11:7]`  | f5    | funct5, 类内操作选择; T_R4 中作为第三源 (C 或 M); 广播行号/索引类立即数                  |
+  | `[11:7]`  | f5    | funct5, 类内操作选择; T_R4 中作为第三源 (C 或 M); 广播行号 rb/索引类立即数               |
   | `[14:12]` | mode  | 变体选择: 广播方向, 源形式 (reg/xS 或 imm/xS), 按 op 类解释                              |
-  | `[17:15]` | COND  | 比较条件 (cmp 类); 对特定 op 类复用为 sat 位或 brow 操作选择, 其余为 0                   |
+  | `[17:15]` | SUB   | 物理共享子字段, 3 bit; cmp 类中别名 COND (比较条件), ADD/SUB 中 `SUB[0]` 为 sat 位, brow BIT/SHIFT 类中 `SUB[1:0]` 为 BITOP/SHIFTOP, 其余为 0 或保留 |
   | `[22:18]` | A     | 第一源寄存器编号, 5 bit                                                                  |
   | `[27:23]` | B     | 第二源寄存器编号, 5 bit; T_RX 中此槽位为 Scalar 源 `xS`                                  |
   | `[31:28]` | op    | 主操作码, 4 bit, 每个类别 16 个操作码类                                                  |
@@ -205,19 +205,40 @@ mask 的 fill 值占 `[17:12]` 共 6 bit, 按目的 dtype 解释:
   | `[1:0]` dir | 操作形态: `00` plain, `01` brow, `10` byrow, `11` bycol                                |
 ]
 
-== COND 复用
+== SUB 按类解释
+
+物理字段 `[17:15]` 命名为 `SUB` (共享子字段, 3 bit), 语义按指令族解释; 比较指令中别名 `COND`. `SUB[1:0]` 的低 2 bit 在 brow 的 BIT/SHIFT 类中用作操作选择, 编码 `11` 保留.
 
 #manual-table(
-  columns: (1.2fr, 3.6fr),
-  caption: [00 类别 COND 按类解释],
+  columns: (1.4fr, 3.6fr),
+  caption: [00 类别 SUB 按类解释],
 )[
-  | op 类      | COND 含义                                                              |
-  | ---------- | ---------------------------------------------------------------------- |
-  | ADD, SUB   | `COND[0]` = sat/wrap: 0 = wrap, 1 = sat (仅 8-bit 域; 32-bit 域忽略)   |
-  | BIT, SHIFT | brow 时 `COND[1:0]` 为操作选择: BIT 为 `00` and, `01` or, `10` xor; SHIFT 为 `00` shl, `01` shr, `10` sra |
-  | CMP        | 比较条件 (见 CMP 节的 COND 编码表)                                     |
-  | 其余类     | 0                                                                      |
+  | 指令族             | `SUB` 含义                                                              |
+  | ------------------ | ---------------------------------------------------------------------- |
+  | ADD, SUB           | `SUB[0]` = sat/wrap: 0 = wrap, 1 = sat (仅 8-bit 域; 32-bit 域忽略), `SUB[2:1]` 为 0 |
+  | BIT 非 brow        | 保留为 0; 操作由 f5 选择                                                |
+  | SHIFT 非 brow      | 保留为 0; 操作由 f5 选择                                                |
+  | BIT brow           | `SUB[1:0]` = BITOP: `00` and, `01` or, `10` xor, `11` 保留; `SUB[2]` 为 0 |
+  | SHIFT brow         | `SUB[1:0]` = SHIFTOP: `00` shl, `01` shr, `10` sra, `11` 保留; `SUB[2]` 为 0 |
+  | CMP                | `SUB` = COND 比较条件 (见 CMP 节的 COND 编码表)                         |
+  | 其余类             | 为 0 或保留                                                             |
 ]
+
+#note[
+  解码顺序: `mode == BROW` 必须先于 f5 解释. class 为 BIT 或 SHIFT 且 `mode == BROW` 时, f5 表示行号 rb, 操作选择读 `SUB[1:0]`; 其他情况下 f5 表示操作, `SUB` 按上表处理. 非零的无效组合 (如 BITOP/SHIFTOP 编码 `11`) 必须被汇编器拒绝, 解码器按保留编码处理.
+]
+
+brow BIT/SHIFT 的编码示例:
+
+```asm
+tand.brow tD, tA, tB[rb]    # op=BIT,   mode=BROW, f5=rb, SUB[1:0]=00 (and)
+tor.brow  tD, tA, tB[rb]    # op=BIT,   mode=BROW, f5=rb, SUB[1:0]=01 (or)
+txor.brow tD, tA, tB[rb]    # op=BIT,   mode=BROW, f5=rb, SUB[1:0]=10 (xor)
+
+tshl.brow tD, tA, tB[rb]    # op=SHIFT, mode=BROW, f5=rb, SUB[1:0]=00 (shl)
+tshr.brow tD, tA, tB[rb]    # op=SHIFT, mode=BROW, f5=rb, SUB[1:0]=01 (shr)
+tsra.brow tD, tA, tB[rb]    # op=SHIFT, mode=BROW, f5=rb, SUB[1:0]=10 (sra)
+```
 
 == 各 op 类指令
 
@@ -231,8 +252,8 @@ mask 的 fill 值占 `[17:12]` 共 6 bit, 按目的 dtype 解释:
 )[
   | 汇编形式                       | op          | 含义                                          |
   | ------------------------------ | ----------- | --------------------------------------------- |
-  | `tadd.sat.i8 t0, t1, t2`       | ADD         | Tile 逐元素饱和加; mode.dir=00, COND[0]=1     |
-  | `tadd.wrap.i8 t0, t1, t2`      | ADD         | Tile 逐元素回绕加; COND[0]=0                  |
+  | `tadd.sat.i8 t0, t1, t2`       | ADD         | Tile 逐元素饱和加; mode.dir=00, SUB[0]=1     |
+  | `tadd.wrap.i8 t0, t1, t2`      | ADD         | Tile 逐元素回绕加; SUB[0]=0                  |
   | `aadd.f32 a0, a1, a2`          | ADD         | Acc 逐元素 f32 加                             |
   | `vaddx.f32 v0, v1, x4`         | ADD         | Vec32 逐元素加 Scalar 值; mode.src=1          |
   | `tadd.brow.sat.i8 t0, t1, t2[3]` | ADD       | 右矩阵第 3 行广播后逐元素饱和加; f5=3, dir=01 |
@@ -258,7 +279,7 @@ mask 的 fill 值占 `[17:12]` 共 6 bit, 按目的 dtype 解释:
   | `00011` | `{t,a,b,v}not`                  | 按位取反 (单源, 无 x 形式, B 槽位为 0) |
 ]
 
-brow 形式 (`dir = 01`) 中 f5 为行号 rb, 操作选择移入 `COND[1:0]` (编码同上表低两位).
+brow 形式 (`dir = 01`) 中 f5 为行号 rb (立即数或 Scalar 编号, 由 mode.src 选择), 操作选择移入 `SUB[1:0]` 为 BITOP (`00` and, `01` or, `10` xor, `11` 保留).
 
 === SHIFT (移位)
 
@@ -275,7 +296,7 @@ brow 形式 (`dir = 01`) 中 f5 为行号 rb, 操作选择移入 `COND[1:0]` (�
   | `00010` | `{t,a,b,v}sra`, `srax`        | 算术右移   |
 ]
 
-brow 形式的行号处理与 BIT 相同.
+brow 形式中 f5 为行号 rb, 操作选择移入 `SUB[1:0]` 为 SHIFTOP (`00` shl, `01` shr, `10` sra, `11` 保留).
 
 === ABSNEG (一元)
 
@@ -603,6 +624,6 @@ bits 与 scale 是两个显式目的/源. 目的寄存器按助记符首字母�
 
 = 实施注记
 
-1. brow 的行号 rb: 单操作类 (ADD/SUB/MUL/DIV/MIN/MAX) 直接写入 f5 槽位; 组合类 (BIT/SHIFT) 的 f5 被操作占用, brow 时操作选择移入 COND[1:0]. 该 COND 复用方案体现"子字段按类解释"的原则, 待确认.
+1. brow 的行号 rb: 全部 brow 指令统一由 f5 携带 (立即数或 Scalar 编号, 由 mode.src 选择), 不新增 brow 专用 op 类; 组合类 (BIT/SHIFT) 的操作选择移入共享物理子字段 `SUB[1:0]` (BITOP/SHIFTOP, 编码 `11` 保留), 该字段在比较指令中别名 COND. 解码顺序为 `mode == BROW` 先于 f5 解释.
 2. `maskx.*` 为定案新增指令族 (fill 由 Scalar 提供), 需补入手册正文与清单.
 3. 手册"矩阵行访存"节的伪代码已按 T_MR 语义修正: `rd/rs` 不参与地址计算, 内存坐标由 `xRowCol` 提供.
