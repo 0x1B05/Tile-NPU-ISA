@@ -6,7 +6,7 @@
   #v(18mm)
   #text(size: 22pt, weight: "bold")[Tile NPU 指令编码设计]
   #v(5mm)
-  #text(size: 12pt)[指令格式与操作码分配 (定案草案 v2)]
+  #text(size: 12pt)[指令格式与操作码分配]
   #v(12mm)
   #line(length: 55%, stroke: 1.2pt + rgb("446e9b"))
 ]
@@ -32,7 +32,7 @@
 ]
 
 #note[
-  设计理念: 操作码分层 (`op[31:28]` 大类 + 类内子操作码), 但子操作码的宽度和存在性随格式而定, 不强制所有格式使用固定 funct 字段; 静态信息 (dtype, shape, 描述符) 放配置寄存器, 动态信息 (操作数, 行号, 边界) 放指令和 Scalar 操作数; 操作数过多的指令不强行套统一格式, 而是定义专用布局.
+  设计理念: 操作码分层 (`op[31:28]` 大类 + 类内子操作码); 静态信息 (dtype, shape, 描述符) 放配置寄存器, 动态信息 (操作数, 行号, 边界) 放指令和 Scalar 操作数.
 ]
 
 == 操作码结构 (按格式)
@@ -49,40 +49,34 @@
   | T_U   | `op4 + funct5`    | 一元/两元操作; funct5 为类内操作选择; argmax 为 T_U2 变体                |
   | T_M   | `op4 + mode3`     | 访存; 操作数占满字段, 不使用 funct5                                      |
   | T_MR  | `op4 + mode1`     | 行访存; 独立布局 (坐标打包, rd/rs 独立字段), 不使用 funct5               |
-  | T_C   | `op4 + cfg-op + field` | 配置; cfg-op 区分 seti/setx/copy/get, field 为全局字段编号            |
+  | T_C   | `op4 + cfg-op + field` | 配置; cfg-op 区分 seti/setx/copy/get, field 为全局字段编号          |
   | T_S   | `op4 + funct5`    | 同步与系统; funct5 区分 fence/getcap/kernel.end                          |
 ]
 
 == 公共骨架 (T_R3, T_R4, T_RX, T_U)
 
 ```
-  31   28 27  23 22  18 17  15 14  12 11   7 6    2 1  0
- [ op ][ B  ][ A  ][SB][m3][ f5 ][ D  ][ q ]
+ 31   28 27  23 22  18 17  15 14  12 11     7 6    2 1   0
+ [ op  ] [ B  ] [ A  ] [ SB ] [ m3 ] [funct5] [ D  ] [ q ]
 ```
 
 #manual-table(
-  columns: (1.1fr, 1fr, 4fr),
+  columns: (1fr, 1fr, 1fr, 4fr),
   caption: [公共骨架字段],
 )[
-  | 位段      | 名称  | 含义                                                                                     |
-  | --------- | ----- | ---------------------------------------------------------------------------------------- |
-  | `[1:0]`   | q     | 类别标签 (见上表)                                                                        |
-  | `[6:2]`   | D     | 目的寄存器编号, 5 bit; Tile/Acc 只用低 4 bit, 最高位为 0                                 |
-  | `[11:7]`  | f5    | funct5, 类内操作选择; T_R4 中作为第三源 (C 或 M); 广播行号 rb/索引类立即数               |
-  | `[14:12]` | mode  | 变体选择: 广播方向, 源形式 (reg/xS 或 imm/xS), 按 op 类解释                              |
-  | `[17:15]` | SUB   | 物理共享子字段, 3 bit; cmp 类中别名 COND (比较条件), ADD/SUB 中 `SUB[0]` 为 sat 位, brow BIT/SHIFT 类中 `SUB[1:0]` 为 BITOP/SHIFTOP, 其余为 0 或保留 |
-  | `[22:18]` | A     | 第一源寄存器编号, 5 bit                                                                  |
-  | `[27:23]` | B     | 第二源寄存器编号, 5 bit; T_RX 中此槽位为 Scalar 源 `xS`                                  |
-  | `[31:28]` | op    | 主操作码, 4 bit, 每个类别 16 个操作码类                                                  |
+  | 位段      | 名称  |位宽  | 含义                                                                                     |
+  | --------- | ----- |----- | ---------------------------------------------------------------------------------------- |
+  | `[1:0]`   | q     | 2bit | 类别标签                                                                        |
+  | `[6:2]`   | D     | 5bit | 目的寄存器编号; Tile/Acc 只用低 4 bit, 最高位为 0                                 |
+  | `[11:7]`  | funct5| 5bit | 类内具体操作选择; T_R4 中作为第三源 (C 或 M); 广播行号 rb/索引类立即数               |
+  | `[14:12]` | mode  | 3bit | 变体选择: 广播方向, 源形式 (reg/xS 或 imm/xS), 按 op 类解释                              |
+  | `[17:15]` | SUB   | 3bit | 物理共享子字段; cmp 类中别名 COND (比较条件), brow BIT/SHIFT 类中 `SUB[1:0]` 为 BITOP/SHIFTOP, 其余为 0 或保留 |
+  | `[22:18]` | A     | 5bit | 第一源寄存器编号, 5 bit                                                                  |
+  | `[27:23]` | B     | 5bit | 第二源寄存器编号, 5 bit; T_RX 中此槽位为 Scalar 源 `xS`                                  |
+  | `[31:28]` | op    | 4bit | 主操作码, 4 bit, 区分大类, 每个类别 16 个操作码类                                                  |
 ]
 
-寄存器编号位宽: Tile/Acc 4 bit, Vec8/Vec32/Scalar 5 bit, TM 描述符 4 bit, VM 描述符 5 bit.
-
-编码规则:
-
-- 指令不包含 dtype 信息; 操作数元素类型由绑定的配置寄存器 (TC/AC/BC/VC) 给出.
-- 每个类别有独立的操作码命名空间; `q` 与 `op` 共同确定格式与译码模板.
-- 编号位不足一个寄存器宽度的操作数 (Tile/Acc 4 bit) 写入字段低位, 高位为 0.
+寄存器编号位宽: Tile/Acc/TM 描述符 4 bit, Vec8/Vec32/Scalar/VM 描述符 5 bit.
 
 == 立即数编码
 
@@ -176,8 +170,8 @@ mask 的 fill 值占 `[17:12]` 共 6 bit, 按目的 dtype 解释:
 )[
   | op      | 类        | 覆盖                                                              |
   | ------- | --------- | ----------------------------------------------------------------- |
-  | `0000`  | ADD       | `{t,a,b,v}add(.sat/.wrap)`, `addx`, 广播变体                      |
-  | `0001`  | SUB       | `{t,a,b,v}sub(.sat/.wrap)`, `subx`, 广播变体                      |
+  | `0000`  | ADD       | `{t,a,b,v}add`, `addx`                                            |
+  | `0001`  | SUB       | `{t,a,b,v}sub`, `subx`                                            |
   | `0010`  | MUL       | `{a,v}mul`, `mulx`, 广播变体                                      |
   | `0011`  | DIV       | `{a,v}div`, `divx`, 广播变体 (仅 f32)                             |
   | `0100`  | MIN       | `{t,a,b,v}min`, `minx`, 广播变体                                  |
@@ -215,7 +209,7 @@ mask 的 fill 值占 `[17:12]` 共 6 bit, 按目的 dtype 解释:
 )[
   | 指令族             | `SUB` 含义                                                              |
   | ------------------ | ---------------------------------------------------------------------- |
-  | ADD, SUB           | `SUB[0]` = sat/wrap: 0 = wrap, 1 = sat (仅 8-bit 域; 32-bit 域忽略), `SUB[2:1]` 为 0 |
+  | ADD, SUB           | 保留为 0 |
   | BIT 非 brow        | 保留为 0; 操作由 f5 选择                                                |
   | SHIFT 非 brow      | 保留为 0; 操作由 f5 选择                                                |
   | BIT brow           | `SUB[1:0]` = BITOP: `00` and, `01` or, `10` xor, `11` 保留; `SUB[2]` 为 0 |
@@ -252,8 +246,8 @@ tsra.brow tD, tA, tB[rb]    # op=SHIFT, mode=BROW, f5=rb, SUB[1:0]=10 (sra)
 )[
   | 汇编形式                       | op          | 含义                                          |
   | ------------------------------ | ----------- | --------------------------------------------- |
-  | `tadd.sat.i8 t0, t1, t2`       | ADD         | Tile 逐元素饱和加; mode.dir=00, SUB[0]=1     |
-  | `tadd.wrap.i8 t0, t1, t2`      | ADD         | Tile 逐元素回绕加; SUB[0]=0                  |
+  | `tadd.sat.i8 t0, t1, t2`       | ADD         | Tile 逐元素饱和加; mode.dir=00, 配置 `arith_mode = sat`     |
+  | `tadd.wrap.i8 t0, t1, t2`      | ADD         | Tile 逐元素回绕加; 配置 `arith_mode = wrap`                  |
   | `aadd.f32 a0, a1, a2`          | ADD         | Acc 逐元素 f32 加                             |
   | `vaddx.f32 v0, v1, x4`         | ADD         | Vec32 逐元素加 Scalar 值; mode.src=1          |
   | `tadd.brow.sat.i8 t0, t1, t2[3]` | ADD       | 右矩阵第 3 行广播后逐元素饱和加; f5=3, dir=01 |
@@ -602,7 +596,8 @@ bits 与 scale 是两个显式目的/源. 目的寄存器按助记符首字母�
   | `8`     | `row_stride_bytes` | TM           |
   | `9`     | `col_stride_bytes` | TM           |
   | `10`    | `stride_bytes`     | VM           |
-  | `11-15` | reserved           | —            |
+  | `11`    | `arith_mode`       | TC/BC        |
+  | `12-15` | reserved           | —            |
 ]
 
 非法组合 (如 `cfg.seti tc0, stride_bytes, 4`, `cfg.seti vm0, rows, 32`, `cfg.seti tm0, dtype, f32`) 产生 `CFG_ERROR`. `cfg.seti` 用于小字段 (dtype, rows, cols, len, layout, transform, flags); stride 与超出立即数宽度的值使用 `cfg.setx`.

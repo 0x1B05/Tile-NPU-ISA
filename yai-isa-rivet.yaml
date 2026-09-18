@@ -4,11 +4,13 @@ colors:
     "15-8": "238,183,150"
     "19-16": "163,200,177"
     "22-20": "192,200,210"
-    "31-23": "230,230,230"
+    "24-23": "196,186,209"
+    "31-25": "230,230,230"
   bc:
     "7-0": "240,214,148"
     "11-8": "163,200,177"
-    "31-12": "230,230,230"
+    "13-12": "196,186,209"
+    "31-14": "230,230,230"
   vm:
     "31-0": "240,214,148"
     "35-32": "167,199,200"
@@ -31,7 +33,8 @@ structures:
   tc:
     bits: 32
     ranges:
-      31-23: {name: reserved, description: reserved}
+      31-25: {name: reserved, description: reserved}
+      24-23: {name: am, description: "arith_mode", values: {"0": "wrap", "1": "sat", "10": "reserved", "11": "reserved"}}
       22-20: {name: lo, description: layout, values: {"0": "canonical", "1-7": "reserved"}}
       19-16: {name: dt, description: dtype (element type), values: {"0": "i8", "1": "u8", "2": "i32", "3": "u32", "4": "f32", "5-15": "reserved"}}
       15-8: {name: cols, description: cols (valid columns)}
@@ -39,7 +42,8 @@ structures:
   bc:
     bits: 32
     ranges:
-      31-12: {name: reserved, description: reserved}
+      31-14: {name: reserved, description: reserved}
+      13-12: {name: am, description: "arith_mode", values: {"0": "wrap", "1": "sat", "10": "reserved", "11": "reserved"}}
       11-8: {name: dt, description: dtype (element type), values: {"0": "i8", "1": "u8", "2": "i32", "3": "u32", "4": "f32", "5-15": "reserved"}}
       7-0: {name: len, description: len (valid length)}
   tm-0:
