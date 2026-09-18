@@ -47,17 +47,63 @@
   | T_R4  | `op4 + funct5`    | 四源计算; funct5 槽位作为第三源 (C/M) 寄存器                             |
   | T_RX  | `op4 + funct5`    | 寄存器 + Scalar 源; funct5 为类内操作选择                                |
   | T_U   | `op4 + funct5`    | 一元/两元操作; funct5 为类内操作选择; argmax 为 T_U2 变体                |
-  | T_M   | `op4 + mode3`     | 访存; 操作数占满字段, 不使用 funct5                                      |
+  | T_M   | `op4 + mode1`     | 访存; 操作数占满字段, 不使用 funct5; mode1 预留                          |
   | T_MR  | `op4 + mode1`     | 行访存; 独立布局 (坐标打包, rd/rs 独立字段), 不使用 funct5               |
-  | T_C   | `op4 + cfg-op + field` | 配置; cfg-op 区分 seti/setx/copy/get, field 为全局字段编号          |
+  | T_C   | `op4 + field + imm/xS` | 配置; seti/setx/copy/get 各占一个 op 类, field 为全局字段编号          |
   | T_S   | `op4 + funct5`    | 同步与系统; funct5 区分 fence/getcap/kernel.end                          |
 ]
 
-== 公共骨架 (T_R3, T_R4, T_RX, T_U)
+== 指令格式位段
+
+全部非标量格式的位段布局汇总如下; 字段的高位标注在盒子左端, 低位标注在盒子右端, 字段含义见后文各节.
+
+公共骨架 (T_R3, T_R4, T_RX, T_U):
 
 ```
- 31   28 27  23 22  18 17  15 14  12 11     7 6    2 1   0
- [ op  ] [ B  ] [ A  ] [ SB ] [ m3 ] [funct5] [ D  ] [ q ]
+31   28 27   23 22   18 17   15 14   12 11     7 6   2 1   0
+[ op  ] [  B  ] [  A  ] [ SUB ] [ m3  ] [funct5] [ D ] [ q ]
+```
+
+T_U-imm (fill 立即数形式):
+
+```
+31   28 27   12 11   7 6   2 1   0
+[ op  ] [ imm ] [ f5 ] [ D ] [ q ]
+```
+
+MASK (结构化掩码):
+
+```
+31   28 27   23 22   18 17   12 11   7 6   2 1   0
+[ op  ] [xBnd ] [  S  ] [fill ] [ f5 ] [ D ] [ q ]
+```
+
+T_M (整块与向量访存):
+
+```
+31   28 27   27 26   22 21   17 16   12 11    7 6   2 1   0
+[ op  ] [  m  ] [xCol ] [xRow ] [xBase] [descJ] [ D ] [ q ]
+```
+
+T_MR (行访存):
+
+```
+31   28 27   27 26   22 21   17 16   12 11    7 6   2 1   0
+[ op  ] [  m  ] [ rd  ] [ xRC ] [xBase] [descJ] [ D ] [ q ]
+```
+
+T_C (配置):
+
+```
+31   28 27    12 11    7 6   2 1   0
+[ op  ] [imm/xS] [field] [ C ] [ q ]
+```
+
+T_S (同步与系统):
+
+```
+31   28 27      12 11   7 6   2 1   0
+[ op  ] [reserved] [ f5 ] [ D ] [ q ]
 ```
 
 #manual-table(
@@ -100,7 +146,7 @@ T_U 立即数形式中 imm 占 `[27:12]` 共 16 bit. 整数域按目的 dtype �
 ]
 
 #note[
-  该字段只能携带 BF16 可表示值, 不是任意 f32 立即数. 汇编器接受常量形式但内部明确执行 BF16 转换, 对不能精确表示的字面量给出警告或错误; 任意 32-bit f32 位模式使用 `fillx.f32` 由 Scalar 提供. 分工: `fill.f32` 负责常用 BF16 常量, `fillx.f32` 负责任意 f32 位模式.
+  该字段只能携带 BF16 可表示值. 汇编器接受常量形式但内部明确执行 BF16 转换, 对不能精确表示的字面量给出警告或错误; 任意 32-bit f32 位模式可以使用 `fillx.f32` 由 Scalar 提供.
 ]
 
 === mask fill 编码 (6 bit)
@@ -376,11 +422,6 @@ vfmadd.f32 vD, vA, vB, vC
 
 mask 使用扩展布局; 边界由打包 Scalar 提供 (见总则的 Scalar 打包操作数), fill 为 6-bit 编码 (见总则的 mask fill6).
 
-```
- 31   28 27  23 22  18 17    12 11   7 6    2 1  0
- [ op ][xBnd ][ S  ][  fill  ][ f5 ][ D  ][ q ]
-```
-
 #manual-table(
   columns: (1fr, 2.6fr, 3fr),
   caption: [MASK 类 f5 编码 (op = 1101)],
@@ -401,14 +442,7 @@ mask 使用扩展布局; 边界由打包 Scalar 提供 (见总则的 Scalar 打�
 
 == T_M: 访存 (整块与向量)
 
-`op4 + mode3`, 不使用 funct5. 布局:
-
-```
- 31  28 27 26  22 21  17 16  12 11   7 6    2 1  0
- [ op ][mode][xCol][xRow][xBase][descJ][ D  ][ q ]
-```
-
-mode3: `000` 整块矩阵, `001` 保留, 其余预留.
+`op4 + mode1`, 不使用 funct5. mode1 预留为 0 (VM 描述符编号需 5 bit, mode3 放不下; 矩阵/向量形式已由 op 区分).
 
 #manual-table(
   columns: (1fr, 3fr, 3.2fr),
@@ -430,12 +464,7 @@ mode3: `000` 整块矩阵, `001` 保留, 其余预留.
 
 == T_MR: 行访存
 
-行访存保留完整的动态二维坐标: `xCol` 语义不挪用, 内存行列坐标打包为 `xRowCol` (`[31:0]` = xRow, `[63:32]` = xCol), 目标行号 rd/rs 为独立 5-bit 字段. `op4 + mode1`, 不使用 funct5.
-
-```
- 31  28 27 26  21 20  16 15  11 10   6 5 4 3 2 1  0
- [ op ][m][rd/rs][xRowCol][xBase][descJ][D][0][ q ]
-```
+行访存保留完整的动态二维坐标: `xCol` 语义不挪用, 内存行列坐标打包为 `xRowCol` (`[31:0]` = xRow, `[63:32]` = xCol), 目标行号 rd/rs 为独立 5-bit 字段. `op4 + mode1`, 不使用 funct5; mode1 选择 rd/rs 来源 (0 = 立即数, 1 = Scalar).
 
 #manual-table(
   columns: (1fr, 3.2fr, 3fr),
@@ -560,23 +589,18 @@ bits 与 scale 是两个显式目的/源. 目的寄存器按助记符首字母�
 
 == T_C (配置)
 
-`op4 + cfg-op + field`; field 为全局统一编号, 与配置类型解耦, 合法性按配置类型检查.
-
-```
- 31  28 27    23 22   18 17     12 11   7 6    2 1  0
- [ op ][cfgop][ field ][  imm/xS  ][ C  ][ q ]
-```
+`op4` 每指令一类 (seti/setx/copy/get 各占一个 op 类); `field` 为全局统一编号, 与配置类型解耦, 合法性按配置类型检查.
 
 #manual-table(
-  columns: (1.4fr, 3.4fr),
-  caption: [T_C cfg-op 分配],
+  columns: (1fr, 3.8fr),
+  caption: [T_C op 类分配 (q = 10)],
 )[
-  | cfg-op    | 形式与布局                                                              |
-  | --------- | ----------------------------------------------------------------------- |
-  | `0000`    | `cfg.seti C, field, imm`: imm 于 `[17:12]` 及以上立即数区 (16 bit)      |
-  | `0001`    | `cfg.setx C, field, xS`: xS 于 `[17:13]`                                |
-  | `0010`    | `cfg.copy C_D, C_S`: `C_D` 于 C 槽位, `C_S` 于 field 槽位               |
-  | `0011`    | `cfg.get xD, C, field`: `xD` 于 C 槽位 (Scalar 目的)                    |
+  | op      | 形式与布局                                                              |
+  | ------- | ----------------------------------------------------------------------- |
+  | `0110`  | `cfg.seti C, field, imm`: imm 于 `[27:12]` (16 bit)                     |
+  | `0111`  | `cfg.setx C, field, xS`: xS 于 `[27:23]`                                |
+  | `1000`  | `cfg.copy C_D, C_S`: `C_D` 于 C 槽位, `C_S` 于 `[27:23]`                |
+  | `1001`  | `cfg.get xD, C, field`: `xD` 于 C 槽位 (Scalar 目的), C 于 `[27:23]`    |
 ]
 
 #manual-table(
@@ -603,6 +627,8 @@ bits 与 scale 是两个显式目的/源. 目的寄存器按助记符首字母�
 非法组合 (如 `cfg.seti tc0, stride_bytes, 4`, `cfg.seti vm0, rows, 32`, `cfg.seti tm0, dtype, f32`) 产生 `CFG_ERROR`. `cfg.seti` 用于小字段 (dtype, rows, cols, len, layout, transform, flags); stride 与超出立即数宽度的值使用 `cfg.setx`.
 
 == T_S (同步与系统)
+
+`op4 + funct5`; fence 与 `kernel.end` 不使用操作数字段, 标记为 reserved.
 
 #manual-table(
   columns: (1fr, 1fr, 2.4fr, 2.8fr),

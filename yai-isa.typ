@@ -159,6 +159,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 #note[
   预留策略: `10` 空间除配置与系统指令外的空间作为预留. 未来的扩展 (新的数据类型, 更宽的 Tile, 多核同步, DMA 等) 优先使用预留空间.
+  #link("https://opensecura.googlesource.com/hw/kelvin/")也使用了类似的策略, 即复用RV64im, 压缩指令的空间用于custom的向量指令.
 ]
 
 = 指令格式 <encoding>
