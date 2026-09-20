@@ -40,19 +40,20 @@
   columns: (1.2fr, 5fr),
   caption: [通用操作数记号],
 )[
-  | 记号           | 含义                                               |
-  | -------------- | -------------------------------------------------- |
-  | `D`            | 目的寄存器, 对应汇编操作数 `tD`, `aD`, `bD`, `vD`  |
-  | `A`, `B`       | 第一, 第二源寄存器, 对应 `tA`, `tB` 等             |
-  | `S`            | 单源或广播向量源                                   |
-  | `M`            | mask 寄存器, 值为全 0 或全 1 的 `u8`/`u32` 元素    |
-  | `imm`          | 立即数                                             |
-  | `xS`           | 来自 Scalar 寄存器的操作数                         |
-  | `tmJ`, `vmJ`   | 访存描述符 TM / VM 的编号                          |
-  | `[i,j]`        | 矩阵元素索引                                       |
-  | `[j]`          | 向量 lane 索引                                     |
-  | `[rd,j]`       | 行操作中目的的指定行; `ra`, `rb` 为两个源的指定行  |
-  | `sat`, `wrap`  | 饱和 / 回绕, 定义见 @elementwise                   |
+  | 记号                 | 含义                                                                                     |
+  | -------------------- | ---------------------------------------------------------------------------------------- |
+  | `D`                  | 目的寄存器, 对应汇编操作数 `tD`, `aD`, `bD`, `vD`                                        |
+  | `A`, `B`             | 第一, 第二源寄存器, 对应 `tA`, `tB` 等                                                   |
+  | `S`                  | 单源或广播向量源                                                                         |
+  | `M`                  | mask 寄存器, 值为全 0 或全 1 的 `u8`/`u32` 元素                                          |
+  | `imm`                | 立即数                                                                                   |
+  | `xS`                 | 来自 Scalar 寄存器的操作数                                                               |
+  | `xBounds`/`xRowCol`  | 打包 Scalar 寄存器                                                                       |
+  | `tmJ`, `vmJ`         | 访存描述符 TM / VM 的编号                                                                |
+  | `[i,j]`              | 矩阵元素索引                                                                             |
+  | `[j]`                | 向量 lane 索引                                                                           |
+  | `[rd,j]`             | 行操作中目的的指定行; `ra`, `rb` 为两个源的指定行                                        |
+  | `sat`, `wrap`        | 饱和 / 回绕, 定义见 @elementwise                                                         |
 ]
 
 = 指令集概览 <overview>
@@ -447,14 +448,14 @@ aload.row   aD[rd], tmJ, xBase, xRowCol
 astore.row  aS[rs], tmJ, xBase, xRowCol
 ```
 
-内存行坐标 `xRow` 与列坐标 `xCol` 打包在一个 Scalar 寄存器 `xRowCol` 中 (`[31:0]` = `xRow`, `[63:32]` = `xCol`). `rd` 和 `rs` 是寄存器文件中的行号, 可以是立即数或 Scalar 寄存器提供的完整值; 它们不参与内存地址计算.
+内存行坐标 `row` 与列坐标 `col` 打包在一个 Scalar 寄存器 `xRowCol` 中 (`[31:0]` = `row`, `[63:32]` = `col`). `rd` 和 `rs` 是寄存器文件中的行号, 可以是立即数或 Scalar 寄存器提供的完整值; 它们不参与内存地址计算.
 
 对于 row load:
 
 ```text
 for 0 <= j < cols(CD):
-    if 0 <= xRow < TM.rows
-       and 0 <= xCol+j < TM.cols:
+    if 0 <= row < TM.rows
+       and 0 <= col+j < TM.cols:
         CD[rd,j] ← memory[addr(0,j)]
     else:
         CD[rd,j] ← 0
@@ -466,8 +467,8 @@ row load 的效果是: 只清零或覆盖目的寄存器的第 rd 行; 目的寄
 
 ```text
 for 0 <= j < cols(CS):
-    if 0 <= xRow < TM.rows
-       and 0 <= xCol+j < TM.cols:
+    if 0 <= row < TM.rows
+       and 0 <= col+j < TM.cols:
         memory[addr(0,j)] ← CS[rs,j]
     else:
         no memory access
@@ -1759,16 +1760,16 @@ select 必须读取两个数据源: M 为 true 时选择 A; M 为 false 时选�
 mask 使用寄存器配置中的 dtype; 它改写数据值, 保留区域之外写入显式 fill 值.
 
 #instruction-table(caption: [Mask 指令])[
-  | Instruction        | Format  | Operation                                                | Notes                                                                      |
-  | ------------------ | ------- | -------------------------------------------------------- | -------------------------------------------------------------------------- |
-  | `{t,a}mask.tail`   | 待定    | {t,a}D[i,j] = (i < xRows and j < xCols) ? S[i,j] : fill  | 边界为打包 Scalar `xBounds`; 其余有效寄存器位置写 fill; 不缩短有效 shape.  |
-  | `{t,a}mask.tril`   | 待定    | {t,a}D[i,j] = (j - i <= xDelta) ? S[i,j] : fill          | 有符号偏移; 包含边界, 其余位置写 fill.                                     |
-  | `{t,a}mask.triu`   | 待定    | {t,a}D[i,j] = (j - i >= xDelta) ? S[i,j] : fill          | 有符号偏移; 包含边界, 其余位置写 fill.                                     |
-  | `{b,v}mask.tail`   | 待定    | {b,v}D[j] = (j < xLen) ? S[j] : fill                     | 其余有效 lane 写 fill; 不缩短有效长度.                                     |
-  | `{t,a}maskx.tail`  | 待定    | 同 `mask.tail`, fill 由 Scalar 提供                      | fill 可为任意值.                                                           |
-  | `{t,a}maskx.tril`  | 待定    | 同 `mask.tril`, fill 由 Scalar 提供                      | fill 可为任意值.                                                           |
-  | `{t,a}maskx.triu`  | 待定    | 同 `mask.triu`, fill 由 Scalar 提供                      | fill 可为任意值.                                                           |
-  | `{b,v}maskx.tail`  | 待定    | 同 `mask.tail`, fill 由 Scalar 提供                      | fill 可为任意值.                                                           |
+  | Instruction        | Format  | Operation                                                | Notes                                                                             |
+  | ------------------ | ------- | -------------------------------------------------------- | --------------------------------------------------------------------------------- |
+  | `{t,a}mask.tail`   | 待定    | {t,a}D[i,j] = (i < nRows and j < nCols) ? S[i,j] : fill  | 边界为打包 Scalar `xBounds` 的字段; 其余有效寄存器位置写 fill; 不缩短有效 shape.  |
+  | `{t,a}mask.tril`   | 待定    | {t,a}D[i,j] = (j - i <= xDelta) ? S[i,j] : fill          | 有符号偏移; 包含边界, 其余位置写 fill.                                            |
+  | `{t,a}mask.triu`   | 待定    | {t,a}D[i,j] = (j - i >= xDelta) ? S[i,j] : fill          | 有符号偏移; 包含边界, 其余位置写 fill.                                            |
+  | `{b,v}mask.tail`   | 待定    | {b,v}D[j] = (j < xLen) ? S[j] : fill                     | 其余有效 lane 写 fill; 不缩短有效长度.                                            |
+  | `{t,a}maskx.tail`  | 待定    | 同 `mask.tail`, fill 由 Scalar 提供                      | fill 可为任意值.                                                                  |
+  | `{t,a}maskx.tril`  | 待定    | 同 `mask.tril`, fill 由 Scalar 提供                      | fill 可为任意值.                                                                  |
+  | `{t,a}maskx.triu`  | 待定    | 同 `mask.triu`, fill 由 Scalar 提供                      | fill 可为任意值.                                                                  |
+  | `{b,v}maskx.tail`  | 待定    | 同 `mask.tail`, fill 由 Scalar 提供                      | fill 可为任意值.                                                                  |
 ]
 
 mask 指令将源数据的某些位置替换为指定 fill 值. `mask` 的 fill 为 6-bit 立即数编码 (按目的 dtype 解释); `maskx` 的 fill 由 Scalar 寄存器提供, 可为任意值.
@@ -1785,7 +1786,7 @@ mask 指令将源数据的某些位置替换为指定 fill 值. `mask` 的 fill 
 {t,a}maskx.triu D, S, xDelta, xFill
 ```
 
-`mask.tail` 的边界 `xRows` 和 `xCols` 打包在一个 Scalar 寄存器 `xBounds` 中 (`[31:0]` = `xRows`, `[63:32]` = `xCols`); `tril`/`triu` 的 `xDelta` 为有符号 Scalar 值.
+`mask.tail` 的边界 `nRows` 和 `nCols` (有效行数, 列数) 打包在一个 Scalar 寄存器 `xBounds` 中 (`[31:0]` = `nRows`, `[63:32]` = `nCols`, 是寄存器内坐标, 并非内存 view); `tril`/`triu` 的 `xDelta` 为有符号 Scalar 值.
 
 向量 mask:
 
@@ -1796,12 +1797,12 @@ mask 指令将源数据的某些位置替换为指定 fill 值. `mask` 的 fill 
 
 === Tail mask
 
-矩阵 tail mask 定义为 (`xRows`, `xCols` 取自打包寄存器 `xBounds` 的低, 高 32 bit):
+矩阵 tail mask 定义为 (`nRows`, `nCols` 取自打包寄存器 `xBounds` 的低, 高 32 bit):
 
 ```text
 for 0 ≤ i < rows(D):
     for 0 ≤ j < cols(D):
-        if i < xRows and j < xCols:
+        if i < nRows and j < nCols:
             D[i,j] ← S[i,j]
         else:
             D[i,j] ← fill
@@ -2627,24 +2628,24 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. `getcap` 的操作数与�
 ]
 
 #instruction-listing(caption: [Mask 指令清单])[
-  | Instruction    | Format  | Opcode  | Function  | Summary                                               |
-  | -------------- | ------- | ------- | --------- | ----------------------------------------------------- |
-  | `tmask.tail`   | 待定    | 待定    | 待定      | 保留行列坐标小于 `xBounds` 中 xRows, xCols 的源元素.  |
-  | `tmask.tril`   | 待定    | 待定    | 待定      | 保留满足 $j-i <= "xDelta"$ 的源元素.                  |
-  | `tmask.triu`   | 待定    | 待定    | 待定      | 保留满足 $j-i >= "xDelta"$ 的源元素.                  |
-  | `amask.tail`   | 待定    | 待定    | 待定      | 保留行列坐标小于 `xBounds` 中 xRows, xCols 的源元素.  |
-  | `amask.tril`   | 待定    | 待定    | 待定      | 保留满足 $j-i <= "xDelta"$ 的源元素.                  |
-  | `amask.triu`   | 待定    | 待定    | 待定      | 保留满足 $j-i >= "xDelta"$ 的源元素.                  |
-  | `bmask.tail`   | 待定    | 待定    | 待定      | 保留 lane 索引小于 xLen 的源元素.                     |
-  | `vmask.tail`   | 待定    | 待定    | 待定      | 保留 lane 索引小于 xLen 的源元素.                     |
-  | `tmaskx.tail`  | 待定    | 待定    | 待定      | 同 `tmask.tail`, fill 由 Scalar 提供.                 |
-  | `tmaskx.tril`  | 待定    | 待定    | 待定      | 同 `tmask.tril`, fill 由 Scalar 提供.                 |
-  | `tmaskx.triu`  | 待定    | 待定    | 待定      | 同 `tmask.triu`, fill 由 Scalar 提供.                 |
-  | `amaskx.tail`  | 待定    | 待定    | 待定      | 同 `amask.tail`, fill 由 Scalar 提供.                 |
-  | `amaskx.tril`  | 待定    | 待定    | 待定      | 同 `amask.tril`, fill 由 Scalar 提供.                 |
-  | `amaskx.triu`  | 待定    | 待定    | 待定      | 同 `amask.triu`, fill 由 Scalar 提供.                 |
-  | `bmaskx.tail`  | 待定    | 待定    | 待定      | 同 `bmask.tail`, fill 由 Scalar 提供.                 |
-  | `vmaskx.tail`  | 待定    | 待定    | 待定      | 同 `vmask.tail`, fill 由 Scalar 提供.                 |
+  | Instruction    | Format  | Opcode  | Function  | Summary                                                   |
+  | -------------- | ------- | ------- | --------- | --------------------------------------------------------- |
+  | `tmask.tail`   | 待定    | 待定    | 待定      | 保留行列坐标小于 `xBounds` 中 `nRows`, `nCols` 的源元素.  |
+  | `tmask.tril`   | 待定    | 待定    | 待定      | 保留满足 $j-i <= "xDelta"$ 的源元素.                      |
+  | `tmask.triu`   | 待定    | 待定    | 待定      | 保留满足 $j-i >= "xDelta"$ 的源元素.                      |
+  | `amask.tail`   | 待定    | 待定    | 待定      | 保留行列坐标小于 `xBounds` 中 `nRows`, `nCols` 的源元素.  |
+  | `amask.tril`   | 待定    | 待定    | 待定      | 保留满足 $j-i <= "xDelta"$ 的源元素.                      |
+  | `amask.triu`   | 待定    | 待定    | 待定      | 保留满足 $j-i >= "xDelta"$ 的源元素.                      |
+  | `bmask.tail`   | 待定    | 待定    | 待定      | 保留 lane 索引小于 xLen 的源元素.                         |
+  | `vmask.tail`   | 待定    | 待定    | 待定      | 保留 lane 索引小于 xLen 的源元素.                         |
+  | `tmaskx.tail`  | 待定    | 待定    | 待定      | 同 `tmask.tail`, fill 由 Scalar 提供.                     |
+  | `tmaskx.tril`  | 待定    | 待定    | 待定      | 同 `tmask.tril`, fill 由 Scalar 提供.                     |
+  | `tmaskx.triu`  | 待定    | 待定    | 待定      | 同 `tmask.triu`, fill 由 Scalar 提供.                     |
+  | `amaskx.tail`  | 待定    | 待定    | 待定      | 同 `amask.tail`, fill 由 Scalar 提供.                     |
+  | `amaskx.tril`  | 待定    | 待定    | 待定      | 同 `amask.tril`, fill 由 Scalar 提供.                     |
+  | `amaskx.triu`  | 待定    | 待定    | 待定      | 同 `amask.triu`, fill 由 Scalar 提供.                     |
+  | `bmaskx.tail`  | 待定    | 待定    | 待定      | 同 `bmask.tail`, fill 由 Scalar 提供.                     |
+  | `vmaskx.tail`  | 待定    | 待定    | 待定      | 同 `vmask.tail`, fill 由 Scalar 提供.                     |
 ]
 
 == 规约与类型转换
