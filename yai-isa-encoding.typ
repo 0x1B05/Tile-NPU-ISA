@@ -47,63 +47,19 @@
   | T_R4  | `op4 + funct5`          | 四源计算; funct5 槽位作为第三源 (C/M) 寄存器                   |
   | T_RX  | `op4 + funct5`          | 寄存器 + Scalar 源; funct5 为类内操作选择                      |
   | T_U   | `op4 + funct5`          | 一元/两元操作; funct5 为类内操作选择; argmax 为 T_U2 变体      |
-  | T_M   | `op4 + mode1`           | 访存; 操作数占满字段, 不使用 funct5; mode1 预留                |
-  | T_MR  | `op4 + mode1`           | 行访存; 独立布局 (坐标打包, rd/rs 独立字段), 不使用 funct5     |
+  | T_M   | `op4 + mode1`           | 访存; 坐标打包为 `xRowCol`, 不使用 funct5                      |
+  | T_MR  | `op4 + mode1`           | 行访存; 坐标打包为 `xRowCol`, rd/rs 独立字段                   |
   | T_C   | `op4 + field + imm/xS`  | 配置; seti/setx/copy/get 各占一个 op 类, field 为全局字段编号  |
   | T_S   | `op4 + funct5`          | 同步与系统; funct5 区分 fence/getcap/kernel.end                |
 ]
 
 == 指令格式位段
 
-全部非标量格式的位段布局汇总如下; 字段的高位标注在盒子左端, 低位标注在盒子右端, 字段含义见后文各节.
-
 公共骨架 (T_R3, T_R4, T_RX, T_U):
 
 ```
 31   28 27   23 22   18 17   15 14   12 11     7 6   2 1   0
 [ op  ] [  B  ] [  A  ] [ SUB ] [ m3  ] [funct5] [ D ] [ q ]
-```
-
-T_U-imm (fill 立即数形式):
-
-```
-31   28 27   12 11   7 6   2 1   0
-[ op  ] [ imm ] [ f5 ] [ D ] [ q ]
-```
-
-MASK (结构化掩码):
-
-```
-31   28 27   23 22   18 17   12 11   7 6   2 1   0
-[ op  ] [xBnd ] [  S  ] [fill ] [ f5 ] [ D ] [ q ]
-```
-
-T_M (整块与向量访存):
-
-```
-31   28 27   27 26   22 21   17 16   12 11    7 6   2 1   0
-[ op  ] [  m  ] [xCol ] [xRow ] [xBase] [descJ] [ D ] [ q ]
-```
-
-T_MR (行访存):
-
-```
-31   28 27   27 26   22 21   17 16   12 11    7 6   2 1   0
-[ op  ] [  m  ] [ rd  ] [ xRC ] [xBase] [descJ] [ D ] [ q ]
-```
-
-T_C (配置):
-
-```
-31   28 27    12 11    7 6   2 1   0
-[ op  ] [imm/xS] [field] [ C ] [ q ]
-```
-
-T_S (同步与系统):
-
-```
-31   28 27      12 11   7 6   2 1   0
-[ op  ] [reserved] [ f5 ] [ D ] [ q ]
 ```
 
 #manual-table(
@@ -123,6 +79,50 @@ T_S (同步与系统):
 ]
 
 寄存器编号位宽: Tile/Acc/TM 描述符 4 bit, Vec8/Vec32/Scalar/VM 描述符 5 bit.
+
+全部非标量格式的位段布局汇总如下.
+
+T_U-imm (fill 立即数形式):
+
+```
+31   28 27   12 11   7 6   2 1   0
+[ op  ] [ imm ] [ f5 ] [ D ] [ q ]
+```
+
+MASK (结构化掩码):
+
+```
+31   28 27   23 22   18 17   12 11   7 6   2 1   0
+[ op  ] [xBnd ] [  S  ] [fill ] [ f5 ] [ D ] [ q ]
+```
+
+T_M (整块与向量访存):
+
+```
+31   28 27   23 22      18 17   13 12  11    7 6   2 1   0
+[ op  ] [xBase] [xRC/xIdx] [ rsv ] [m] [descJ] [ D ] [ q ]
+```
+
+T_MR (行访存):
+
+```
+31   28 27   23 22   18 17   13 12  11    7 6   2 1   0
+[ op  ] [xBase] [ xRC ] [rd/rs] [m] [descJ] [ D ] [ q ]
+```
+
+T_C (配置):
+
+```
+31   28 27    12 11    7 6   2 1   0
+[ op  ] [imm/xS] [field] [ C ] [ q ]
+```
+
+T_S (同步与系统):
+
+```
+31   28 27      12 11   7 6   2 1   0
+[ op  ] [reserved] [ f5 ] [ D ] [ q ]
+```
 
 == 立即数编码
 
@@ -242,7 +242,7 @@ mask 的 fill 值占 `[17:12]` 共 6 bit, 按目的 dtype 解释:
 )[
   | mode 位      | 含义                                                                                                                          |
   | ------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-  | `[2]` src    | 源形式: plain 时选择第二源为 B 寄存器 (0) 或 Scalar `xS` (1); brow 时选择 rb 为立即数 (0) 或 Scalar 编号 (1), 均取自 f5 槽位  |
+  | `[2]` src    | 源形式: plain 时选择第二源为 B 寄存器 (0) 或 Scalar `xS` (1);#linebreak() brow 时选择 rb 为立即数 (0) 或 Scalar 编号 (1), 均取自 f5 槽位  |
   | `[1:0]` dir  | 操作形态: `00` plain, `01` brow, `10` byrow, `11` bycol                                                                       |
 ]
 
@@ -443,29 +443,31 @@ mask 使用扩展布局; 边界由打包 Scalar 提供 (见总则的 Scalar 打�
 
 == T_M: 访存 (整块与向量)
 
-`op4 + mode1`, 不使用 funct5. mode1 预留为 0 (VM 描述符编号需 5 bit, mode3 放不下; 矩阵/向量形式已由 op 区分).
+`op4 + mode1`, 不使用 funct5; mode 字段位于 `[12]`, 与公共骨架的 mode `[14:12]` 低位对齐, mode1 预留为 0. 矩阵与向量形式由 op 区分.
+
+内存行列坐标打包为 `xRowCol` (`[31:0]` = row, `[63:32]` = col), 占 `[22:18]` 槽位; 向量形式该槽位为 `xIndex`. 这样向量访存不再浪费一个恒为 0 的 `xCol` 槽位, 矩阵访存的行/列坐标也各占一个独立打包寄存器.
 
 #manual-table(
   columns: (1fr, 3fr, 3.2fr),
   caption: [T_M 操作码分配],
 )[
-  | op      | 汇编形式                             | 含义                        |
-  | ------- | ------------------------------------ | --------------------------- |
-  | `0000`  | `tload tD, tmJ, xBase, xRow, xCol`   | 按 TM 读取到 Tile 有效区域  |
-  | `0001`  | `tstore tS, tmJ, xBase, xRow, xCol`  | 将 Tile 有效区域写入 TM     |
-  | `0010`  | `aload aD, tmJ, xBase, xRow, xCol`   | 按 TM 读取到 Acc 有效区域   |
-  | `0011`  | `astore aS, tmJ, xBase, xRow, xCol`  | 将 Acc 有效区域写入 TM      |
-  | `1000`  | `bload bD, vmJ, xBase, xIndex`       | 按 VM 读取 Vec8             |
-  | `1001`  | `bstore bS, vmJ, xBase, xIndex`      | 将 Vec8 写入 VM             |
-  | `1010`  | `vload vD, vmJ, xBase, xIndex`       | 按 VM 读取 Vec32            |
-  | `1011`  | `vstore vS, vmJ, xBase, xIndex`      | 将 Vec32 写入 VM            |
+  | op      | 汇编形式                          | 含义                        |
+  | ------- | --------------------------------- | --------------------------- |
+  | `0000`  | `tload tD, tmJ, xBase, xRowCol`   | 按 TM 读取到 Tile 有效区域  |
+  | `0001`  | `tstore tS, tmJ, xBase, xRowCol`  | 将 Tile 有效区域写入 TM     |
+  | `0010`  | `aload aD, tmJ, xBase, xRowCol`   | 按 TM 读取到 Acc 有效区域   |
+  | `0011`  | `astore aS, tmJ, xBase, xRowCol`  | 将 Acc 有效区域写入 TM      |
+  | `1000`  | `bload bD, vmJ, xBase, xIndex`    | 按 VM 读取 Vec8             |
+  | `1001`  | `bstore bS, vmJ, xBase, xIndex`   | 将 Vec8 写入 VM             |
+  | `1010`  | `vload vD, vmJ, xBase, xIndex`    | 按 VM 读取 Vec32            |
+  | `1011`  | `vstore vS, vmJ, xBase, xIndex`   | 将 Vec32 写入 VM            |
 ]
 
-`descJ` 槽位: `tm0..15` (4 bit) 与 `vm0..31` (5 bit) 共用, 由 op 区分描述符类型; 向量形式的 `xRow` 槽位为 `xIndex`, `xCol` 槽位为 0.
+`descJ` 槽位: `tm0..15` (4 bit) 与 `vm0..31` (5 bit) 共用, 由 op 区分描述符类型; 矩阵形式的 `[22:18]` 槽位为打包 `xRowCol`, 向量形式为 `xIndex`; `[17:13]` 保留.
 
 == T_MR: 行访存
 
-行访存保留完整的动态二维坐标: 内存行列坐标打包为 `xRowCol` (`[31:0]` = row, `[63:32]` = col), 目标行号 rd/rs 为独立 5-bit 字段. `op4 + mode1`, 不使用 funct5; mode1 选择 rd/rs 来源 (0 = 立即数, 1 = Scalar).
+行访存保留完整的动态二维坐标: 内存行列坐标打包为 `xRowCol` (`[31:0]` = row, `[63:32]` = col), 占 `[22:18]` 槽位; 目标行号 rd/rs 为独立 5-bit 字段 `[17:13]`. `op4 + mode1`, 不使用 funct5; mode 字段位于 `[12]`, 与公共骨架的 mode `[14:12]` 低位对齐, mode1 选择 rd/rs 来源 (0 = 立即数, 1 = Scalar).
 
 #manual-table(
   columns: (1fr, 3.2fr, 3fr),
@@ -649,9 +651,3 @@ bits 与 scale 是两个显式目的/源. 目的寄存器按助记符首字母�
   | `1111`  | `00011`  | `kernel.end`  | 报告 kernel 完成, 隐含 fence.all                      |
   | `1110`  | `00000`  | `getcap`      | 查询资源规格, 扩展和数值能力; 操作数与返回字段待定义  |
 ]
-
-= 实施注记
-
-1. brow 的行号 rb: 全部 brow 指令统一由 f5 携带 (立即数或 Scalar 编号, 由 mode.src 选择), 不新增 brow 专用 op 类; 组合类 (BIT/SHIFT) 的操作选择移入共享物理子字段 `SUB[1:0]` (BITOP/SHIFTOP, 编码 `11` 保留), 该字段在比较指令中别名 COND. 解码顺序为 `mode == BROW` 先于 f5 解释.
-2. `maskx.*` 为定案新增指令族 (fill 由 Scalar 提供), 需补入手册正文与清单.
-3. 手册"矩阵行访存"节的伪代码已按 T_MR 语义修正: `rd/rs` 不参与地址计算, 内存坐标由 `xRowCol` 提供.
