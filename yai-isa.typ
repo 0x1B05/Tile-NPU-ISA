@@ -40,20 +40,20 @@
   columns: (1.2fr, 5fr),
   caption: [通用操作数记号],
 )[
-  | 记号                 | 含义                                                                                     |
-  | -------------------- | ---------------------------------------------------------------------------------------- |
-  | `D`                  | 目的寄存器, 对应汇编操作数 `tD`, `aD`, `bD`, `vD`                                        |
-  | `A`, `B`             | 第一, 第二源寄存器, 对应 `tA`, `tB` 等                                                   |
-  | `S`                  | 单源或广播向量源                                                                         |
-  | `M`                  | mask 寄存器, 值为全 0 或全 1 的 `u8`/`u32` 元素                                          |
-  | `imm`                | 立即数                                                                                   |
-  | `xS`                 | 来自 Scalar 寄存器的操作数                                                               |
-  | `xBounds`/`xRowCol`  | 打包 Scalar 寄存器                                                                       |
-  | `tmJ`, `vmJ`         | 访存描述符 TM / VM 的编号                                                                |
-  | `[i,j]`              | 矩阵元素索引                                                                             |
-  | `[j]`                | 向量 lane 索引                                                                           |
-  | `[rd,j]`             | 行操作中目的的指定行; `ra`, `rb` 为两个源的指定行                                        |
-  | `sat`, `wrap`        | 饱和 / 回绕, 定义见 @elementwise                                                         |
+  | 记号                 | 含义                                               |
+  | -------------------- | -------------------------------------------------- |
+  | `D`                  | 目的寄存器, 对应汇编操作数 `tD`, `aD`, `bD`, `vD`  |
+  | `A`, `B`             | 第一, 第二源寄存器, 对应 `tA`, `tB` 等             |
+  | `S`                  | 单源或广播向量源                                   |
+  | `M`                  | mask 寄存器, 值为全 0 或全 1 的 `u8`/`u32` 元素    |
+  | `imm`                | 立即数                                             |
+  | `xS`                 | 来自 Scalar 寄存器的操作数                         |
+  | `xBounds`/`xRowCol`  | 打包 Scalar 寄存器                                 |
+  | `tmJ`, `vmJ`         | 访存描述符 TM / VM 的编号                          |
+  | `[i,j]`              | 矩阵元素索引                                       |
+  | `[j]`                | 向量 lane 索引                                     |
+  | `[rd,j]`             | 行操作中目的的指定行; `ra`, `rb` 为两个源的指定行  |
+  | `sat`, `wrap`        | 饱和 / 回绕, 定义见 @elementwise                   |
 ]
 
 = 指令集概览 <overview>
@@ -76,6 +76,10 @@
 ]
 
 以上构成五个不同的*数据域*. 标量域的指令集为 RV64IM (见 @scalar-sync); 其余数据域的指令由本手册定义.
+
+#note[
+  Vec8 (`b`) 是低精度存储与搬运域, 不定义逐元素计算指令 (加法, 位运算, 移位等); 量化数据需经 `bdequant` 反量化到 Vec32 后计算, 或经 `vquant` 从 Vec32 量化存入. Tile/Acc/Vec32 的计算指令分别在各域章节定义.
+]
 
 #important[
   32-bit 寄存器内无法存储两个半精度数(如`f16`/`bf16`), `f16`/`bf16`等半精度数加载后扩展到 f32 Acc/Vec.
@@ -134,7 +138,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | 地址与访存      | 内存 ↔ `t/a/b/v`                                                               | 按 TM/VM 描述符执行整块, 行和向量访问      | `{t,a}{load,store}` #linebreak() `{b,v}{load,store}`                                                                                            |
   | 初始化与搬运    | 域内 #linebreak() `t` ↔ `b` #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane  | 填充, 复制, 行搬运, lane 搬运, 广播和转置  | `{t,a,b,v}{fill,fillx,copy}` #linebreak() `{t,a}{insert,extract}.row` #linebreak() `{b,v}{insert,extract,broadcast}` #linebreak() `ttranspose`  |
   | 矩阵乘与点积    | `t` × `t` → `a` #linebreak() `b` × `t` → `v`                                   | `i8` 乘法, `i32` 累加或点积                | `mma` #linebreak() `bdot`                                                                                                                       |
-  | 逐元素与广播    | `t/a/b/v` 同域 #linebreak() 矩阵 ↔ 向量广播                                    | 算术, 位运算, 移位, 特殊函数, 比较和选择   | `{t,a,b,v}op` #linebreak() `.brow`, `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                                                     |
+  | 逐元素与广播    | `t/a/v` 同域 #linebreak() 矩阵 ↔ 向量广播                                      | 算术, 位运算, 移位, 特殊函数, 比较和选择   | `{t,a,v}op` #linebreak() `.brow`, `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                                                       |
   | 规约            | `a` → `v` #linebreak() `v` → Scalar                                            | 行规约, 向量规约, 平方和和 argmax          | `areduce` #linebreak() `vreduce`                                                                                                                |
   | 类型转换与扩大  | `a/v` 内部 #linebreak() `t` → `a`                                              | 数值类型转换和 `i8` → `i32` 扩大           | `acvt`, `vcvt` #linebreak() `twiden`                                                                                                            |
   | 量化与反量化    | `a` ↔ `t` #linebreak() `v` ↔ `b`                                               | 低精度存储与 `f32` 计算之间的显式转换      | `tquant`, `tdequant` #linebreak() `vquant`, `bdequant`                                                                                          |
@@ -1267,7 +1271,6 @@ vopx.TYPE      vD, vA, xS
 
 ```asm
 tadd.sat.i8 t0, t1, t2
-badd.sat.i8 b0, b1, b2
 
 aadd.f32   a0, a1, a2
 vadd.f32   v0, v1, v2
@@ -1385,8 +1388,6 @@ D[element] ← op(A[element], value)
 ```asm
 tadd.sat.i8  t0, t1, t2    # 要求 tc0.arith_mode = sat
 tadd.wrap.i8 t0, t1, t2    # 要求 tc0.arith_mode = wrap
-
-bsub.sat.u8  b0, b1, b2    # 要求 bc0.arith_mode = sat
 ```
 
 === Wrap 形式
@@ -1740,7 +1741,6 @@ select 根据 mask 在两个已经计算好的值之间选择(t/b 数据使用 `
 ```asm
 tselect tD, tM, tA, tB
 aselect aD, aM, aA, aB
-bselect bD, bM, bA, bB
 vselect vD, vM, vA, vB
 ```
 
@@ -2430,32 +2430,6 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. `getcap` 的操作数与�
   | `aneg.TYPE`   | 待定    | 待定    | 待定      | 逐元素取负; `i32/f32`.               |
 ]
 
-#instruction-listing(caption: [Vec8 基础逐元素指令清单])[
-  | Instruction   | Format  | Opcode  | Function  | Summary                                                 |
-  | ------------- | ------- | ------- | --------- | ------------------------------------------------------- |
-  | `badd.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素加法; 溢出模式由配置 `arith_mode` 决定.       |
-  | `baddx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素加法; 溢出模式由配置 `arith_mode` 决定.  |
-  | `bsub.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素减法; 溢出模式由配置 `arith_mode` 决定.       |
-  | `bsubx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素减法; 溢出模式由配置 `arith_mode` 决定.  |
-  | `bmin.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素取小; `i8/u8`.                                |
-  | `bminx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素取小; `i8/u8`.                           |
-  | `bmax.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素取大; `i8/u8`.                                |
-  | `bmaxx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素取大; `i8/u8`.                           |
-  | `band`        | 待定    | 待定    | 待定      | 同域逐元素按位与.                                       |
-  | `bandx`       | 待定    | 待定    | 待定      | Scalar 值逐元素按位与.                                  |
-  | `bor`         | 待定    | 待定    | 待定      | 同域逐元素按位或.                                       |
-  | `borx`        | 待定    | 待定    | 待定      | Scalar 值逐元素按位或.                                  |
-  | `bxor`        | 待定    | 待定    | 待定      | 同域逐元素按位异或.                                     |
-  | `bxorx`       | 待定    | 待定    | 待定      | Scalar 值逐元素按位异或.                                |
-  | `bshl.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素左移; `i8/u8`.                                |
-  | `bshlx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素左移; `i8/u8`.                           |
-  | `bshr.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素逻辑右移; `i8/u8`.                            |
-  | `bshrx.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素逻辑右移; `i8/u8`.                       |
-  | `bsra.TYPE`   | 待定    | 待定    | 待定      | 同域逐元素算术右移; `i8/u8`.                            |
-  | `bsrax.TYPE`  | 待定    | 待定    | 待定      | Scalar 值逐元素算术右移; `i8/u8`.                       |
-  | `bnot`        | 待定    | 待定    | 待定      | 逐元素按位取反.                                         |
-]
-
 #instruction-listing(caption: [Vec32 基础逐元素指令清单])[
   | Instruction   | Format  | Opcode  | Function  | Summary                              |
   | ------------- | ------- | ------- | --------- | ------------------------------------ |
@@ -2623,7 +2597,6 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. `getcap` 的操作数与�
   | ------------ | ------- | ------- | --------- | ------------------------------- |
   | `tselect`    | 待定    | 待定    | 待定      | mask 非零时选择 A, 否则选择 B.  |
   | `aselect`    | 待定    | 待定    | 待定      | mask 非零时选择 A, 否则选择 B.  |
-  | `bselect`    | 待定    | 待定    | 待定      | mask 非零时选择 A, 否则选择 B.  |
   | `vselect`    | 待定    | 待定    | 待定      | mask 非零时选择 A, 否则选择 B.  |
 ]
 
@@ -2697,7 +2670,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. `getcap` 的操作数与�
   | ------------------- | --------------------------- | ------------------------------------------------------------------------------- |
   | 标量                | Scalar `x` 与内存, 控制流   | 标量指令集为 RV64IM, 按 RISC-V 规范执行, 本手册不展开.                          |
   | `t` / `a`           | Tile / Acc 矩阵数据域       | `tload` / `aload` 使用 `TM`; `tcopy` / `acopy` 执行同域复制.                    |
-  | `b` / `v`           | Vec8 / Vec32 向量数据域     | `bload` / `vload` 使用 `VM`; `badd` / `vadd` 执行同域向量加法.                  |
+  | `b` / `v`           | Vec8 / Vec32 向量数据域     | `bload` / `vload` 使用 `VM`; `bdequant` / `vquant` 在 Vec8 与 Vec32 之间转换.   |
   | `cfg`               | `TC/AC/BC/VC/TM/VM`         | `cfg.seti` 写立即数字段; `cfg.setx` 从 Scalar 写字段.                           |
   | `mma`               | Tile × Tile → Acc           | `mma.nt.acc.i8.i32` 以 `i8` 输入执行逻辑转置矩阵乘, 并累加到 `i32` Acc.         |
   | `bdot`              | Vec8 × Tile → Vec32         | `bdot.nn.i8.i32` 产生 `i32` 向量; 跨块累加使用 `vadd.i32`.                      |

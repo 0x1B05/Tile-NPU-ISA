@@ -217,20 +217,20 @@ mask 的 fill 值占 `[17:12]` 共 6 bit, 按目的 dtype 解释:
 )[
   | op      | 类      | 覆盖                                                  |
   | ------- | ------- | ----------------------------------------------------- |
-  | `0000`  | ADD     | `{t,a,b,v}add`, `addx`                                |
-  | `0001`  | SUB     | `{t,a,b,v}sub`, `subx`                                |
+  | `0000`  | ADD     | `{t,a,v}add`, `addx`                                |
+  | `0001`  | SUB     | `{t,a,v}sub`, `subx`                                |
   | `0010`  | MUL     | `{a,v}mul`, `mulx`, 广播变体                          |
   | `0011`  | DIV     | `{a,v}div`, `divx`, 广播变体 (仅 f32)                 |
-  | `0100`  | MIN     | `{t,a,b,v}min`, `minx`, 广播变体                      |
-  | `0101`  | MAX     | `{t,a,b,v}max`, `maxx`, 广播变体                      |
-  | `0110`  | BIT     | `{t,a,b,v}and/or/xor/not`, `andx/orx/xorx`, 广播变体  |
-  | `0111`  | SHIFT   | `{t,a,b,v}shl/shr/sra`, `shlx/shrx/srax`, 广播变体    |
+  | `0100`  | MIN     | `{t,a,v}min`, `minx`, 广播变体                      |
+  | `0101`  | MAX     | `{t,a,v}max`, `maxx`, 广播变体                      |
+  | `0110`  | BIT     | `{t,a,v}and/or/xor/not`, `andx/orx/xorx`, 广播变体  |
+  | `0111`  | SHIFT   | `{t,a,v}shl/shr/sra`, `shlx/shrx/srax`, 广播变体    |
   | `1000`  | ABSNEG  | `{a,v}abs`, `{a,v}neg`                                |
   | `1001`  | SPEC    | `{a,v}exp2.approx`, `rcp.approx`, `rsqrt.approx`      |
   | `1010`  | CMP     | `{a,v}cmp.COND`, `{a,v}cmpx.COND`                     |
-  | `1011`  | SELECT  | `{t,a,b,v}select`                                     |
+  | `1011`  | SELECT  | `{t,a,v}select`                                     |
   | `1100`  | FMADD   | `{a,v}fmadd.f32`                                      |
-  | `1101`  | MASK    | `{t,a,b,v}mask.*`, `maskx.*`                          |
+  | `1101`  | MASK    | `{t,a,v}mask.*`, `maskx.*`                          |
   | `111-`  | 预留    |                                                       |
 ]
 
@@ -314,10 +314,10 @@ tsra.brow tD, tA, tB[rb]    # op=SHIFT, mode=BROW, f5=rb, SUB[1:0]=10 (sra)
 )[
   | f5       | 汇编形式                | 含义                                    |
   | -------- | ----------------------- | --------------------------------------- |
-  | `00000`  | `{t,a,b,v}and`, `andx`  | 按位与                                  |
-  | `00001`  | `{t,a,b,v}or`, `orx`    | 按位或                                  |
-  | `00010`  | `{t,a,b,v}xor`, `xorx`  | 按位异或                                |
-  | `00011`  | `{t,a,b,v}not`          | 按位取反 (单源, 无 x 形式, B 槽位为 0)  |
+  | `00000`  | `{t,a,v}and`, `andx`  | 按位与                                  |
+  | `00001`  | `{t,a,v}or`, `orx`    | 按位或                                  |
+  | `00010`  | `{t,a,v}xor`, `xorx`  | 按位异或                                |
+  | `00011`  | `{t,a,v}not`          | 按位取反 (单源, 无 x 形式, B 槽位为 0)  |
 ]
 
 brow 形式 (`dir = 01`) 中 f5 为行号 rb (立即数或 Scalar 编号, 由 mode.src 选择), 操作选择移入 `SUB[1:0]` 为 BITOP (`00` and, `01` or, `10` xor, `11` 保留).
@@ -332,9 +332,9 @@ brow 形式 (`dir = 01`) 中 f5 为行号 rb (立即数或 Scalar 编号, 由 mo
 )[
   | f5       | 汇编形式                | 含义      |
   | -------- | ----------------------- | --------- |
-  | `00000`  | `{t,a,b,v}shl`, `shlx`  | 左移      |
-  | `00001`  | `{t,a,b,v}shr`, `shrx`  | 逻辑右移  |
-  | `00010`  | `{t,a,b,v}sra`, `srax`  | 算术右移  |
+  | `00000`  | `{t,a,v}shl`, `shlx`  | 左移      |
+  | `00001`  | `{t,a,v}shr`, `shrx`  | 逻辑右移  |
+  | `00010`  | `{t,a,v}sra`, `srax`  | 算术右移  |
 ]
 
 brow 形式中 f5 为行号 rb, 操作选择移入 `SUB[1:0]` 为 SHIFTOP (`00` shl, `01` shr, `10` sra, `11` 保留).
