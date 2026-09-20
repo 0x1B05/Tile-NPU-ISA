@@ -1488,30 +1488,30 @@ for 0 ≤ i < rows(D):
 右矩阵指定行的各列元素广播到每个目的行.
 
 #instruction-table(caption: [矩阵源行广播指令])[
-  | Instruction       | Format  | Operation                      | Notes                                                   |
-  | ----------------- | ------- | ------------------------------ | ------------------------------------------------------- |
-  | `tadd.brow.TYPE`  | 待定    | D[i,j] = A[i,j] + B[rb,j]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
-  | `tsub.brow.TYPE`  | 待定    | D[i,j] = A[i,j] - B[rb,j]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
-  | `tmin.brow.TYPE`  | 待定    | D[i,j] = min(A[i,j], B[rb,j])  | TYPE: `i8/u8`.                                          |
-  | `tmax.brow.TYPE`  | 待定    | D[i,j] = max(A[i,j], B[rb,j])  | TYPE: `i8/u8`.                                          |
-  | `tand.brow`       | 待定    | D[i,j] = A[i,j] and B[rb,j]    | 按位操作, 与元素 dtype 无关.                            |
-  | `tor.brow`        | 待定    | D[i,j] = A[i,j] or B[rb,j]     | 按位操作, 与元素 dtype 无关.                            |
-  | `txor.brow`       | 待定    | D[i,j] = A[i,j] xor B[rb,j]    | 按位操作, 与元素 dtype 无关.                            |
-  | `tshl.brow.TYPE`  | 待定    | D[i,j] = shl(A[i,j], B[rb,j])  | TYPE: `i8/u8`.                                          |
-  | `tshr.brow.TYPE`  | 待定    | D[i,j] = shr(A[i,j], B[rb,j])  | TYPE: `i8/u8`.                                          |
-  | `tsra.brow.TYPE`  | 待定    | D[i,j] = sra(A[i,j], B[rb,j])  | TYPE: `i8/u8`.                                          |
-  | `aadd.brow.TYPE`  | 待定    | D[i,j] = A[i,j] + B[rb,j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
-  | `asub.brow.TYPE`  | 待定    | D[i,j] = A[i,j] - B[rb,j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
-  | `amul.brow.TYPE`  | 待定    | D[i,j] = A[i,j] × B[rb,j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
-  | `adiv.brow.TYPE`  | 待定    | D[i,j] = A[i,j] / B[rb,j]      | TYPE: `f32`.                                            |
-  | `amin.brow.TYPE`  | 待定    | D[i,j] = min(A[i,j], B[rb,j])  | TYPE: `i32/u32/f32`.                                    |
-  | `amax.brow.TYPE`  | 待定    | D[i,j] = max(A[i,j], B[rb,j])  | TYPE: `i32/u32/f32`.                                    |
-  | `aand.brow`       | 待定    | D[i,j] = A[i,j] and B[rb,j]    | 按位操作, 与元素 dtype 无关.                            |
-  | `aor.brow`        | 待定    | D[i,j] = A[i,j] or B[rb,j]     | 按位操作, 与元素 dtype 无关.                            |
-  | `axor.brow`       | 待定    | D[i,j] = A[i,j] xor B[rb,j]    | 按位操作, 与元素 dtype 无关.                            |
-  | `ashl.brow.TYPE`  | 待定    | D[i,j] = shl(A[i,j], B[rb,j])  | TYPE: `i32/u32`.                                        |
-  | `ashr.brow.TYPE`  | 待定    | D[i,j] = shr(A[i,j], B[rb,j])  | TYPE: `i32/u32`.                                        |
-  | `asra.brow.TYPE`  | 待定    | D[i,j] = sra(A[i,j], B[rb,j])  | TYPE: `i32/u32`.                                        |
+  | Instruction       | Format  | Operation                         | Notes                                                   |
+  | ----------------- | ------- | --------------------------------- | ------------------------------------------------------- |
+  | `tadd.brow.TYPE`  | 待定    | tD[i,j] = tA[i,j] + tB[rb,j]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
+  | `tsub.brow.TYPE`  | 待定    | tD[i,j] = tA[i,j] - tB[rb,j]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
+  | `tmin.brow.TYPE`  | 待定    | tD[i,j] = min(tA[i,j], tB[rb,j])  | TYPE: `i8/u8`.                                          |
+  | `tmax.brow.TYPE`  | 待定    | tD[i,j] = max(tA[i,j], tB[rb,j])  | TYPE: `i8/u8`.                                          |
+  | `tand.brow`       | 待定    | tD[i,j] = tA[i,j] and tB[rb,j]    | 按位操作, 与元素 dtype 无关.                            |
+  | `tor.brow`        | 待定    | tD[i,j] = tA[i,j] or tB[rb,j]     | 按位操作, 与元素 dtype 无关.                            |
+  | `txor.brow`       | 待定    | tD[i,j] = tA[i,j] xor tB[rb,j]    | 按位操作, 与元素 dtype 无关.                            |
+  | `tshl.brow.TYPE`  | 待定    | tD[i,j] = shl(tA[i,j], tB[rb,j])  | TYPE: `i8/u8`.                                          |
+  | `tshr.brow.TYPE`  | 待定    | tD[i,j] = shr(tA[i,j], tB[rb,j])  | TYPE: `i8/u8`.                                          |
+  | `tsra.brow.TYPE`  | 待定    | tD[i,j] = sra(tA[i,j], tB[rb,j])  | TYPE: `i8/u8`.                                          |
+  | `aadd.brow.TYPE`  | 待定    | aD[i,j] = aA[i,j] + aB[rb,j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `asub.brow.TYPE`  | 待定    | aD[i,j] = aA[i,j] - aB[rb,j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `amul.brow.TYPE`  | 待定    | aD[i,j] = aA[i,j] × aB[rb,j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `adiv.brow.TYPE`  | 待定    | aD[i,j] = aA[i,j] / aB[rb,j]      | TYPE: `f32`.                                            |
+  | `amin.brow.TYPE`  | 待定    | aD[i,j] = min(aA[i,j], aB[rb,j])  | TYPE: `i32/u32/f32`.                                    |
+  | `amax.brow.TYPE`  | 待定    | aD[i,j] = max(aA[i,j], aB[rb,j])  | TYPE: `i32/u32/f32`.                                    |
+  | `aand.brow`       | 待定    | aD[i,j] = aA[i,j] and aB[rb,j]    | 按位操作, 与元素 dtype 无关.                            |
+  | `aor.brow`        | 待定    | aD[i,j] = aA[i,j] or aB[rb,j]     | 按位操作, 与元素 dtype 无关.                            |
+  | `axor.brow`       | 待定    | aD[i,j] = aA[i,j] xor aB[rb,j]    | 按位操作, 与元素 dtype 无关.                            |
+  | `ashl.brow.TYPE`  | 待定    | aD[i,j] = shl(aA[i,j], aB[rb,j])  | TYPE: `i32/u32`.                                        |
+  | `ashr.brow.TYPE`  | 待定    | aD[i,j] = shr(aA[i,j], aB[rb,j])  | TYPE: `i32/u32`.                                        |
+  | `asra.brow.TYPE`  | 待定    | aD[i,j] = sra(aA[i,j], aB[rb,j])  | TYPE: `i32/u32`.                                        |
 ]
 
 Tile 或 Acc 可以将右操作数的一行广播到目的对象的每一行:
@@ -1545,30 +1545,30 @@ $ "t0"_(i,j) = op("sat")_("i8")("t1"_(i,j) - "t2"_(0,j)) $
 Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 i 个元素广播到矩阵第 i 行.
 
 #instruction-table(caption: [向量按行广播指令])[
-  | Instruction         | Format  | Operation                   | Notes                                                   |
-  | ------------------- | ------- | --------------------------- | ------------------------------------------------------- |
-  | `taddb.byrow.TYPE`  | 待定    | D[i,j] = A[i,j] + S[i]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
-  | `tsubb.byrow.TYPE`  | 待定    | D[i,j] = A[i,j] - S[i]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
-  | `tminb.byrow.TYPE`  | 待定    | D[i,j] = min(A[i,j], S[i])  | TYPE: `i8/u8`.                                          |
-  | `tmaxb.byrow.TYPE`  | 待定    | D[i,j] = max(A[i,j], S[i])  | TYPE: `i8/u8`.                                          |
-  | `tandb.byrow`       | 待定    | D[i,j] = A[i,j] and S[i]    | 按位操作, 与元素 dtype 无关.                            |
-  | `torb.byrow`        | 待定    | D[i,j] = A[i,j] or S[i]     | 按位操作, 与元素 dtype 无关.                            |
-  | `txorb.byrow`       | 待定    | D[i,j] = A[i,j] xor S[i]    | 按位操作, 与元素 dtype 无关.                            |
-  | `tshlb.byrow.TYPE`  | 待定    | D[i,j] = shl(A[i,j], S[i])  | TYPE: `i8/u8`.                                          |
-  | `tshrb.byrow.TYPE`  | 待定    | D[i,j] = shr(A[i,j], S[i])  | TYPE: `i8/u8`.                                          |
-  | `tsrab.byrow.TYPE`  | 待定    | D[i,j] = sra(A[i,j], S[i])  | TYPE: `i8/u8`.                                          |
-  | `aaddv.byrow.TYPE`  | 待定    | D[i,j] = A[i,j] + S[i]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
-  | `asubv.byrow.TYPE`  | 待定    | D[i,j] = A[i,j] - S[i]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
-  | `amulv.byrow.TYPE`  | 待定    | D[i,j] = A[i,j] × S[i]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
-  | `adivv.byrow.TYPE`  | 待定    | D[i,j] = A[i,j] / S[i]      | TYPE: `f32`.                                            |
-  | `aminv.byrow.TYPE`  | 待定    | D[i,j] = min(A[i,j], S[i])  | TYPE: `i32/u32/f32`.                                    |
-  | `amaxv.byrow.TYPE`  | 待定    | D[i,j] = max(A[i,j], S[i])  | TYPE: `i32/u32/f32`.                                    |
-  | `aandv.byrow`       | 待定    | D[i,j] = A[i,j] and S[i]    | 按位操作, 与元素 dtype 无关.                            |
-  | `aorv.byrow`        | 待定    | D[i,j] = A[i,j] or S[i]     | 按位操作, 与元素 dtype 无关.                            |
-  | `axorv.byrow`       | 待定    | D[i,j] = A[i,j] xor S[i]    | 按位操作, 与元素 dtype 无关.                            |
-  | `ashlv.byrow.TYPE`  | 待定    | D[i,j] = shl(A[i,j], S[i])  | TYPE: `i32/u32`.                                        |
-  | `ashrv.byrow.TYPE`  | 待定    | D[i,j] = shr(A[i,j], S[i])  | TYPE: `i32/u32`.                                        |
-  | `asrav.byrow.TYPE`  | 待定    | D[i,j] = sra(A[i,j], S[i])  | TYPE: `i32/u32`.                                        |
+  | Instruction         | Format  | Operation                      | Notes                                                   |
+  | ------------------- | ------- | ------------------------------ | ------------------------------------------------------- |
+  | `taddb.byrow.TYPE`  | 待定    | tD[i,j] = tA[i,j] + bS[i]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
+  | `tsubb.byrow.TYPE`  | 待定    | tD[i,j] = tA[i,j] - bS[i]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
+  | `tminb.byrow.TYPE`  | 待定    | tD[i,j] = min(tA[i,j], bS[i])  | TYPE: `i8/u8`.                                          |
+  | `tmaxb.byrow.TYPE`  | 待定    | tD[i,j] = max(tA[i,j], bS[i])  | TYPE: `i8/u8`.                                          |
+  | `tandb.byrow`       | 待定    | tD[i,j] = tA[i,j] and bS[i]    | 按位操作, 与元素 dtype 无关.                            |
+  | `torb.byrow`        | 待定    | tD[i,j] = tA[i,j] or bS[i]     | 按位操作, 与元素 dtype 无关.                            |
+  | `txorb.byrow`       | 待定    | tD[i,j] = tA[i,j] xor bS[i]    | 按位操作, 与元素 dtype 无关.                            |
+  | `tshlb.byrow.TYPE`  | 待定    | tD[i,j] = shl(tA[i,j], bS[i])  | TYPE: `i8/u8`.                                          |
+  | `tshrb.byrow.TYPE`  | 待定    | tD[i,j] = shr(tA[i,j], bS[i])  | TYPE: `i8/u8`.                                          |
+  | `tsrab.byrow.TYPE`  | 待定    | tD[i,j] = sra(tA[i,j], bS[i])  | TYPE: `i8/u8`.                                          |
+  | `aaddv.byrow.TYPE`  | 待定    | aD[i,j] = aA[i,j] + vS[i]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `asubv.byrow.TYPE`  | 待定    | aD[i,j] = aA[i,j] - vS[i]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `amulv.byrow.TYPE`  | 待定    | aD[i,j] = aA[i,j] × vS[i]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `adivv.byrow.TYPE`  | 待定    | aD[i,j] = aA[i,j] / vS[i]      | TYPE: `f32`.                                            |
+  | `aminv.byrow.TYPE`  | 待定    | aD[i,j] = min(aA[i,j], vS[i])  | TYPE: `i32/u32/f32`.                                    |
+  | `amaxv.byrow.TYPE`  | 待定    | aD[i,j] = max(aA[i,j], vS[i])  | TYPE: `i32/u32/f32`.                                    |
+  | `aandv.byrow`       | 待定    | aD[i,j] = aA[i,j] and vS[i]    | 按位操作, 与元素 dtype 无关.                            |
+  | `aorv.byrow`        | 待定    | aD[i,j] = aA[i,j] or vS[i]     | 按位操作, 与元素 dtype 无关.                            |
+  | `axorv.byrow`       | 待定    | aD[i,j] = aA[i,j] xor vS[i]    | 按位操作, 与元素 dtype 无关.                            |
+  | `ashlv.byrow.TYPE`  | 待定    | aD[i,j] = shl(aA[i,j], vS[i])  | TYPE: `i32/u32`.                                        |
+  | `ashrv.byrow.TYPE`  | 待定    | aD[i,j] = shr(aA[i,j], vS[i])  | TYPE: `i32/u32`.                                        |
+  | `asrav.byrow.TYPE`  | 待定    | aD[i,j] = sra(aA[i,j], vS[i])  | TYPE: `i32/u32`.                                        |
 ]
 
 Tile 使用 Vec8 作为每一行的标量源:
@@ -1606,30 +1606,30 @@ $ "a0"_(i,j) = "a1"_(i,j) "v0"_i $
 Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 j 个元素广播到矩阵第 j 列.
 
 #instruction-table(caption: [向量按列广播指令])[
-  | Instruction         | Format  | Operation                   | Notes                                                   |
-  | ------------------- | ------- | --------------------------- | ------------------------------------------------------- |
-  | `taddb.bycol.TYPE`  | 待定    | D[i,j] = A[i,j] + S[j]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
-  | `tsubb.bycol.TYPE`  | 待定    | D[i,j] = A[i,j] - S[j]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
-  | `tminb.bycol.TYPE`  | 待定    | D[i,j] = min(A[i,j], S[j])  | TYPE: `i8/u8`.                                          |
-  | `tmaxb.bycol.TYPE`  | 待定    | D[i,j] = max(A[i,j], S[j])  | TYPE: `i8/u8`.                                          |
-  | `tandb.bycol`       | 待定    | D[i,j] = A[i,j] and S[j]    | 按位操作, 与元素 dtype 无关.                            |
-  | `torb.bycol`        | 待定    | D[i,j] = A[i,j] or S[j]     | 按位操作, 与元素 dtype 无关.                            |
-  | `txorb.bycol`       | 待定    | D[i,j] = A[i,j] xor S[j]    | 按位操作, 与元素 dtype 无关.                            |
-  | `tshlb.bycol.TYPE`  | 待定    | D[i,j] = shl(A[i,j], S[j])  | TYPE: `i8/u8`.                                          |
-  | `tshrb.bycol.TYPE`  | 待定    | D[i,j] = shr(A[i,j], S[j])  | TYPE: `i8/u8`.                                          |
-  | `tsrab.bycol.TYPE`  | 待定    | D[i,j] = sra(A[i,j], S[j])  | TYPE: `i8/u8`.                                          |
-  | `aaddv.bycol.TYPE`  | 待定    | D[i,j] = A[i,j] + S[j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
-  | `asubv.bycol.TYPE`  | 待定    | D[i,j] = A[i,j] - S[j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
-  | `amulv.bycol.TYPE`  | 待定    | D[i,j] = A[i,j] × S[j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
-  | `adivv.bycol.TYPE`  | 待定    | D[i,j] = A[i,j] / S[j]      | TYPE: `f32`.                                            |
-  | `aminv.bycol.TYPE`  | 待定    | D[i,j] = min(A[i,j], S[j])  | TYPE: `i32/u32/f32`.                                    |
-  | `amaxv.bycol.TYPE`  | 待定    | D[i,j] = max(A[i,j], S[j])  | TYPE: `i32/u32/f32`.                                    |
-  | `aandv.bycol`       | 待定    | D[i,j] = A[i,j] and S[j]    | 按位操作, 与元素 dtype 无关.                            |
-  | `aorv.bycol`        | 待定    | D[i,j] = A[i,j] or S[j]     | 按位操作, 与元素 dtype 无关.                            |
-  | `axorv.bycol`       | 待定    | D[i,j] = A[i,j] xor S[j]    | 按位操作, 与元素 dtype 无关.                            |
-  | `ashlv.bycol.TYPE`  | 待定    | D[i,j] = shl(A[i,j], S[j])  | TYPE: `i32/u32`.                                        |
-  | `ashrv.bycol.TYPE`  | 待定    | D[i,j] = shr(A[i,j], S[j])  | TYPE: `i32/u32`.                                        |
-  | `asrav.bycol.TYPE`  | 待定    | D[i,j] = sra(A[i,j], S[j])  | TYPE: `i32/u32`.                                        |
+  | Instruction         | Format  | Operation                      | Notes                                                   |
+  | ------------------- | ------- | ------------------------------ | ------------------------------------------------------- |
+  | `taddb.bycol.TYPE`  | 待定    | tD[i,j] = tA[i,j] + bS[j]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
+  | `tsubb.bycol.TYPE`  | 待定    | tD[i,j] = tA[i,j] - bS[j]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
+  | `tminb.bycol.TYPE`  | 待定    | tD[i,j] = min(tA[i,j], bS[j])  | TYPE: `i8/u8`.                                          |
+  | `tmaxb.bycol.TYPE`  | 待定    | tD[i,j] = max(tA[i,j], bS[j])  | TYPE: `i8/u8`.                                          |
+  | `tandb.bycol`       | 待定    | tD[i,j] = tA[i,j] and bS[j]    | 按位操作, 与元素 dtype 无关.                            |
+  | `torb.bycol`        | 待定    | tD[i,j] = tA[i,j] or bS[j]     | 按位操作, 与元素 dtype 无关.                            |
+  | `txorb.bycol`       | 待定    | tD[i,j] = tA[i,j] xor bS[j]    | 按位操作, 与元素 dtype 无关.                            |
+  | `tshlb.bycol.TYPE`  | 待定    | tD[i,j] = shl(tA[i,j], bS[j])  | TYPE: `i8/u8`.                                          |
+  | `tshrb.bycol.TYPE`  | 待定    | tD[i,j] = shr(tA[i,j], bS[j])  | TYPE: `i8/u8`.                                          |
+  | `tsrab.bycol.TYPE`  | 待定    | tD[i,j] = sra(tA[i,j], bS[j])  | TYPE: `i8/u8`.                                          |
+  | `aaddv.bycol.TYPE`  | 待定    | aD[i,j] = aA[i,j] + vS[j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `asubv.bycol.TYPE`  | 待定    | aD[i,j] = aA[i,j] - vS[j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `amulv.bycol.TYPE`  | 待定    | aD[i,j] = aA[i,j] × vS[j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
+  | `adivv.bycol.TYPE`  | 待定    | aD[i,j] = aA[i,j] / vS[j]      | TYPE: `f32`.                                            |
+  | `aminv.bycol.TYPE`  | 待定    | aD[i,j] = min(aA[i,j], vS[j])  | TYPE: `i32/u32/f32`.                                    |
+  | `amaxv.bycol.TYPE`  | 待定    | aD[i,j] = max(aA[i,j], vS[j])  | TYPE: `i32/u32/f32`.                                    |
+  | `aandv.bycol`       | 待定    | aD[i,j] = aA[i,j] and vS[j]    | 按位操作, 与元素 dtype 无关.                            |
+  | `aorv.bycol`        | 待定    | aD[i,j] = aA[i,j] or vS[j]     | 按位操作, 与元素 dtype 无关.                            |
+  | `axorv.bycol`       | 待定    | aD[i,j] = aA[i,j] xor vS[j]    | 按位操作, 与元素 dtype 无关.                            |
+  | `ashlv.bycol.TYPE`  | 待定    | aD[i,j] = shl(aA[i,j], vS[j])  | TYPE: `i32/u32`.                                        |
+  | `ashrv.bycol.TYPE`  | 待定    | aD[i,j] = shr(aA[i,j], vS[j])  | TYPE: `i32/u32`.                                        |
+  | `asrav.bycol.TYPE`  | 待定    | aD[i,j] = sra(aA[i,j], vS[j])  | TYPE: `i32/u32`.                                        |
 ]
 
 Tile 使用 Vec8 作为每一列的标量源:
