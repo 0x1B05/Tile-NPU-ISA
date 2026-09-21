@@ -133,7 +133,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 )[
   | 功能族          | 主要数据流                                                                     | 架构职责                                   | 助记符入口                                                                                                                                      |
   | --------------- | ------------------------------------------------------------------------------ | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-  | 标量与控制      | Scalar ↔ Scalar #linebreak() Scalar ↔ 内存                                     | 地址, 索引, 标量计算, 控制流, 能力查询     | RV64IM (见 RISC-V 规范) #linebreak() `getcap`                                                                                                   |
+  | 标量与控制      | Scalar ↔ Scalar #linebreak() Scalar ↔ 内存                                     | 地址, 索引, 标量计算, 控制流               | RV64IM (见 RISC-V 规范)                                                                                                                         |
   | 配置            | Scalar → TC, AC, BC, VC, TM, VM                                                | 建立数据域的类型, shape, 布局和访存描述    | `cfg.seti`, `cfg.setx`, `cfg.copy`, `cfg.get`                                                                                                   |
   | 地址与访存      | 内存 ↔ `t/a/b/v`                                                               | 按 TM/VM 描述符执行整块, 行和向量访问      | `{t,a}{load,store}` #linebreak() `{b,v}{load,store}`                                                                                            |
   | 初始化与搬运    | 域内 #linebreak() `t` ↔ `b` #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane  | 填充, 复制, 行搬运, lane 搬运, 广播和转置  | `{t,a,b,v}{fill,fillx,copy}` #linebreak() `{t,a}{insert,extract}.row` #linebreak() `{b,v}{insert,extract,broadcast}` #linebreak() `ttranspose`  |
@@ -185,7 +185,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | T_U   | `D, S` 或 `D, imm`                      | 规约, 类型转换与扩大, 近似函数, fill, copy, 转置; `vreduce.argmax` 产生两个 Scalar 目的, 为 T_U 变体                                                            |
   | T_M   | `D/S, descJ, xBase, xRow/xIndex, xCol`  | 访存全族; 整块, 行和向量形式由 mode 字段区分                                                                                                                    |
   | T_C   | `C, field, imm/xS`                      | `cfg.*`                                                                                                                                                         |
-  | T_S   | 近零操作数                              | `fence.*`, `getcap`, `kernel.end`                                                                                                                               |
+  | T_S   | 近零操作数                              | `fence.*`, `kernel.end`                                                                                                                                         |
 ]
 
 编码原则:
@@ -227,12 +227,11 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 = 标量与同步 <scalar-sync>
 
-标量指令集采用 RV64IM: 标量算术, 逻辑, 比较, 分支, 跳转和标量访存均按 RISC-V 规范执行, 不在本手册定义. 本章只定义 NPU 特有的能力查询与同步指令.
+标量指令集采用 RV64IM: 标量算术, 逻辑, 比较, 分支, 跳转和标量访存均按 RISC-V 规范执行, 不在本手册定义. 本章只定义 NPU 特有的同步指令.
 
-#instruction-table(caption: [能力查询与同步指令])[
+#instruction-table(caption: [同步指令])[
   | Instruction   | Format  | Operation                          | Notes                        |
   | ------------- | ------- | ---------------------------------- | ---------------------------- |
-  | `getcap`      | 待定    | 查询资源规格, 扩展和数值能力.      | 操作数与返回字段待定义.      |
   | `fence.mem`   | 待定    | 等待此前访存完成并达到约定可见点.  | 后续访存不得越过此边界.      |
   | `fence.sa`    | 待定    | 等待此前 SA 操作完成.              | 后续 SA 操作不得越过此边界.  |
   | `fence.all`   | 待定    | 等待此前全部后端工作完成.          | 后续后端操作不得越过此边界.  |
@@ -2271,16 +2270,15 @@ $ "Pscaled" = P "Vscale" $
 
 `Format`, `Opcode` 和 `Function` 为尚待定义的二进制编码字段, 统一标为待定. `TYPE` 的合法取值以对应章节的每行说明为准; 带固定类型后缀的指令直接按该类型解释. 比较条件取独立子集: 整数为 `eq/ne/lt/ge`, f32 为 `eq/lt/le/unord`; `gt`/`le` 由交换操作数获得, `ord` 由 `unord` 取反获得.
 
-Scalar 指令集为 RV64IM, 其指令不在本清单. `getcap` 的操作数与返回字段仍待定义. 各类尚未定义的变体均不作为已分配编码处理.
+Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变体均不作为已分配编码处理.
 
 == 标量与同步
 
 详细语义见 @scalar-sync.
 
-#instruction-listing(caption: [能力查询与同步指令清单])[
+#instruction-listing(caption: [同步指令清单])[
   | Instruction   | Format  | Opcode  | Function  | Summary                            |
   | ------------- | ------- | ------- | --------- | ---------------------------------- |
-  | `getcap`      | 待定    | 待定    | 待定      | 查询资源规格, 扩展和数值能力.      |
   | `fence.mem`   | 待定    | 待定    | 待定      | 等待此前访存完成并达到约定可见点.  |
   | `fence.sa`    | 待定    | 待定    | 待定      | 等待此前 SA 操作完成.              |
   | `fence.all`   | 待定    | 待定    | 待定      | 等待此前全部后端工作完成.          |
