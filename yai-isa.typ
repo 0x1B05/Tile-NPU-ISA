@@ -97,7 +97,7 @@
   | :-----------------: | :----------: | -------------------------- | ------- | ------------------------------------------------------------------------------------- |
   | TC: Tile 计算配置   | `tc0..tc15`  | `tc[i]` ↔ `t[i]`           | 32bit   | `dtype`, `rows`, `cols`, `layout`, `arith_mode`                                       |
   | AC: Acc 计算配置    | `ac0..ac11`  | `ac[i]` ↔ `a[i]`           | 32bit   | `dtype`, `rows`, `cols`, `layout`                                                     |
-  | BC: Vec8 计算配置   | `bc0..bc31`  | `bc[i]` ↔ `b[i]`           | 32bit   | `dtype`, `len`, `arith_mode`                                                          |
+  | BC: Vec8 计算配置   | `bc0..bc31`  | `bc[i]` ↔ `b[i]`           | 32bit   | `dtype`, `len`                                                                        |
   | VC: Vec32 计算配置  | `vc0..vc31`  | `vc[i]` ↔ `v[i]`           | 32bit   | `dtype`, `len`                                                                        |
   | TM: 矩阵访存描述符  | `tm0..tm15`  | Tile / Acc 访存显式选择    | 256bit  | `rows`, `cols`, `row_stride_bytes`, `col_stride_bytes`, `storage_dtype`, `transform`  |
   | VM: 向量访存描述符  | `vm0..vm31`  | Vec8 / Vec32 访存显式选择  | 128bit  | `length`, `stride_bytes`, `storage_dtype`                                             |
@@ -1237,9 +1237,9 @@ vadd.f32 vOut, vOut, vOutF32
 
 = 逐元素, 广播和 mask <elementwise>
 
-本节定义 Tile, Acc, Vec8 和 Vec32 的逐元素运算, 按行/列广播, 比较, select 和 mask 操作.
+本节定义 Tile, Acc 和 Vec32 的逐元素运算, 按行/列广播, 比较, select 和 mask 操作.
 
-本节中的基础运算只处理寄存器中的有效区域. 有效区域由目的寄存器对应的 `TC`, `AC`, `BC` 或 `VC` 配置确定.
+本节中的基础运算只处理寄存器中的有效区域. 有效区域由目的寄存器对应的 `TC`, `AC` 或 `VC` 配置确定.
 
 普通逐元素操作必须满足:
 
@@ -1258,9 +1258,6 @@ topx.TYPE      tD, tA, xS
 
 aop.TYPE       aD, aA, aB
 aopx.TYPE      aD, aA, xS
-
-bop.TYPE       bD, bA, bB
-bopx.TYPE      bD, bA, xS
 
 vop.TYPE       vD, vA, vB
 vopx.TYPE      vD, vA, xS
@@ -1318,32 +1315,32 @@ D[element] ← op(A[element], value)
   | `f32` 近似函数  | `exp2.approx`, `rcp.approx`, `rsqrt.approx`                                           |
 ]
 
-以下分 8-bit 域 (Tile/Vec8) 与 32-bit 域 (Acc/Vec32) 两表列出基础操作. 二元操作展开为寄存器和 Scalar (`x`) 两种来源; 8-bit 域加法和减法的溢出模式由配置 `arith_mode` 决定. 一元操作仅列单源形式, 融合乘加, 特殊函数, 比较和 select 在各自小节列出. 每行的 `TYPE` 仅取该行给出的类型集合. `and`, `or`, `xor`, `not` 与 `select` 为按位操作, 不带类型后缀, 对域内任意 dtype 适用.
+以下分 8-bit 域 (Tile) 与 32-bit 域 (Acc/Vec32) 两表列出基础操作. 二元操作展开为寄存器和 Scalar (`x`) 两种来源; 8-bit 域加法和减法的溢出模式由配置 `arith_mode` 决定. 一元操作仅列单源形式, 融合乘加, 特殊函数, 比较和 select 在各自小节列出. 每行的 `TYPE` 仅取该行给出的类型集合. `and`, `or`, `xor`, `not` 与 `select` 为按位操作, 不带类型后缀, 对域内任意 dtype 适用.
 
-#instruction-table(caption: [Tile/Vec8 基础逐元素指令])[
-  | Instruction       | Format  | Operation            | Notes                                             |
-  | ----------------- | ------- | -------------------- | ------------------------------------------------- |
-  | `{t,b}add.TYPE`   | 待定    | {t,b}D = A + B       | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.  |
-  | `{t,b}addx.TYPE`  | 待定    | {t,b}D = A + xS      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.  |
-  | `{t,b}sub.TYPE`   | 待定    | {t,b}D = A - B       | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.  |
-  | `{t,b}subx.TYPE`  | 待定    | {t,b}D = A - xS      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.  |
-  | `{t,b}min.TYPE`   | 待定    | {t,b}D = min(A, B)   | TYPE: `i8/u8`.                                    |
-  | `{t,b}minx.TYPE`  | 待定    | {t,b}D = min(A, xS)  | TYPE: `i8/u8`.                                    |
-  | `{t,b}max.TYPE`   | 待定    | {t,b}D = max(A, B)   | TYPE: `i8/u8`.                                    |
-  | `{t,b}maxx.TYPE`  | 待定    | {t,b}D = max(A, xS)  | TYPE: `i8/u8`.                                    |
-  | `{t,b}and`        | 待定    | {t,b}D = A and B     | 按位操作, 与元素 dtype 无关.                      |
-  | `{t,b}andx`       | 待定    | {t,b}D = A and xS    | 按位操作, 与元素 dtype 无关.                      |
-  | `{t,b}or`         | 待定    | {t,b}D = A or B      | 按位操作, 与元素 dtype 无关.                      |
-  | `{t,b}orx`        | 待定    | {t,b}D = A or xS     | 按位操作, 与元素 dtype 无关.                      |
-  | `{t,b}xor`        | 待定    | {t,b}D = A xor B     | 按位操作, 与元素 dtype 无关.                      |
-  | `{t,b}xorx`       | 待定    | {t,b}D = A xor xS    | 按位操作, 与元素 dtype 无关.                      |
-  | `{t,b}shl.TYPE`   | 待定    | {t,b}D = shl(A, B)   | TYPE: `i8/u8`.                                    |
-  | `{t,b}shlx.TYPE`  | 待定    | {t,b}D = shl(A, xS)  | TYPE: `i8/u8`.                                    |
-  | `{t,b}shr.TYPE`   | 待定    | {t,b}D = shr(A, B)   | TYPE: `i8/u8`.                                    |
-  | `{t,b}shrx.TYPE`  | 待定    | {t,b}D = shr(A, xS)  | TYPE: `i8/u8`.                                    |
-  | `{t,b}sra.TYPE`   | 待定    | {t,b}D = sra(A, B)   | TYPE: `i8/u8`.                                    |
-  | `{t,b}srax.TYPE`  | 待定    | {t,b}D = sra(A, xS)  | TYPE: `i8/u8`.                                    |
-  | `{t,b}not`        | 待定    | {t,b}D = not A       | 按位操作, 与元素 dtype 无关; 仅有一个数据源.      |
+#instruction-table(caption: [Tile 基础逐元素指令])[
+  | Instruction   | Format  | Operation        | Notes                                             |
+  | ------------- | ------- | ---------------- | ------------------------------------------------- |
+  | `tadd.TYPE`   | 待定    | tD = A + B       | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.  |
+  | `taddx.TYPE`  | 待定    | tD = A + xS      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.  |
+  | `tsub.TYPE`   | 待定    | tD = A - B       | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.  |
+  | `tsubx.TYPE`  | 待定    | tD = A - xS      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.  |
+  | `tmin.TYPE`   | 待定    | tD = min(A, B)   | TYPE: `i8/u8`.                                    |
+  | `tminx.TYPE`  | 待定    | tD = min(A, xS)  | TYPE: `i8/u8`.                                    |
+  | `tmax.TYPE`   | 待定    | tD = max(A, B)   | TYPE: `i8/u8`.                                    |
+  | `tmaxx.TYPE`  | 待定    | tD = max(A, xS)  | TYPE: `i8/u8`.                                    |
+  | `tand`        | 待定    | tD = A and B     | 按位操作, 与元素 dtype 无关.                      |
+  | `tandx`       | 待定    | tD = A and xS    | 按位操作, 与元素 dtype 无关.                      |
+  | `tor`         | 待定    | tD = A or B      | 按位操作, 与元素 dtype 无关.                      |
+  | `torx`        | 待定    | tD = A or xS     | 按位操作, 与元素 dtype 无关.                      |
+  | `txor`        | 待定    | tD = A xor B     | 按位操作, 与元素 dtype 无关.                      |
+  | `txorx`       | 待定    | tD = A xor xS    | 按位操作, 与元素 dtype 无关.                      |
+  | `tshl.TYPE`   | 待定    | tD = shl(A, B)   | TYPE: `i8/u8`.                                    |
+  | `tshlx.TYPE`  | 待定    | tD = shl(A, xS)  | TYPE: `i8/u8`.                                    |
+  | `tshr.TYPE`   | 待定    | tD = shr(A, B)   | TYPE: `i8/u8`.                                    |
+  | `tshrx.TYPE`  | 待定    | tD = shr(A, xS)  | TYPE: `i8/u8`.                                    |
+  | `tsra.TYPE`   | 待定    | tD = sra(A, B)   | TYPE: `i8/u8`.                                    |
+  | `tsrax.TYPE`  | 待定    | tD = sra(A, xS)  | TYPE: `i8/u8`.                                    |
+  | `tnot`        | 待定    | tD = not A       | 按位操作, 与元素 dtype 无关; 仅有一个数据源.      |
 ]
 
 #instruction-table(caption: [Acc/Vec32 基础逐元素指令])[
@@ -1731,11 +1728,11 @@ for 0 ≤ j < len(D):
 #instruction-table(caption: [选择指令])[
   | Instruction    | Format  | Operation           | Notes                                                            |
   | -------------- | ------- | ------------------- | ---------------------------------------------------------------- |
-  | `{t,b}select`  | 待定    | {t,b}D = M ? A : B  | 按位选择, 与元素 dtype 无关; mask 为 `u8`, 两个数据源均被读取.   |
+  | `tselect`      | 待定    | tD = M ? A : B      | 按位选择, 与元素 dtype 无关; mask 为 `u8`, 两个数据源均被读取.   |
   | `{a,v}select`  | 待定    | {a,v}D = M ? A : B  | 按位选择, 与元素 dtype 无关; mask 为 `u32`, 两个数据源均被读取.  |
 ]
 
-select 根据 mask 在两个已经计算好的值之间选择(t/b 数据使用 `u8`, a/v 数据使用 `u32`.):
+select 根据 mask 在两个已经计算好的值之间选择(t 数据使用 `u8`, a/v 数据使用 `u32`.):
 
 ```asm
 tselect tD, tM, tA, tB

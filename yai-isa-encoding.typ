@@ -629,7 +629,7 @@ bits 与 scale 是两个显式目的/源. 目的寄存器按助记符首字母�
   | `8`      | `row_stride_bytes`  | TM            |
   | `9`      | `col_stride_bytes`  | TM            |
   | `10`     | `stride_bytes`      | VM            |
-  | `11`     | `arith_mode`        | TC/BC         |
+  | `11`     | `arith_mode`        | TC            |
   | `12-15`  | reserved            | —             |
 ]
 
