@@ -56,6 +56,27 @@
   | `sat`, `wrap`        | 饱和 / 回绕, 定义见 @elementwise                   |
 ]
 
+Operation 列使用的函数记号:
+
+#manual-table(
+  columns: (1.6fr, 5fr),
+  caption: [Operation 函数记号],
+)[
+  | 记号                      | 含义                                                             |
+  | ------------------------- | ---------------------------------------------------------------- |
+  | `min(A, B)`, `max(A, B)`  | 逐元素取小/取大; 浮点按 IEEE 754 minNum/maxNum 语义, NaN 不传播  |
+  | `shl(A, B)`               | 逻辑左移; 移位量取 `B` 的低 $log_2 w$ 位 ($w$ 为元素位宽)        |
+  | `shr(A, B)`               | 逻辑右移 (零填充); 移位量同上                                    |
+  | `sra(A, B)`               | 算术右移 (符号填充); 移位量同上                                  |
+  | `abs(A)`                  | 逐元素绝对值                                                     |
+  | `not A`                   | 逐元素按位取反                                                   |
+  | `and`, `or`, `xor`        | 逐元素按位与/或/异或                                             |
+  | `quant_q8s32(...)` 等     | 量化与反量化函数, 定义见 @quantization                           |
+  | `fma(A, B, C)`            | 融合乘加 `A × B + C`, 单次舍入; 仅 f32                           |
+]
+
+浮点 `+`, `-`, `×`, `/` 遵循 IEEE 754 binary32 规则, 舍入模式为 round-to-nearest-even.
+
 = 指令集概览 <overview>
 
 == 架构状态
@@ -515,22 +536,23 @@ for 0 <= j < len(CS):
 
 `t/a/b/v` 的存储类型由访存描述符的 `storage_dtype` 字段决定; Scalar 访存由 RV64IM 指令承担. 转置加载通过 `TM.transform` 选择, 仍使用 `tload` (见 @transpose-load).
 
+`storage_dtype` 与目标配置 dtype 的合法组合如下:
+
 #manual-table(
-  columns: (1.1fr, 1.6fr, 1.1fr, 1.9fr),
+  columns: (1fr, 1.5fr, 1.4fr, 1.3fr, 1.7fr),
   caption: [访存存储格式与转换],
 )[
-  | 寄存器域    | 允许的存储格式  | load 行为     | store 行为               |
-  | ----------- | --------------- | ------------- | ------------------------ |
-  | `t/b`       | `i8`, `u8`      | 原样搬运      | 原样写回                 |
-  | `a/v` 整数  | `i32`, `u32`    | 原样搬运      | 原样写回                 |
-  | `a/v` 浮点  | `f32`           | 原样搬运      | 原样写回                 |
-  | `a/v` 浮点  | `f16`, `bf16`   | 扩展为 `f32`  | 从 `f32` 按规定舍入转换  |
+  | 寄存器域  | 内存 storage_dtype  | 配置 dtype  | load 行为     | store 行为               |
+  | --------- | ------------------- | ----------- | ------------- | ------------------------ |
+  | `t`, `b`  | `i8`, `u8`          | 相同        | 原样搬运      | 原样写回                 |
+  | `a`, `v`  | `i32`, `u32`        | 相同        | 原样搬运      | 原样写回                 |
+  | `a`, `v`  | `f32`               | `f32`       | 原样搬运      | 原样写回                 |
+  | `a`, `v`  | `f16`, `bf16`       | `f32`       | 扩展为 `f32`  | 从 `f32` 按规定舍入转换  |
 ]
 
-格式转换必须使用明确的转换, 量化或反量化指令. 因此:
-
-1. `aload a0, tm0, xBase, xRow, xCol` 且 `tm0.storage_dtype = bf16`: 其结果是将 `bf16` 元素扩展为 `f32` 后写入 `a0`.
-2. `astore a0, tm0, xBase, xRow, xCol` 且`tm0.storage_dtype = bf16`: 每个 `f32` 元素必须按照数值规则舍入为 `bf16` 后写入内存.
+#note[
+  `i8` → `i32`, `i8` → `f32`, 子字节格式 (如 `q4`) 以及打包量化格式 (如 `q8` + scale) 到 `f32` 的直接反量化; 这些转换必须使用 `twiden`, `acvt`/`vcvt`, `tquant`/`vquant`, `tdequant`/`bdequant` 等显式指令完成 (见 @quantization).
+]
 
 == 受限动态行读取
 
@@ -886,14 +908,14 @@ tinsert.row tK[rowK], b0
 本节定义基础 `i8` 矩阵乘和 Vec8—Tile 点积指令. 基础指令使用*`i8` 输入, `i32` 输出或累加*.
 
 #instruction-table(caption: [矩阵乘与点积指令])[
-  | Instruction           | Format  | Operation            | Notes                                              |
-  | --------------------- | ------- | -------------------- | -------------------------------------------------- |
-  | `mma.nn.zero.i8.i32`  | 待定    | aD = tA tB           | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
-  | `mma.nn.acc.i8.i32`   | 待定    | aD = aD + tA tB      | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
-  | `bdot.nn.i8.i32`      | 待定    | vD = bA tB           | `i8` 输入, `i32` 输出; 跨块累加使用 `vadd.i32`.    |
-  | `mma.nt.zero.i8.i32`  | 待定    | aD = tA (tB)^T       | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
-  | `mma.nt.acc.i8.i32`   | 待定    | aD = aD + tA (tB)^T  | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
-  | `bdot.nt.i8.i32`      | 待定    | vD = bA (tB)^T       | `i8` 输入, `i32` 输出; 跨块累加使用 `vadd.i32`.    |
+  | Instruction           | Format  | Operation                          | Notes                                              |
+  | --------------------- | ------- | ---------------------------------- | -------------------------------------------------- |
+  | `mma.nn.zero.i8.i32`  | 待定    | $"aD" = "tA" dot "tB"$             | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
+  | `mma.nn.acc.i8.i32`   | 待定    | $"aD" = "aD" + "tA" dot "tB"$      | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
+  | `bdot.nn.i8.i32`      | 待定    | $"vD" = "bA" dot "tB"$             | `i8` 输入, `i32` 输出; 跨块累加使用 `vadd.i32`.    |
+  | `mma.nt.zero.i8.i32`  | 待定    | $"aD" = "tA" dot ("tB")^T$         | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
+  | `mma.nt.acc.i8.i32`   | 待定    | $"aD" = "aD" + "tA" dot ("tB")^T$  | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
+  | `bdot.nt.i8.i32`      | 待定    | $"vD" = "bA" dot ("tB")^T$         | `i8` 输入, `i32` 输出; 跨块累加使用 `vadd.i32`.    |
 ]
 
 == 指令格式
