@@ -42,8 +42,7 @@ structures:
   bc:
     bits: 32
     ranges:
-      31-14: {name: reserved, description: reserved}
-      13-12: {name: am, description: "arith_mode", values: {"0": "wrap", "1": "sat", "10": "reserved", "11": "reserved"}}
+      31-12: {name: reserved, description: reserved}
       11-8: {name: dt, description: dtype (element type), values: {"0000": "i8", "0001": "u8", "0010": "i32", "0011": "u32", "0100": "f32", "5-15": "reserved"}}
       7-0: {name: len, description: len (valid length)}
   tm-0:
