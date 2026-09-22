@@ -31,8 +31,8 @@
 + `i8`, `u8`, `i32`, `u32`, `f32` 表示元素数据类型; 整数元素用作 mask 时取全 0 (假) 或全 1 (真)
 + 尚未定义的内容在文中统一标注为 "待定".
 + `{t,a}` 形式的展开记号依次表示 t 形式和 a 形式两条指令, 多处出现时按顺序配对 (如 `{t,a}insert.row` 中 `{b,v}` 与 `{t,a}` 配对).
-+ 指令表 Operation 列中, 目的 `D` 按助记符的展开域标注 (如 `{t,a}D`); 源操作数 `A`, `B`, `S` 不再重复标注, 未标注时与目的同域, 跨域时显式写出 (如 `{t,a}insert.row` 的 `{b,v}S`).
-+ Operation 列省略索引时表示对目的有效区域逐元素执行; 行或广播变体以 `[rd,j]`, `S[i]` 等显式索引表示.
++ 指令表 Operation 列以显式元素索引给出赋值形式; 未约束的下标对目的有效区域全称量化 (如 `D[i,j] = A[i,j] + B[i,j]` 表示逐元素执行); 源操作数 `A`, `B`, `S` 未标注域前缀时与目的同域, 跨域时显式写出 (如 `{t,a}insert.row` 的 `{b,v}S`).
++ 伪代码只描述合法执行下的核心数据流: 赋值写作 `←`, 循环为半开区间 `for 0 <= i < n:`, 条件中的相等比较写作 `=`. 操作数的 dtype, shape, 寄存器编号与索引合法性等约束由指令表的 Notes 列和正文统一规定, 伪代码不重复这些检查.
 
 指令表与伪代码中的通用操作数记号:
 
@@ -318,8 +318,6 @@ cfg.seti C, field, imm
 
 ```
     v ← extend(imm, type(field))
-    if !valid(C, field, v):
-        raise CFG_ERROR
     C[field] ← v
 ```
 
@@ -343,8 +341,6 @@ cfg.setx C, field, xS
 
 ```
     v ← x[xS]
-    if !valid(C, field, v):
-        raise CFG_ERROR
     C[field] ← v
 ```
 
@@ -375,9 +371,7 @@ cfg.copy C_D, C_S
 操作:
 
 ```
-    if(typeof(C_D) == typeof(C_S)){
-        C_D ← C_S
-    }
+    C_D ← C_S
 ```
 
 == `cfg.get` — 读配置字段到 Scalar
@@ -702,9 +696,7 @@ vfillx.f32  v0, x5
 {t,a,b,v}copy D, S
 ```
 
-复制同域寄存器的有效数据.
-
-约束: 源和目的必须属于同一数据域, 且 dtype, shape 和 layout 相同. Tile/Acc 的 shape 为 rows 和 cols; Vec8/Vec32 的 shape 为 len.
+复制同域寄存器的有效数据. 有效 shape 的定义: Tile/Acc 的 shape 为 rows 和 cols; Vec8/Vec32 的 shape 为 len.
 
 操作: 矩阵 copy 定义为:
 
@@ -739,18 +731,13 @@ tinsert.row  tD[rd], bS
 textract.row bD,     tS[rs]
 ```
 
-在 Vec8 与 Tile 的指定行之间搬运数据.
-
-约束: 只执行同精度 bit 搬运, 即 `i8` Tile ↔ `i8` Vec8, `u8` ↔ `u8`. 如果需要扩大或量化, 必须先使用 `twiden`, `tquant` 或 `vquant` 完成转换, 再执行行搬运.
+在 Vec8 与 Tile 的指定行之间搬运数据. 如果需要扩大或量化, 必须先使用 `twiden`, `tquant` 或 `vquant` 完成转换, 再执行行搬运.
 
 `tinsert.row` 操作: 将一个 Vec8 写入 Tile 的指定行:
 
 ```text
-if 0 <= rd < rows(tD)
-    && len(bS) = cols(tD)
-    && dtype(bS) = dtype(tD):
-    for 0 <= j < cols(tD):
-        tD[rd,j] ← bS[j]
+for 0 <= j < cols(tD):
+    tD[rd,j] ← bS[j]
 ```
 
 只有目标 Tile 的第 `rd` 行被修改, 其他行保持原值.
@@ -758,11 +745,8 @@ if 0 <= rd < rows(tD)
 `textract.row` 操作: 将 Tile 的指定行读入 Vec8:
 
 ```text
-if 0 <= rs < rows(tS)
-    && len(bD) = cols(tS)
-    && dtype(bD) = dtype(tS):
-    for 0 <= j < cols(tS):
-        bD[j] ← tS[rs,j]
+for 0 <= j < cols(tS):
+    bD[j] ← tS[rs,j]
 ```
 
 只有 `bD` 的有效 lane 被写入, 其他 lane 保持原值.
@@ -776,16 +760,11 @@ aextract.row vD,     aS[rs]
 
 在 Vec32 与 Acc 的指定行之间搬运数据.
 
-约束: 只允许同精度搬运, 即 `i32` Acc ↔ `i32` Vec32, `u32` ↔ `u32`, `f32` ↔ `f32`.
-
 `ainsert.row` 操作: 将一个 Vec32 写入 Acc 的指定行:
 
 ```text
-if 0 <= rd < rows(aD)
-    && len(vS) = cols(aD)
-    && dtype(vS) = dtype(aD):
-    for 0 <= j < cols(aD):
-        aD[rd,j] ← vS[j]
+for 0 <= j < cols(aD):
+    aD[rd,j] ← vS[j]
 ```
 
 只有目标 Acc 的第 `rd` 行被修改, 其他行保持原值.
@@ -793,11 +772,8 @@ if 0 <= rd < rows(aD)
 `aextract.row` 操作: 将 Acc 的指定行读入 Vec32:
 
 ```text
-if 0 <= rs < rows(aS)
-    && len(vD) = cols(aS)
-    && dtype(vD) = dtype(aS):
-    for 0 <= j < cols(aS):
-        vD[j] ← aS[rs,j]
+for 0 <= j < cols(aS):
+    vD[j] ← aS[rs,j]
 ```
 
 只有 `vD` 的有效 lane 被写入, 其他 lane 保持原值.
@@ -815,8 +791,7 @@ if 0 <= rs < rows(aS)
 `extract` 操作:
 
 ```text
-if 0 <= lane < len(S):
-    x[xD] ← S[lane]
+x[xD] ← S[lane]
 ```
 
 Scalar 结果的扩展规则由源 dtype 决定:
@@ -830,22 +805,15 @@ f32: 低 32 bit 写入浮点位模式, 高 32 bit 清零.
 `insert` 操作:
 
 ```text
-if 0 <= lane < len(D):
-    value ← x[xS]
-    D[lane] ← value
+D[lane] ← x[xS]
 ```
 
 `broadcast` 操作:
 
 ```text
-if 0 <= lane < len(S)
-    value ← S[lane]
-
-    for 0 <= j < len(D):
-        D[j] ← value
+for 0 <= j < len(D):
+    D[j] ← S[lane]
 ```
-
-`broadcast` 的源和目的必须属于同一 Vector 数据域, 且 dtype 相同 (`bS` → `bD` 或 `vS` → `vD`).
 
 == Tile 转置
 
@@ -1034,22 +1002,22 @@ mma.nn.zero.i8.i32 aD, tA, tB
 约束:
 
 $
-  op("rows")("tA") & = M, op("cols")("tA") = K \
-  op("rows")("tB") & = K, op("cols")("tB") = N \
-  op("rows")("aD") & = M, op("cols")("aD") = N
+   op("rows")("tA") & = M, op("cols")("tA") = K \
+   op("rows")("tB") & = K, op("cols")("tB") = N \
+   op("rows")("aD") & = M, op("cols")("aD") = N
 $
 
 操作:
 
 ```text
-for i = 0 ... M-1:
-    for j = 0 ... N-1:
-        sum = 0
-        for k = 0 ... K-1:
-            lhs = sign_extend_i8(tA[i,k])
-            rhs = sign_extend_i8(tB[k,j])
-            sum = sum + lhs * rhs
-        aD[i,j] = sum
+for 0 <= i < M:
+    for 0 <= j < N:
+        sum ← 0
+        for 0 <= k < K:
+            lhs ← sign_ext(tA[i,k])
+            rhs ← sign_ext(tB[k,j])
+            sum ← sum + lhs × rhs
+        aD[i,j] ← sum
 ```
 
 == `mma.nn.acc.i8.i32`
@@ -1065,15 +1033,14 @@ mma.nn.acc.i8.i32 aD, tA, tB
 操作: `acc` 形式与 `zero` 使用相同的乘法定义, 但将结果加到目的 Acc 的旧值上:
 
 ```text
-for i = 0 ... M-1:
-    for j = 0 ... N-1:
-        partial = 0
-        for k = 0 ... K-1:
-            lhs = sign_extend_i8(tA[i,k])
-            rhs = sign_extend_i8(tB[k,j])
-            partial = partial + lhs * rhs
-
-        aD[i,j] = wrap32(aD[i,j] + partial)
+for 0 <= i < M:
+    for 0 <= j < N:
+        partial ← 0
+        for 0 <= k < K:
+            lhs ← sign_ext(tA[i,k])
+            rhs ← sign_ext(tB[k,j])
+            partial ← partial + lhs × rhs
+        aD[i,j] ← wrap32(aD[i,j] + partial)
 ```
 
 示例: 沿 K 维分块累加:
@@ -1103,28 +1070,27 @@ mma.nt.acc.i8.i32  aD, tA, tB
 `zero` 操作:
 
 ```text
-for i = 0 ... M-1:
-    for j = 0 ... N-1:
-        sum = 0
-        for k = 0 ... K-1:
-            lhs = sign_extend_i8(tA[i,k])
-            rhs = sign_extend_i8(tB[j,k])
-            sum = sum + lhs * rhs
-        aD[i,j] = sum
+for 0 <= i < M:
+    for 0 <= j < N:
+        sum ← 0
+        for 0 <= k < K:
+            lhs ← sign_ext(tA[i,k])
+            rhs ← sign_ext(tB[j,k])
+            sum ← sum + lhs × rhs
+        aD[i,j] ← sum
 ```
 
 `acc` 操作:
 
 ```text
-for i = 0 ... M-1:
-    for j = 0 ... N-1:
-        partial = 0
-        for k = 0 ... K-1:
-            lhs = sign_extend_i8(tA[i,k])
-            rhs = sign_extend_i8(tB[j,k])
-            partial = partial + lhs * rhs
-
-        aD[i,j] = wrap32(aD[i,j] + partial)
+for 0 <= i < M:
+    for 0 <= j < N:
+        partial ← 0
+        for 0 <= k < K:
+            lhs ← sign_ext(tA[i,k])
+            rhs ← sign_ext(tB[j,k])
+            partial ← partial + lhs × rhs
+        aD[i,j] ← wrap32(aD[i,j] + partial)
 ```
 
 == `bdot.nn.i8.i32`
@@ -1138,22 +1104,22 @@ Vec8 与 Tile 各列执行点积, 结果写入 `i32` Vec32.
 约束:
 
 $
-   op("len")("bA") & = K \
-  op("rows")("tB") & = K \
-  op("cols")("tB") & = N \
-   op("len")("vD") & = N
+    op("len")("bA") & = K \
+   op("rows")("tB") & = K \
+   op("cols")("tB") & = N \
+    op("len")("vD") & = N
 $
 
 操作:
 
 ```text
-for j = 0 ... N-1:
-    sum = 0
-    for k = 0 ... K-1:
-        lhs = sign_extend_i8(bA[k])
-        rhs = sign_extend_i8(tB[k,j])
-        sum = sum + lhs * rhs
-    vD[j] = sum
+for 0 <= j < N:
+    sum ← 0
+    for 0 <= k < K:
+        lhs ← sign_ext(bA[k])
+        rhs ← sign_ext(tB[k,j])
+        sum ← sum + lhs × rhs
+    vD[j] ← sum
 ```
 
 数学形式为:
@@ -1171,20 +1137,20 @@ Vec8 与 Tile 各行执行点积, 结果写入 `i32` Vec32.
 约束:
 
 $
-   op("len")("bA") & = K and op("len")("vD") = N \
+  op("len")("bA") & = K and op("len")("vD") = N \
   op("cols")("tB") & = K and op("rows")("tB") = N \
 $
 
 操作:
 
 ```text
-for j = 0 ... N-1:
-    sum = 0
-    for k = 0 ... K-1:
-        lhs = sign_extend_i8(bA[k])
-        rhs = sign_extend_i8(tB[j,k])
-        sum = sum + lhs * rhs
-    vD[j] = sum
+for 0 <= j < N:
+    sum ← 0
+    for 0 <= k < K:
+        lhs ← sign_ext(bA[k])
+        rhs ← sign_ext(tB[j,k])
+        sum ← sum + lhs × rhs
+    vD[j] ← sum
 ```
 
 数学形式为:
@@ -1291,6 +1257,8 @@ vadd.f32 vOut, vOut, vOutF32
 3. 源和目的有效 shape 相同;
 4. 所有动态行号和 lane 号均在有效范围内.
 
+fill, copy, 比较, select, mask 以及行搬运和 lane 操作遵循同样的 dtype 一致与索引有效性约束; 跨域指令的域配对和 shape 对应关系按各指令定义 (如行搬运中向量长度等于矩阵列数). 广播, 矩阵乘, 规约, 量化与访存指令的操作数约束在对应章节单独规定.
+
 == 基础逐元素指令形式
 
 以 `op` 表示某个合法的逐元素操作, 基础形式包括:
@@ -1338,7 +1306,7 @@ Scalar 形式的语义为:
 
 ```text
 value ← decode_scalar(xS, TYPE)
-D[element] ← op(A[element], value)
+D[p] ← op(A[p], value)
 ```
 
 == 基础操作集合
@@ -1510,16 +1478,16 @@ vrsqrt.approx vD, vS
 这些指令对有效区域逐元素执行. 向量形式为:
 
 ```text
-for 0 ≤ j < len(D):
-    D[j] = f(S[j])
+for 0 <= j < len(D):
+    D[j] ← f(S[j])
 ```
 
 矩阵形式为:
 
 ```text
-for 0 ≤ i < rows(D):
-    for 0 ≤ j < cols(D):
-        D[i,j] = f(S[i,j])
+for 0 <= i < rows(D):
+    for 0 <= j < cols(D):
+        D[i,j] ← f(S[i,j])
 ```
 
 == 行广播
@@ -1566,8 +1534,8 @@ aop.brow.TYPE aD, aA, aB[rb]
 执行语义为:
 
 ```text
-for 0 ≤ i < rows(D):
-    for 0 ≤ j < cols(D):
+for 0 <= i < rows(D):
+    for 0 <= j < cols(D):
         D[i,j] ← op(A[i,j], B[rb,j])
 ```
 
@@ -1627,8 +1595,8 @@ aopv.byrow.TYPE aD, aA, vS
 执行语义为:
 
 ```text
-for 0 ≤ i < rows(D):
-    for 0 ≤ j < cols(D):
+for 0 <= i < rows(D):
+    for 0 <= j < cols(D):
         D[i,j] ← op(A[i,j], S[i])
 ```
 
@@ -1688,8 +1656,8 @@ aopv.bycol.TYPE aD, aA, vS
 执行语义为:
 
 ```text
-for 0 ≤ i < rows(D):
-    for 0 ≤ j < cols(D):
+for 0 <= i < rows(D):
+    for 0 <= j < cols(D):
         D[i,j] ← op(A[i,j], S[j])
 ```
 
@@ -1752,16 +1720,16 @@ false → 0
 对于矩阵比较:
 
 ```text
-for 0 ≤ i < rows(D):
-    for 0 ≤ j < cols(D):
-        D[i,j] = predicate(A[i,j], B[i,j])
+for 0 <= i < rows(D):
+    for 0 <= j < cols(D):
+        D[i,j] ← predicate(A[i,j], B[i,j])
 ```
 
 对于向量比较:
 
 ```text
-for 0 ≤ j < len(D):
-    D[j] = predicate(A[j], B[j])
+for 0 <= j < len(D):
+    D[j] ← predicate(A[j], B[j])
 ```
 
 比较目的寄存器的 dtype 应是 `u8`/`u32`. 作为 mask 使用的整数元素应取全 0 (假) 或全 1 (真); 非规范值参与位运算组合时, 不保证等价于逻辑运算.
@@ -1786,10 +1754,10 @@ vselect vD, vM, vA, vB
 执行语义为:
 
 ```text
-if M[element] != 0:
-    D[element] ← A[element]
+if M[p] != 0:
+    D[p] ← A[p]
 else:
-    D[element] ← B[element]
+    D[p] ← B[p]
 ```
 
 select 必须读取两个数据源: M 为 true 时选择 A; M 为 false 时选择 B; A 和 B 都是已经计算好的架构数据.
@@ -1839,8 +1807,8 @@ mask 指令将源数据的某些位置替换为指定 fill 值. `mask` 的 fill 
 矩阵 tail mask 定义为 (`nRows`, `nCols` 取自打包寄存器 `xBounds` 的低, 高 32 bit):
 
 ```text
-for 0 ≤ i < rows(D):
-    for 0 ≤ j < cols(D):
+for 0 <= i < rows(D):
+    for 0 <= j < cols(D):
         if i < nRows and j < nCols:
             D[i,j] ← S[i,j]
         else:
@@ -1850,7 +1818,7 @@ for 0 ≤ i < rows(D):
 向量 tail mask 定义为:
 
 ```text
-for 0 ≤ j < len(D):
+for 0 <= j < len(D):
     if j < xLen:
         D[j] ← S[j]
     else:
@@ -1869,9 +1837,9 @@ tmask.tril tD, tS, xDelta, fill
 局部坐标语义为:
 
 ```text
-for 0 ≤ i < rows(D):
-    for 0 ≤ j < cols(D):
-        if j - i ≤ xDelta:
+for 0 <= i < rows(D):
+    for 0 <= j < cols(D):
+        if j - i <= xDelta:
             D[i,j] ← S[i,j]
         else:
             D[i,j] ← fill
@@ -1886,9 +1854,9 @@ for 0 ≤ i < rows(D):
 上三角 mask 定义为:
 
 ```text
-for 0 ≤ i < rows(D):
-    for 0 ≤ j < cols(D):
-        if j - i ≥ xDelta:
+for 0 <= i < rows(D):
+    for 0 <= j < cols(D):
+        if j - i >= xDelta:
             D[i,j] ← S[i,j]
         else:
             D[i,j] ← fill
@@ -1986,38 +1954,37 @@ $
 目的 Vec32 须满足:
 
 $
-  op("dtype")("vD") & = "f32" \
-    op("len")("vD") & = R
+  op("len")("vD") & = R
 $
 
 `areduce.rows.sum.f32` 的操作为:
 
 ```text
-for i = 0 ... R-1:
-    sum = +0.0
-    for j = 0 ... C-1:
-        sum = fold_add(sum, aS[i,j])
-    vD[i] = sum
+for 0 <= i < R:
+    sum ← +0.0
+    for 0 <= j < C:
+        sum ← fold_add(sum, aS[i,j])
+    vD[i] ← sum
 ```
 
 `areduce.rows.max.f32` 的操作为:
 
 ```text
-for i = 0 ... R-1:
-    value = -inf
-    for j = 0 ... C-1:
-        value = fold_max(value, aS[i,j])
-    vD[i] = value
+for 0 <= i < R:
+    value ← -inf
+    for 0 <= j < C:
+        value ← fold_max(value, aS[i,j])
+    vD[i] ← value
 ```
 
 `areduce.rows.min.f32` 的操作为:
 
 ```text
-for i = 0 ... R-1:
-    value = +inf
-    for j = 0 ... C-1:
-        value = fold_min(value, aS[i,j])
-    vD[i] = value
+for 0 <= i < R:
+    value ← +inf
+    for 0 <= j < C:
+        value ← fold_min(value, aS[i,j])
+    vD[i] ← value
 ```
 
 == 向量到 Scalar 的规约
@@ -2040,34 +2007,34 @@ vreduce.sumsq.f32 xD, vS
 sum:
 
 ```text
-value = +0.0
-for j = 0 ... N-1:
-    value = fold_add(value, vS[j])
+value ← +0.0
+for 0 <= j < N:
+    value ← fold_add(value, vS[j])
 ```
 
 max:
 
 ```text
-value = -inf
-for j = 0 ... N-1:
-    value = fold_max(value, vS[j])
+value ← -inf
+for 0 <= j < N:
+    value ← fold_max(value, vS[j])
 ```
 
 min:
 
 ```text
-value = +inf
-for j = 0 ... N-1:
-    value = fold_min(value, vS[j])
+value ← +inf
+for 0 <= j < N:
+    value ← fold_min(value, vS[j])
 ```
 
 sumsq:
 
 ```text
-value = +0.0
-for j = 0 ... N-1:
-    product = round_f32(vS[j] × vS[j])
-    value = fold_add(value, product)
+value ← +0.0
+for 0 <= j < N:
+    product ← round_f32(vS[j] × vS[j])
+    value ← fold_add(value, product)
 ```
 
 == Argmax
@@ -2088,16 +2055,14 @@ xValue: 最大值的 f32 位模式, 写入低 32 bit, 高 32 bit 清零
 操作:
 
 ```text
-if len(vS) == 0:
-    xIndex = -1
-    xValue = -inf
+if len(vS) = 0:
+    xIndex ← -1
+    xValue ← -inf
 else:
-    best_index = 0
-    best_value = vS[0]
-
-    for j = 1 ... len(vS)-1:
-        candidate = vS[j]
-
+    best_index ← 0
+    best_value ← vS[0]
+    for 1 <= j < len(vS):
+        candidate ← vS[j]
         if candidate is NaN:
             if best_value is not NaN:
                 choose candidate
@@ -2107,7 +2072,7 @@ else:
             keep best_value
         else if candidate > best_value:
             choose candidate
-        else if candidate == best_value and j < best_index:
+        else if candidate = best_value and j < best_index:
             choose candidate
 ```
 
@@ -2160,16 +2125,16 @@ vcvt.i32.f32 vD, vS
 `acvt` 操作:
 
 ```text
-for 0 ≤ i < rows(aD):
-    for 0 ≤ j < cols(aD):
-        aD[i,j] = convert_f32(aS[i,j])
+for 0 <= i < rows(aD):
+    for 0 <= j < cols(aD):
+        aD[i,j] ← f32(aS[i,j])
 ```
 
 `vcvt` 操作:
 
 ```text
-for 0 ≤ j < len(vD):
-    vD[j] = convert_f32(vS[j])
+for 0 <= j < len(vD):
+    vD[j] ← f32(vS[j])
 ```
 
 `acvt` 和 `vcvt` 都允许原地使用:
@@ -2192,9 +2157,9 @@ twiden.i8.i32 aD, tS
 操作:
 
 ```text
-for 0 ≤ i < rows(tS):
-    for 0 ≤ j < cols(tS):
-        aD[i,j] = sign_extend_i8_to_i32(tS[i,j])
+for 0 <= i < rows(tS):
+    for 0 <= j < cols(tS):
+        aD[i,j] ← sign_ext(tS[i,j])
 ```
 
 == 示例
