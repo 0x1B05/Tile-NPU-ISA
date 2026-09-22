@@ -28,6 +28,66 @@ colors:
     "191-128": "191,177,211"
     "223-192": "240,214,148"
     "255-224": "238,183,150"
+  # Instruction format plates; colors follow field roles: major4 purple,
+  # selector light purple, funct blue-grey, operands yellow/orange/green/teal,
+  # reserved grey, q pink.
+  fmt-r4:
+    "31-28": "179,163,205"
+    "27-25": "196,186,209"
+    "24-22": "192,200,210"
+    "21-17": "240,214,148"
+    "16-12": "238,183,150"
+    "11-7": "163,200,177"
+    "6-2": "167,199,200"
+    "1-0": "222,184,203"
+  fmt-r3:
+    "31-28": "179,163,205"
+    "27-25": "196,186,209"
+    "24-21": "192,200,210"
+    "20-17": "230,230,230"
+    "16-12": "238,183,150"
+    "11-7": "163,200,177"
+    "6-2": "167,199,200"
+    "1-0": "222,184,203"
+  fmt-r2:
+    "31-28": "179,163,205"
+    "27-25": "196,186,209"
+    "24-22": "192,200,210"
+    "21-12": "230,230,230"
+    "11-7": "163,200,177"
+    "6-2": "167,199,200"
+    "1-0": "222,184,203"
+  fmt-mr:
+    "31-28": "179,163,205"
+    "27-25": "196,186,209"
+    "24-21": "240,214,148"
+    "20-17": "238,183,150"
+    "16-12": "163,200,177"
+    "11-7": "167,199,200"
+    "6-2": "191,177,211"
+    "1-0": "222,184,203"
+  fmt-rb:
+    "31-28": "179,163,205"
+    "27-25": "196,186,209"
+    "24-21": "192,200,210"
+    "20-19": "230,230,230"
+    "18-14": "240,214,148"
+    "13-10": "238,183,150"
+    "9-6": "163,200,177"
+    "5-2": "167,199,200"
+    "1-0": "222,184,203"
+  fmt-i:
+    "31-28": "179,163,205"
+    "27-26": "196,186,209"
+    "25-23": "192,200,210"
+    "22-7": "240,214,148"
+    "6-2": "167,199,200"
+    "1-0": "222,184,203"
+  fmt-z:
+    "31-28": "179,163,205"
+    "27-25": "192,200,210"
+    "24-2": "230,230,230"
+    "1-0": "222,184,203"
 
 structures:
   tc:
@@ -69,3 +129,99 @@ structures:
       39-36: {name: fl, description: "flags"}
       35-32: {name: sd, description: storage_dtype, values: {"0000": "i8", "0001": "u8", "0010": "i32", "0011": "u32", "0100": "f32", "0101": "f16", "0110": "bf16", "7-15": "reserved"}}
       31-0: {name: length, description: length (memory view length)}
+  # Instruction format plates (32-bit non-scalar instruction word).
+  fmt-r4:
+    bits: 32
+    ranges:
+      31-28: {name: major4, description: major opcode (per family)}
+      27-25: {name: sel3, description: "selector, or 000"}
+      24-22: {name: funct3, description: operation select}
+      21-17: {name: field5, description: "5-bit field (per major4)"}
+      16-12: {name: field5, description: "5-bit field, usually B/xCoord"}
+      11-7: {name: field5, description: "5-bit field, usually A/S"}
+      6-2: {name: field5, description: "5-bit field, usually D"}
+      1-0:
+        name: q
+        description: instruction space tag
+        values: {"00": "elementwise", "01": "data movement", "10": "cross-domain/control", "11": "scalar (RV64IM)"}
+  fmt-r3:
+    bits: 32
+    ranges:
+      31-28: {name: major4, description: major opcode (per family)}
+      27-25: {name: sel3, description: selector}
+      24-21: {name: funct4, description: "operation select {G, op3}"}
+      20-17: {name: reserved4, description: reserved (must be zero)}
+      16-12: {name: field5, description: "second source B (or vector S)"}
+      11-7: {name: field5, description: "first source A"}
+      6-2: {name: field5, description: "destination D"}
+      1-0:
+        name: q
+        description: instruction space tag
+        values: {"00": "elementwise", "01": "data movement", "10": "cross-domain/control", "11": "scalar (RV64IM)"}
+  fmt-r2:
+    bits: 32
+    ranges:
+      31-28: {name: major4, description: major opcode (per family)}
+      27-25: {name: sel3, description: "selector, or 000"}
+      24-22: {name: funct3, description: operation select}
+      21-12: {name: reserved10, description: reserved (must be zero)}
+      11-7: {name: S5, description: source register}
+      6-2: {name: D5, description: destination register}
+      1-0:
+        name: q
+        description: instruction space tag
+        values: {"00": "elementwise", "01": "data movement", "10": "cross-domain/control", "11": "scalar (RV64IM)"}
+  fmt-mr:
+    bits: 32
+    ranges:
+      31-28: {name: major4, description: "major opcode (M_ROW)"}
+      27-25: {name: sel3, description: "{TA, LS, IS}"}
+      24-21: {name: tmJ4, description: TM descriptor index}
+      20-17: {name: R4, description: Tile/Acc register}
+      16-12: {name: index5, description: "row immediate or Scalar index (by IS)"}
+      11-7: {name: xCoord5, description: "Scalar coordinate (xRowCol/xIndex)"}
+      6-2: {name: xBase5, description: Scalar base address register}
+      1-0:
+        name: q
+        description: instruction space tag
+        values: {"00": "elementwise", "01": "data movement", "10": "cross-domain/control", "11": "scalar (RV64IM)"}
+  fmt-rb:
+    bits: 32
+    ranges:
+      31-28: {name: major4, description: "major opcode (E_BROW)"}
+      27-25: {name: sel3, description: "{TA, 0, IS}"}
+      24-21: {name: funct4, description: "operation select {G, op3}"}
+      20-19: {name: reserved2, description: reserved (must be zero)}
+      18-14: {name: index5, description: "row immediate or Scalar index (by IS)"}
+      13-10: {name: B4, description: second matrix source (broadcast row)}
+      9-6: {name: A4, description: first matrix source}
+      5-2: {name: D4, description: matrix destination}
+      1-0:
+        name: q
+        description: instruction space tag
+        values: {"00": "elementwise", "01": "data movement", "10": "cross-domain/control", "11": "scalar (RV64IM)"}
+  fmt-i:
+    bits: 32
+    ranges:
+      31-28: {name: major4, description: major opcode (per family)}
+      27-26: {name: sel2, description: "2-bit selector (rf2 / config type)"}
+      25-23: {name: funct3, description: operation or field select}
+      22-7: {name: imm16, description: "16-bit immediate / payload16"}
+      6-2: {name: D5/C5, description: data or config destination register}
+      1-0:
+        name: q
+        description: instruction space tag
+        values: {"00": "elementwise", "01": "data movement", "10": "cross-domain/control", "11": "scalar (RV64IM)"}
+  fmt-z:
+    bits: 32
+    ranges:
+      31-28: {name: major4, description: "major opcode (SYS)"}
+      27-25:
+        name: funct3
+        description: operation select
+        values: {"000": "fence.mem", "001": "fence.sa", "010": "fence.all", "011": "kernel.end", "1xx": "reserved"}
+      24-2: {name: reserved23, description: reserved (must be zero)}
+      1-0:
+        name: q
+        description: instruction space tag
+        values: {"00": "elementwise", "01": "data movement", "10": "cross-domain/control", "11": "scalar (RV64IM)"}

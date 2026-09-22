@@ -140,10 +140,6 @@ Operation 列使用的函数记号:
 
 待写
 
-== 指令格式 <formats>
-
-指令格式定义见 @encoding.
-
 == 指令分类 <classification>
 
 ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的主要指令族.
@@ -188,13 +184,13 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   #link("https://opensecura.googlesource.com/hw/kelvin/")也使用了类似的策略, 即复用RV64im, 压缩指令的空间用于custom的向量指令.
 ]
 
-= 指令格式 <encoding>
+== 指令格式 <encoding>
 
 标量指令格式见 RISC-V 规范; 本章定义非标量指令格式.
 
 所有非标量指令定长 32-bit. 指令字最低两位 `[1:0]` 为类别标签 (见 @instruction-space); `[31:28]` 为主操作码 `major4`, 按指令族划分; 中间的选择子与操作数字段按 `major4` 解释. 格式与功能域划分正交: 同一格式可以出现在不同功能域, 指令的归属按其功能决定.
 
-== 格式分类
+=== 格式分类
 
 非标量指令按操作数字段的数量与类型归为七种格式:
 
@@ -213,58 +209,23 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | Z     | `major4 + funct3`                               | `fence.*`, `kernel.end`                                                                                                    |
 ]
 
-== 位段布局
+=== 位段布局
 
-R4 (四个 5-bit 字段):
+#rivet-plate-figure(fmt-r4-schema, caption: [R4 格式: 四个 5-bit 字段])
 
-```
-31    28 27   25 24    22 21    17 16    12 11     7 6      2 1   0
-[major4] [sel3 ] [funct3] [field5] [field5] [field5] [field5] [ q ]
-```
+#rivet-plate-figure(fmt-r3-schema, caption: [R3 格式: 三个 5-bit 字段])
 
-R3 (三个 5-bit 字段):
+#rivet-plate-figure(fmt-r2-schema, caption: [R2 格式: 两个 5-bit 字段])
 
-```
-31    28 27   25 24    21 20   17 16    12 11     7 6      2 1   0
-[major4] [sel3 ] [funct4] [rsv4 ] [field5] [field5] [field5] [ q ]
-```
+#rivet-plate-figure(fmt-mr-schema, caption: [MR 格式: 行访存])
 
-R2 (两个 5-bit 字段):
+#rivet-plate-figure(fmt-rb-schema, caption: [RB 格式: 矩阵源行广播])
 
-```
-31    28 27   25 24    22 21   12 11   7 6   2 1   0
-[major4] [sel3 ] [funct3] [rsv10] [ S5 ] [D5 ] [ q ]
-```
+#rivet-plate-figure(fmt-i-schema, caption: [I 格式: 16-bit 立即数])
 
-MR (行访存):
+#rivet-plate-figure(fmt-z-schema, caption: [Z 格式: 无显式操作数])
 
-```
-31    28 27   25 24   21 20   17 16    12 11      7 6      2 1   0
-[major4] [sel3 ] [tmJ4 ] [ R4  ] [index5] [xCoord5] [xBase5] [ q ]
-```
-
-RB (矩阵源行广播):
-
-```
-31    28 27   25 24    21 20   19 18    14 13   10 9   6 5   2 1   0
-[major4] [sel3 ] [funct4] [rsv2 ] [index5] [ B4  ] [A4 ] [D4 ] [ q ]
-```
-
-I (16-bit 立即数):
-
-```
-31    28 27   26 25    23 22    7 6     2 1   0
-[major4] [sel2 ] [funct3] [imm16] [D5/C5] [ q ]
-```
-
-Z (无显式操作数):
-
-```
-31    28 27    25 24    2 1   0
-[major4] [funct3] [rsv23] [ q ]
-```
-
-== 选择子与简写
+=== 选择子与简写
 
 `sel2`/`sel3` 为 2-bit/3-bit 选择子, 具体含义由 `major4` 解释; 承载数据域编码时语义值记为 `rf2`. `funct3`/`funct4` 为操作选择. 各选择子位的语义:
 
@@ -290,7 +251,7 @@ Z (无显式操作数):
 
 字段名后的数字表示位宽, 如 `D5`, `rf2`, `funct3`; 同一字段作为汇编操作数时通常省略位宽后缀. `S2` 中的 `2` 表示第二源编号而非位宽.
 
-== `major4` 分配
+=== `major4` 分配
 
 `major4` 的具体编码值待定; 各功能域的指令族分配如下:
 
@@ -2761,69 +2722,3 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 ]
 
 前缀表示指令所属的数据域或功能族, 跨域指令须结合操作数阅读. 例如 `treduce` 的目的为 Vec32, `vreduce` 的目的为 Scalar, 不能仅根据前缀推断目的寄存器.
-
-= 附录: 编码图版 <plates>
-
-本附录预留二进制编码图. 指令字宽及字段位段确定后, 再补充与 @encoding 对应的图版.
-
-// = 附录 C：整页编码图版 <plates>
-//
-// 本附录使用 Rivet 的 blueprint 配置生成各格式的完整字段图。每张图版单独使用 A4 横向页面，以便完整显示字段名称和位宽；图版与正文中的分片图使用相同的 schema，不增加编码语义。
-//
-// #captioned-table(
-//   table(
-//     columns: (1fr, 3.8fr),
-//     inset: 5pt,
-//     stroke: 0.35pt + luma(195),
-//     fill: (_, y) => if y == 0 { rgb("e9f0f7") } else { none },
-//     table.header(table-header[图版], table-header[完整结构]),
-//     [C.1], [`S_R` 标量寄存器格式],
-//     [C.2], [`S_I` 标量立即数格式],
-//     [C.3], [`S_B` 分支和循环格式],
-//     [C.4], [`T_R3` 三源 Tile 计算格式],
-//     [C.5], [`T_R4` 四源 Tile 计算格式],
-//     [C.6], [`T_M` Tile memory 格式],
-//     [C.7], [`T_MP` paged Tile memory 格式],
-//     [C.8], [`T_D` descriptor/lifetime 格式],
-//     [C.9], [`T_S` event/wait/fence/system 格式],
-//   ),
-//   caption: [编码图版索引],
-// )
-//
-// #set page(flipped: true)
-// #pagebreak()
-// #align(center)[*C.1　`S_R` 标量寄存器格式*]
-// #rivet-plate(sr-format-schema)
-//
-// #pagebreak()
-// #align(center)[*C.2　`S_I` 标量立即数格式*]
-// #rivet-plate(si-schema)
-//
-// #pagebreak()
-// #align(center)[*C.3　`S_B` 分支和循环格式*]
-// #rivet-plate(sb-schema)
-//
-// #pagebreak()
-// #align(center)[*C.4　`T_R3` 三源 Tile 计算格式*]
-// #rivet-plate(tr3-schema)
-//
-// #pagebreak()
-// #align(center)[*C.5　`T_R4` 四源 Tile 计算格式*]
-// #rivet-plate(tr4-schema)
-//
-// #pagebreak()
-// #align(center)[*C.6　`T_M` Tile memory 格式*]
-// #rivet-plate(tm-schema)
-//
-// #pagebreak()
-// #align(center)[*C.7　`T_MP` paged Tile memory 格式*]
-// #rivet-plate(tmp-schema)
-//
-// #pagebreak()
-// #align(center)[*C.8　`T_D` descriptor/lifetime 格式*]
-// #rivet-plate(td-schema)
-//
-// #pagebreak()
-// #align(center)[*C.9　`T_S` event/wait/fence/system 格式*]
-// #rivet-plate(ts-schema)
-// #set page(flipped: false)

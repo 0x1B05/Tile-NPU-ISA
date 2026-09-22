@@ -13,6 +13,14 @@
 #let tm-1-schema = load-format("tm-1")
 #let vm-schema = load-format("vm")
 
+#let fmt-r4-schema = load-format("fmt-r4")
+#let fmt-r3-schema = load-format("fmt-r3")
+#let fmt-r2-schema = load-format("fmt-r2")
+#let fmt-mr-schema = load-format("fmt-mr")
+#let fmt-rb-schema = load-format("fmt-rb")
+#let fmt-i-schema = load-format("fmt-i")
+#let fmt-z-schema = load-format("fmt-z")
+
 // Light background instead of the rivet blueprint preset's dark blue.
 #let rivet-c-config = config.config(
   default-font-family: ("Tex Gyre Termes", "Noto Serif CJK SC"),
@@ -84,6 +92,32 @@
 )
 #let rivet-c-figure(doc, caption: none) = figure(
   align(center, schema.render(doc, width: 100%, config: rivet-c-config)),
+  caption: caption,
+  supplement: [图],
+  kind: "bits",
+)
+
+// Encoding plates: full 32-bit instruction word on a portrait page.
+// Square bits, matching the proportions of the rivet RISC-V example.
+#let rivet-plate-config = config.config(
+  default-font-family: ("Tex Gyre Termes", "Noto Serif CJK SC"),
+  italic-font-family: ("Tex Gyre Termes", "Noto Serif CJK SC"),
+  background: white,
+  text-color: black,
+  link-color: luma(60),
+  bit-i-color: luma(60),
+  border-color: luma(80),
+  bit-width: 30,
+  bit-height: 30,
+  margins: (28, 28, 28, 28),
+  left-labels: true,
+  force-descs-on-side: true,
+  all-bit-i: false,
+  full-page: false,
+)
+
+#let rivet-plate-figure(doc, caption: none) = figure(
+  align(center, schema.render(doc, width: 100%, config: rivet-plate-config)),
   caption: caption,
   supplement: [图],
   kind: "bits",
