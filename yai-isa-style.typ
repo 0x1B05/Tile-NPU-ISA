@@ -101,10 +101,10 @@
   stroke: 0.35pt + luma(195),
 )
 
-// Markdown columns: Instruction | Format | Opcode | Function | Summary.
+// Markdown columns: Instruction | Format | Function | Summary.
 // Write one instruction per row; names/functions are no longer expanded from arrays.
 #let instruction-listing = manual-table.with(
-  columns: (2.1fr, 0.6fr, 0.6fr, 0.7fr, 2.5fr),
+  columns: (1.6fr, 0.6fr, 2.7fr, 2.5fr),
   inset: 3.5pt,
   stroke: 0.35pt + luma(195),
 )
