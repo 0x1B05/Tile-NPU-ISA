@@ -96,7 +96,7 @@
 
 // Markdown columns: Instruction | Format | Operation | Notes.
 #let instruction-table = manual-table.with(
-  columns: (2.1fr, 0.65fr, 2.5fr, 2.1fr),
+  columns: (2.1fr, 0.5fr, 2.5fr, 2.1fr),
   inset: 4pt,
   stroke: 0.35pt + luma(195),
 )

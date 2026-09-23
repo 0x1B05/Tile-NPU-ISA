@@ -100,7 +100,7 @@ Operation 列使用的函数记号:
 
 #manual-table(
   columns: (1fr, 0.6fr, 1fr, 0.4fr, 2fr),
-  caption: [计算配置寄存器与访存描述符],
+  caption: [计算配置寄存器],
 )[
   | 寄存器类型          | 汇编名称     | 绑定或适用对象    | 容量   | 配置字段                                         |
   | :-----------------: | :----------: | :---------------: | ------ | ------------------------------------------------ |
@@ -109,6 +109,13 @@ Operation 列使用的函数记号:
   | BC: Vec8 计算配置   | `bc0..bc31`  | `bc[i]` ↔ `b[i]`  | 32bit  | `dtype`, `len`                                   |
   | VC: Vec32 计算配置  | `vc0..vc31`  | `vc[i]` ↔ `v[i]`  | 32bit  | `dtype`, `len`                                   |
 ]
+
+计算配置寄存器属于*寄存器侧*配置, 主要配置数据寄存器的逻辑形状、元素类型、内部布局和相关运算行为:
+- `dtype`：数据寄存器中元素的逻辑数据类型. `TC/BC` 支持 `i8/u8`, `AC/VC` 支持 `i32/u32/f32`; 具体合法组合由对应指令规定.
+- `rows`、`cols`：矩阵寄存器的有效逻辑行数和列数, 适用于 `TC` 和 `AC`.
+- `len`：向量寄存器的有效 lane 数, 适用于 `BC` 和 `VC`. 它决定向量指令实际处理的有效元素范围.
+- `layout`：矩阵寄存器内部的逻辑布局, 适用于 `TC` 和 `AC`. 具体布局编码及其适用指令由对应章节规定.
+- `arith_mode`：Tile 8-bit 整数 `add` 和 `sub` 的溢出模式, 适用于 `TC`; `wrap` 表示回绕, `sat` 表示饱和.
 
 #figure(
   manual-table(
@@ -121,6 +128,44 @@ Operation 列使用的函数记号:
     | VM: 向量访存描述符  | `vm0..vm31`  | Vec8 / Vec32 访存  | 128bit  | `length`, `stride_bytes`, `storage_dtype`                                             |
   ],
 )<mem-desc>
+
+访存描述符属于*内存侧*配置. 矩阵访存使用 `TM` 描述符, 向量访存使用 `VM` 描述符.
+
+基地址和访问坐标由 64-bit Scalar 操作数提供.
+
+`VM` 主要提供：
+- `length`：一维内存 view 的有效长度, 以元素为单位.
+- `stride_bytes`：相邻逻辑元素之间的字节步长, 该步长可以描述连续或带间隔的一维内存布局.
+- `storage_dtype`：内存中实际存储的元素类型. 它与目标 `BC/VC` 配置中的`dtype` 共同决定 load/store 是原样搬运还是需要执行规定的数据类型转换.
+
+对一维 VM, 内存元素地址定义为:
+
+$ op("addr")(j) = "xBase" + ("xIndex" + j) dot "VM.stride_bytes" $
+
+`TM` 主要提供：
+- `rows`, `cols`：内存 view 的有效范围；
+- `row_stride_bytes`：沿内存行方向移动一个元素行的字节步长；
+- `col_stride_bytes`：沿内存列方向移动一个元素列的字节步长；
+- `storage_dtype`：内存中实际存储的数据类型；
+- `transform`：是否使用转置等访存变换。
+
+对二维 TM, 内存元素地址定义为:
+
+$
+  op("addr")(i,j) & = "xBase" \
+                  & quad + ("xRow" + i) dot "TM.row_stride_bytes" \
+                  & quad + ("xCol" + j) dot "TM.col_stride_bytes"
+$
+
+#manual-table(columns: (2fr, 5fr), caption: [地址计算符号])[
+  | 符号      | 含义                                 |
+  | --------- | ------------------------------------ |
+  | `xBase`   | view 逻辑坐标 $[0, 0]$ 对应的基地址  |
+  | `xIndex`  | 一维 view 的起始元素坐标             |
+  | `xRow`    | 二维 view 的起始行坐标               |
+  | `xCol`    | 二维 view 的起始列坐标               |
+  | $i$, $j$  | 当前 Tile 或 Vector 内的局部坐标     |
+]
 
 计算配置寄存器 TC/AC 与 BC/VC 均为 32-bit; 矩阵访存描述符 TM 为 256-bit (四个 64-bit word), 向量访存描述符 VM 为 128-bit (两个 64-bit word). 位段分配如下.
 
@@ -252,17 +297,35 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 === `major4` 分配
 
-`major4` 的具体编码值尚未分配, 各功能域的指令族分配如下:
+各功能域的指令族编码分配如下; 未列出的码点均为预留:
 
 #manual-table(
-  columns: (1fr, 3.2fr, 1.4fr),
+  columns: (1fr, 1fr, 2.2fr, 1.2fr),
   caption: [major4 指令族分配],
 )[
-  | 功能域  | 指令族 (`major4`)                                                                                 | 格式         |
-  | ------- | ------------------------------------------------------------------------------------------------- | ------------ |
-  | `00`    | `E_BIN`, `E_UNARY`, `E_CMP`, `E_R4`, `E_MASK`, `E_BCAST`, `E_BROW`                                | R3/R2/R4/RB  |
-  | `01`    | `M_BLK`, `M_ROW`, `INIT_MOVE`, `ROW_MOVE`, `LANE_MOVE`                                            | R4/MR/R2     |
-  | `10`    | `MMA_BDOT`, `AREDUCE`, `VREDUCE`, `CVT`, `QNT`, `CFG_MAT_SETI`, `CFG_VEC_SETI`, `CFG_REG`, `SYS`  | R4/R2/I/Z    |
+  | 功能域  | `major4`  | 指令族          | 格式   |
+  | ------- | --------- | --------------- | ------ |
+  | `00`    | `0000`    | `E_BIN`         | R3     |
+  | `00`    | `0001`    | `E_UNARY`       | R2     |
+  | `00`    | `0010`    | `E_CMP`         | R4     |
+  | `00`    | `0011`    | `E_R4`          | R4     |
+  | `00`    | `0100`    | `E_MASK`        | R4     |
+  | `00`    | `0101`    | `E_BCAST`       | R3     |
+  | `00`    | `0110`    | `E_BROW`        | RB     |
+  | `01`    | `0000`    | `M_BLK`         | R4     |
+  | `01`    | `0001`    | `M_ROW`         | MR     |
+  | `01`    | `0010`    | `INIT_MOVE`     | I/R2   |
+  | `01`    | `0011`    | `ROW_MOVE`      | R4     |
+  | `01`    | `0100`    | `LANE_MOVE`     | R4     |
+  | `10`    | `0000`    | `MMA_BDOT`      | R4     |
+  | `10`    | `0001`    | `AREDUCE`       | R2     |
+  | `10`    | `0010`    | `VREDUCE`       | R2/R4  |
+  | `10`    | `0011`    | `CVT`           | R2     |
+  | `10`    | `0100`    | `QNT`           | R4     |
+  | `10`    | `0101`    | `CFG_MAT_SETI`  | I      |
+  | `10`    | `0110`    | `CFG_VEC_SETI`  | I      |
+  | `10`    | `0111`    | `CFG_REG`       | R4     |
+  | `10`    | `1000`    | `SYS`           | Z      |
 ]
 
 编码原则:
@@ -277,12 +340,16 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 #instruction-table(caption: [同步指令])[
   | Instruction   | Format  | Operation                          | Notes                        |
-  | ------------- | ------- | ---------------------------------- | ---------------------------- |
+  | :-----------: | :-----: | ---------------------------------- | ---------------------------- |
   | `fence.mem`   | Z       | 等待此前访存完成并达到约定可见点.  | 后续访存不得越过此边界.      |
   | `fence.sa`    | Z       | 等待此前 SA 操作完成.              | 后续 SA 操作不得越过此边界.  |
   | `fence.all`   | Z       | 等待此前全部后端工作完成.          | 后续后端操作不得越过此边界.  |
   | `kernel.end`  | Z       | 报告 kernel 完成.                  | 隐含 `fence.all`.            |
 ]
+
+同步与 kernel 结束指令使用 Z 格式, 无显式操作数:
+
+#rivet-fmt-figure(sys-schema, caption: [同步与结束格式 (SYS)])
 
 = 配置指令 <configuration>
 
@@ -300,15 +367,39 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `cfg.get`    | R4      | x[xD] = extend(C[field])  | 结果为字段的整数或枚举值.        |
 ]
 
+`cfg.seti` 使用 I 格式, `sel2` 选择配置寄存器类型, `funct3` 直接编号字段:
+
+#rivet-fmt-figure(cfg-seti-schema, caption: [cfg.seti 格式 (I)])
+
+`cfg.setx`, `cfg.copy`, `cfg.get` 共用 R4 格式, `sel3 = {sel2, MV}` 选择配置类型与矩阵/向量侧, `funct3` 选择操作:
+
+#rivet-fmt-figure(cfg-reg-schema, caption: [cfg.setx/copy/get 格式 (R4)])
+
+`funct3` 字段编号按配置类型解释:
+
+#manual-table(
+  columns: (1fr, 1.4fr, 1.4fr, 1.8fr, 1.2fr, 1.2fr, 1.6fr),
+  caption: [配置字段编号 (funct3)],
+)[
+  | `funct3`  | TC          | AC      | TM                | BC     | VC     | VM             |
+  | --------- | ----------- | ------- | ----------------- | ------ | ------ | -------------- |
+  | `000`     | dtype       | dtype   | storage_dtype     | dtype  | dtype  | storage_dtype  |
+  | `001`     | rows        | rows    | rows              | len    | len    | length         |
+  | `010`     | cols        | cols    | cols              | -      | -      | -              |
+  | `011`     | layout      | layout  | row_stride_bytes  | -      | -      | stride_bytes   |
+  | `100`     | arith_mode  | -       | col_stride_bytes  | -      | -      | -              |
+  | `101`     | -           | -       | transform         | -      | -      | -              |
+  | `110`     | -           | -       | flags             | -      | -      | flags          |
+  | `111`     | 保留        | 保留    | 保留              | 保留   | 保留   | 保留           |
+]
+
 == `cfg.seti` — 写立即数配置字段
 
 ```asm
 cfg.seti C, field, imm
 ```
 
-将立即数写入指定配置字段.
-
-操作:
+将立即数写入指定配置字段:
 
 ```
     v ← extend(imm, type(field))
@@ -329,9 +420,7 @@ cfg.seti tc0, rows, 32
 cfg.setx C, field, xS
 ```
 
-将 Scalar 寄存器中的完整值写入指定配置字段. 字段的符号扩展, 截断和范围规则由字段定义决定.
-
-操作:
+将 Scalar 寄存器中的完整值写入指定配置字段:
 
 ```
     v ← x[xS]
@@ -360,9 +449,7 @@ $
 cfg.copy C_D, C_S
 ```
 
-复制源配置在执行时的全部字段.
-
-操作:
+复制源配置在执行时的全部字段:
 
 ```
     C_D ← C_S
@@ -374,9 +461,7 @@ cfg.copy C_D, C_S
 cfg.get xD, C, field
 ```
 
-将配置字段的整数或枚举值写入 Scalar 寄存器.
-
-操作:
+将配置字段的整数或枚举值写入 Scalar 寄存器:
 
 ```
     v ← C[field]
@@ -401,38 +486,13 @@ cfg.get xD, C, field
   | `{b,v}store`      | R4      | memory[addr(j)] = S[j]       | 仅写有效交集, 越界位置不访问内存.                  |
 ]
 
-== 访存描述符和地址操作数
+整块与向量访存使用 R4 格式; `rf2` 选择数据域, `LS` 区分 load/store, 描述符与坐标字段按数据域解释:
 
-矩阵访存使用 `TM` 描述符, 向量访存使用 `VM` 描述符. 对应描述符所含配置字段参见 @mem-desc
+#rivet-fmt-figure(m-blk-schema, caption: [整块与向量访存格式 (M_BLK)])
 
-基地址和访问坐标由 64-bit Scalar 操作数提供.
-对一维 VM, 内存元素地址定义为:
+行访存使用 MR 格式; 内存行列坐标打包为 `xRowCol` 由 Scalar 提供, 目标行号 `rd`/`rs` 为独立的 `index5` 字段:
 
-$
-  op("addr")(j) = "xBase" + ("xIndex" + j) dot "VM.stride_bytes"
-$
-
-对二维 TM, 内存元素地址定义为:
-
-$
-  op("addr")(i,j) & = "xBase" \
-                  & quad + ("xRow" + i) dot "TM.row_stride_bytes" \
-                  & quad + ("xCol" + j) dot "TM.col_stride_bytes"
-$
-
-#manual-table(columns: (2fr, 5fr), caption: [地址计算符号])[
-  | 符号      | 含义                                 |
-  | --------- | ------------------------------------ |
-  | `xBase`   | view 逻辑坐标 $[0, 0]$ 对应的基地址  |
-  | `xIndex`  | 一维 view 的起始元素坐标             |
-  | `xRow`    | 二维 view 的起始行坐标               |
-  | `xCol`    | 二维 view 的起始列坐标               |
-  | $i$, $j$  | 当前 Tile 或 Vector 内的局部坐标     |
-]
-
-坐标以元素计, stride 以字节计; RF 行号 $r$ 与内存 `xRow` 独立.
-
-编译器将逻辑 Tile 编号乘以固定边长 $L = 32$ 后, 形成对应的元素坐标.
+#rivet-fmt-figure(m-row-schema, caption: [行访存格式 (M_ROW)])
 
 == 基础访存指令
 
@@ -448,9 +508,9 @@ astore  aS, tmJ, xBase, xRow, xCol
 
 `tload` 使用 `tD` 对应的 `TC` 配置, `aload` 使用 `aD` 对应的 `AC` 配置. `tstore` 和 `astore` 使用源寄存器对应的配置.
 
-对于矩阵整块 load, 令 $R & = op("rows")("CD"), C & = op("cols")("CD")$
+对于矩阵整块 load, 令 $R = op("rows")("CD"), C & = op("cols")("CD")$
 
-其中 `CD` 是目的 Tile 或 Acc. 对每个有效寄存器元素执行:
+其中 $C D$ 是目的 Tile 或 Acc. 对每个有效寄存器元素执行:
 
 ```text
 for 0 <= i < R:
@@ -486,7 +546,7 @@ aload.row   aD[rd], tmJ, xBase, xRowCol
 astore.row  aS[rs], tmJ, xBase, xRowCol
 ```
 
-内存行坐标 `row` 与列坐标 `col` 打包在一个 Scalar 寄存器 `xRowCol` 中 (`[31:0]` = `row`, `[63:32]` = `col`). `rd` 和 `rs` 是寄存器文件中的行号, 可以是立即数或 Scalar 寄存器提供的完整值; 它们不参与内存地址计算.
+内存行坐标 `row` 与列坐标 `col` 打包在一个 Scalar 寄存器 `xRowCol` 中 (`[31:0]` = `row`, `[63:32]` = `col`). `rd` 和 `rs` 是寄存器文件中的行号, 可以是立即数或 Scalar 寄存器提供的完整值.
 
 对于 row load:
 
@@ -498,8 +558,6 @@ for 0 <= j < cols(CD):
     else:
         CD[rd,j] ← 0
 ```
-
-row load 的效果是: 只清零或覆盖目的寄存器的第 rd 行; 目的寄存器的其他行保持原值; 目的寄存器第 rd 行的无效列写入零.
 
 对于 row store:
 
@@ -548,7 +606,7 @@ for 0 <= j < len(CS):
 
 == 存储数据类型和转换
 
-`t/a/b/v` 的存储类型由访存描述符的 `storage_dtype` 字段决定; Scalar 访存由 RV64IM 指令承担. 转置加载通过 `TM.transform` 选择, 仍使用 `tload` (见 @transpose-load).
+`t/a/b/v` 的存储类型由访存描述符的 `storage_dtype` 字段决定. 转置加载通过 `TM.transform` 选择, 仍使用 `tload` (见 @transpose-load).
 
 `storage_dtype` 与目标配置 dtype 的合法组合如下:
 
@@ -617,7 +675,7 @@ f16/bf16 KV scale
 
 #instruction-table(caption: [初始化, 搬运与转置指令])[
   | Instruction         | Format  | Operation          | Notes                                                          |
-  | ------------------- | ------- | ------------------ | -------------------------------------------------------------- |
+  | :-----------------: | :-----: | ------------------ | -------------------------------------------------------------- |
   | `{t,a}fill.TYPE`    | I       | D[i,j] = imm       | TYPE: t 为 `i8/u8`, a 为 `i32/u32/f32`; 无效物理位置保持原值.  |
   | `{t,a}fillx.TYPE`   | R2      | D[i,j] = xS        | TYPE: t 为 `i8/u8`, a 为 `i32/u32/f32`.                        |
   | `{t,a}copy`         | R2      | D[i,j] = S[i,j]    | 源与目的 layout 一致.                                          |
@@ -632,6 +690,29 @@ f16/bf16 KV scale
   | `ttranspose`        | R2      | tD[i,j] = tS[j,i]  | 仅支持 8-bit Tile; 允许原地执行, 交换有效行列数.               |
 ]
 
+`fill` 使用 I 格式, 立即数 `payload16` 按目的 dtype 解释:
+
+#rivet-fmt-figure(init-fill-schema, caption: [fill 格式 (INIT_MOVE, I)])
+
+`fillx`/`copy`/`ttranspose` 使用 R2 格式:
+
+#rivet-fmt-figure(
+  init-move-schema,
+  caption: [fillx/copy/ttranspose 格式 (INIT_MOVE, R2)],
+)
+
+行搬运与 lane 操作共用 R4 格式; `EW` 选择 8-bit/32-bit 寄存器组合, `IS` 选择索引来源:
+
+#rivet-fmt-figure(
+  row-move-schema,
+  caption: [行搬运格式 (ROW_MOVE)],
+)
+
+#rivet-fmt-figure(
+  lane-move-schema,
+  caption: [lane 操作格式 (LANE_MOVE)],
+)
+
 == Fill 指令
 
 ```asm
@@ -639,18 +720,9 @@ f16/bf16 KV scale
 {t,a,b,v}fillx.TYPE  D, xS
 ```
 
-`fill` 将立即数填入目标有效区域; `fillx` 用 Scalar 值填充. 目标数据域由指令前缀确定:
+`fill` 将立即数填入目标有效区域; `fillx` 用 Scalar 值填充. 目标数据域由指令前缀确定.
 
-```text
-tfill: 目标为 Tile
-afill: 目标为 Acc
-bfill: 目标为 Vec8
-vfill: 目标为 Vec32
-```
-
-`fill` 操作: 对于矩阵目标, 令$R & = op("rows")(D), C & = op("cols")(D)$
-
-执行:
+对于矩阵目标, 令$R & = op("rows")(D), C & = op("cols")(D)$, `fill`执行:
 
 ```text
 for 0 <= i < R:
@@ -658,30 +730,14 @@ for 0 <= i < R:
         D[i,j] ← value
 ```
 
-对于向量目标, 令$N & = op("len")(D)$:
-
-执行:
+对于向量目标, 令$N & = op("len")(D)$, 执行:
 
 ```text
 for 0 <= j < N:
     D[j] ← value
 ```
 
-`fill` 只修改目标数据寄存器的当前有效区域. 有效区域之外的物理位置保持原值: 矩阵中满足 $i >= op("rows")(D)$ 或 $j >= op("cols")(D)$ 的位置保持不变; 向量中满足 $j >= op("len")(D)$ 的 lane 保持不变.
-
 `fillx` 操作: 从 Scalar 寄存器中读取填充值 `value ← x[xS]`, 然后按照 `TYPE` 写入目标有效区域.
-
-示例:
-
-```asm
-tfill.i8    t0, 0
-afill.f32   a0, 0.0
-bfill.i8    b0, 0
-vfill.f32   v0, 0.0
-
-tfillx.i8   t0, x4
-vfillx.f32  v0, x5
-```
 
 == Copy 指令
 
@@ -689,9 +745,9 @@ vfillx.f32  v0, x5
 {t,a,b,v}copy D, S
 ```
 
-复制同域寄存器的有效数据. 有效 shape 的定义: Tile/Acc 的 shape 为 rows 和 cols; Vec8/Vec32 的 shape 为 len.
+复制同域寄存器的有效数据. 有效 shape 的定义: Tile/Acc 的 shape 为 `rows` 和 `cols`; Vec8/Vec32 的 shape 为 `len`.
 
-操作: 矩阵 copy 定义为:
+矩阵 copy 定义为:
 
 ```text
 for 0 <= i < rows(D):
@@ -897,7 +953,7 @@ tinsert.row tK[rowK], b0
 
 #instruction-table(caption: [矩阵乘与点积指令])[
   | Instruction           | Format  | Operation                                       | Notes                                              |
-  | --------------------- | ------- | ----------------------------------------------- | -------------------------------------------------- |
+  | :-------------------: | :-----: | ----------------------------------------------- | -------------------------------------------------- |
   | `mma.nn.zero.i8.i32`  | R4      | $"aD"[m,n] = sum_k "tA"[m,k] times "tB"[k,n]$   | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
   | `mma.nn.acc.i8.i32`   | R4      | $"aD"[m,n] += sum_k "tA"[m,k] times "tB"[k,n]$  | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
   | `bdot.nn.i8.i32`      | R4      | $"vD"[n] = sum_k "bA"[k] times "tB"[k,n]$       | `i8` 输入, `i32` 输出; 跨块累加使用 `vadd.i32`.    |
@@ -905,6 +961,10 @@ tinsert.row tK[rowK], b0
   | `mma.nt.acc.i8.i32`   | R4      | $"aD"[m,n] += sum_k "tA"[m,k] times "tB"[n,k]$  | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
   | `bdot.nt.i8.i32`      | R4      | $"vD"[n] = sum_k "bA"[k] times "tB"[n,k]$       | `i8` 输入, `i32` 输出; 跨块累加使用 `vadd.i32`.    |
 ]
+
+矩阵乘与点积使用 R4 格式; `funct3` 的三个 bit 依次区分 MMA/BDOT, nn/nt 和 zero/acc (BDOT 只允许 zero):
+
+#rivet-fmt-figure(mma-bdot-schema, caption: [矩阵乘与点积格式 (MMA_BDOT)])
 
 == 指令格式
 
@@ -1302,7 +1362,33 @@ value ← decode_scalar(xS, TYPE)
 D[p] ← op(A[p], value)
 ```
 
+普通二元操作使用 R3 格式; `S2` 选择第二源为同域寄存器或 Scalar:
+
+#rivet-fmt-figure(e-bin-schema, caption: [普通二元操作格式 (E_BIN)])
+
 == 基础操作集合
+
+`E_BIN`, `E_BCAST` 与 `E_BROW` 共用逐元素操作编码 `funct4 = {G, op3}`:
+
+#manual-table(
+  columns: (0.8fr, 1fr, 1.2fr, 3.4fr),
+  caption: [逐元素公共操作编码 ({G, op3})],
+)[
+  | `G`  | `op3`  | 操作   | 备注              |
+  | ---- | ------ | ------ | ----------------- |
+  | `0`  | `000`  | `add`  |                   |
+  | `0`  | `001`  | `sub`  |                   |
+  | `0`  | `010`  | `mul`  | 仅 Acc/Vec32      |
+  | `0`  | `011`  | `div`  | 仅 f32 Acc/Vec32  |
+  | `0`  | `100`  | `min`  |                   |
+  | `0`  | `101`  | `max`  |                   |
+  | `1`  | `000`  | `and`  | 按位操作          |
+  | `1`  | `001`  | `or`   | 按位操作          |
+  | `1`  | `010`  | `xor`  | 按位操作          |
+  | `1`  | `011`  | `shl`  | 整数逐元素移位    |
+  | `1`  | `100`  | `shr`  | 逻辑右移          |
+  | `1`  | `101`  | `sra`  | 算术右移          |
+]
 
 基础逐元素操作按数据类型划分.
 
@@ -1323,7 +1409,7 @@ D[p] ← op(A[p], value)
 
 #instruction-table(caption: [Tile 基础逐元素指令])[
   | Instruction   | Format  | Operation                      | Notes                                             |
-  | ------------- | ------- | ------------------------------ | ------------------------------------------------- |
+  | :-----------: | :-----: | ------------------------------ | ------------------------------------------------- |
   | `tadd.TYPE`   | R3      | tD[i,j] = A[i,j] + B[i,j]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.  |
   | `taddx.TYPE`  | R3      | tD[i,j] = A[i,j] + xS          | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.  |
   | `tsub.TYPE`   | R3      | tD[i,j] = A[i,j] - B[i,j]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.  |
@@ -1349,7 +1435,7 @@ D[p] ← op(A[p], value)
 
 #instruction-table(caption: [Acc/Vec32 基础逐元素指令])[
   | Instruction       | Format  | Operation               | Notes                                                   |
-  | ----------------- | ------- | ----------------------- | ------------------------------------------------------- |
+  | :---------------: | :-----: | ----------------------- | ------------------------------------------------------- |
   | `{a,v}add.TYPE`   | R3      | D[p] = A[p] + B[p]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
   | `{a,v}addx.TYPE`  | R3      | D[p] = A[p] + xS        | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
   | `{a,v}sub.TYPE`   | R3      | D[p] = A[p] - B[p]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
@@ -1414,11 +1500,18 @@ $ op("sat")_("u8")(x) = min(max(x, 0), 255) $
 
 `fma` 运算使用 `fmadd` 助记符; 按 Acc/Vec32 的 f32 数据域列出. 这里只列三数据源形式, 其他操作数变体尚未定义.
 
-#instruction-table(caption: [融合乘加指令])[
+#instruction-table(
+  columns: (1fr, 0.5fr, 2fr, 2fr),
+  caption: [融合乘加指令],
+)[
   | Instruction       | Format  | Operation                     | Notes                                                   |
-  | ----------------- | ------- | ----------------------------- | ------------------------------------------------------- |
+  | :---------------: | :-----: | ----------------------------- | ------------------------------------------------------- |
   | `{a,v}fmadd.f32`  | R4      | D[p] = fma(A[p], B[p], C[p])  | 一次融合乘加, 一次 f32 舍入; 不能任意替换独立 mul/add.  |
 ]
+
+`fmadd` 与 `select` 共用 R4 四寄存器格式, `arg5` 槽位为第四操作数 (`fmadd` 的加数 `C`, `select` 的 mask `M`):
+
+#rivet-fmt-figure(e-r4-schema, caption: [select/fmadd 格式 (E_R4)])
 
 f32 逐元素运算包括:
 
@@ -1446,9 +1539,16 @@ $ D_i = op("round")_("f32")(A_i B_i + C_i) $
 
 近似特殊函数对 Acc 或 Vec32 的 f32 有效区域逐元素求值.
 
-#instruction-table(caption: [近似特殊函数指令])[
+`not`/`abs`/`neg` 与近似特殊函数同属一元操作族 (E_UNARY), 使用 R2 格式:
+
+#rivet-fmt-figure(e-unary-schema, caption: [一元操作与特殊函数格式 (E_UNARY)])
+
+#instruction-table(
+  columns: (1.2fr, 0.5fr, 2fr, 2fr),
+  caption: [近似特殊函数指令],
+)[
   | Instruction          | Format  | Operation                  | Notes                                        |
-  | -------------------- | ------- | -------------------------- | -------------------------------------------- |
+  | :------------------: | :-----: | -------------------------- | -------------------------------------------- |
   | `{a,v}exp2.approx`   | R2      | D[p] = exp2_approx(A[p])   | 源和目的为 f32 Acc/Vec32; 采用近似函数规则.  |
   | `{a,v}rcp.approx`    | R2      | D[p] = rcp_approx(A[p])    | 源和目的为 f32 Acc/Vec32; 采用近似函数规则.  |
   | `{a,v}rsqrt.approx`  | R2      | D[p] = rsqrt_approx(A[p])  | 源和目的为 f32 Acc/Vec32; 采用近似函数规则.  |
@@ -1487,9 +1587,16 @@ for 0 <= i < rows(D):
 
 右矩阵指定行的各列元素广播到每个目的行.
 
-#instruction-table(caption: [矩阵源行广播指令])[
+矩阵源行广播使用 RB 格式; 三个矩阵寄存器为 4-bit 字段, `IS` 选择行号来源, `index5` 对齐行搬运与 lane 操作的索引字段位置:
+
+#rivet-fmt-figure(e-brow-schema, caption: [矩阵源行广播格式 (E_BROW)])
+
+#instruction-table(
+  columns: (1fr, 0.5fr, 2fr, 2fr),
+  caption: [矩阵源行广播指令],
+)[
   | Instruction       | Format  | Operation                         | Notes                                                   |
-  | ----------------- | ------- | --------------------------------- | ------------------------------------------------------- |
+  | :---------------: | :-----: | --------------------------------- | ------------------------------------------------------- |
   | `tadd.brow.TYPE`  | RB      | tD[i,j] = tA[i,j] + tB[rb,j]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
   | `tsub.brow.TYPE`  | RB      | tD[i,j] = tA[i,j] - tB[rb,j]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
   | `tmin.brow.TYPE`  | RB      | tD[i,j] = min(tA[i,j], tB[rb,j])  | TYPE: `i8/u8`.                                          |
@@ -1544,9 +1651,16 @@ $ "t0"_(i,j) = op("sat")_("i8")("t1"_(i,j) - "t2"_(0,j)) $
 
 Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 i 个元素广播到矩阵第 i 行.
 
-#instruction-table(caption: [向量按行广播指令])[
+向量广播使用 R3 格式; `TA` 选择 8-bit/32-bit 寄存器组合, `DIR` 选择按行/按列:
+
+#rivet-fmt-figure(e-bcast-schema, caption: [向量广播格式 (E_BCAST)])
+
+#instruction-table(
+  columns: (1.2fr, 0.5fr, 2fr, 2fr),
+  caption: [向量按行广播指令],
+)[
   | Instruction         | Format  | Operation                      | Notes                                                   |
-  | ------------------- | ------- | ------------------------------ | ------------------------------------------------------- |
+  | :-----------------: | :-----: | ------------------------------ | ------------------------------------------------------- |
   | `taddb.byrow.TYPE`  | R3      | tD[i,j] = tA[i,j] + bS[i]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
   | `tsubb.byrow.TYPE`  | R3      | tD[i,j] = tA[i,j] - bS[i]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
   | `tminb.byrow.TYPE`  | R3      | tD[i,j] = min(tA[i,j], bS[i])  | TYPE: `i8/u8`.                                          |
@@ -1605,9 +1719,12 @@ $ "a0"_(i,j) = "a1"_(i,j) "v0"_i $
 
 Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 j 个元素广播到矩阵第 j 列.
 
-#instruction-table(caption: [向量按列广播指令])[
+#instruction-table(
+  columns: (1.2fr, 0.5fr, 2fr, 2fr),
+  caption: [向量按列广播指令],
+)[
   | Instruction         | Format  | Operation                      | Notes                                                   |
-  | ------------------- | ------- | ------------------------------ | ------------------------------------------------------- |
+  | :-----------------: | :-----: | ------------------------------ | ------------------------------------------------------- |
   | `taddb.bycol.TYPE`  | R3      | tD[i,j] = tA[i,j] + bS[j]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
   | `tsubb.bycol.TYPE`  | R3      | tD[i,j] = tA[i,j] - bS[j]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
   | `tminb.bycol.TYPE`  | R3      | tD[i,j] = min(tA[i,j], bS[j])  | TYPE: `i8/u8`.                                          |
@@ -1668,9 +1785,16 @@ $ "a0"_(i,j) = "a1"_(i,j) "v0"_j $
 
 条件取独立子集: 整数为 `eq/ne/lt/ge`, `gt` 与 `le` 由交换两个源操作数获得; f32 为 `eq/lt/le/unord`, `ord` 由 `unord` 结果取反获得, `ne` 由 `eq` 结果取反获得. 比较只在 Acc 与 Vec32 上定义, 分寄存器和 Scalar 两种形式. `TYPE` 为源数值类型, 目的为同宽 mask.
 
-#instruction-table(caption: [比较指令])[
+比较使用 R4 格式, `S2` 选择第二源为同域寄存器或 Scalar; mask 目的为 `M5` 槽位:
+
+#rivet-fmt-figure(e-cmp-schema, caption: [比较格式 (E_CMP)])
+
+#instruction-table(
+  columns: (1.3fr, 0.5fr, 2fr, 2fr),
+  caption: [比较指令],
+)[
   | Instruction            | Format  | Operation                     | Notes                                                    |
-  | ---------------------- | ------- | ----------------------------- | -------------------------------------------------------- |
+  | :--------------------: | :-----: | ----------------------------- | -------------------------------------------------------- |
   | `{a,v}cmp.eq.TYPE`     | R4      | D[p] = A[p] == B[p]           | TYPE: `i32/u32/f32`; 生成 `u32` mask, 真为全一, 假为零.  |
   | `{a,v}cmp.ne.TYPE`     | R4      | D[p] = A[p] != B[p]           | TYPE: `i32/u32`; 生成 `u32` mask, 真为全一, 假为零.      |
   | `{a,v}cmp.lt.TYPE`     | R4      | D[p] = A[p] < B[p]            | TYPE: `i32/u32/f32`; 生成 `u32` mask, 真为全一, 假为零.  |
@@ -1727,9 +1851,12 @@ for 0 <= j < len(D):
 
 == Select 指令
 
-#instruction-table(caption: [选择指令])[
+#instruction-table(
+  columns: (1fr, 0.5fr, 2fr, 2.1fr),
+  caption: [选择指令],
+)[
   | Instruction    | Format  | Operation                           | Notes                                                            |
-  | -------------- | ------- | ----------------------------------- | ---------------------------------------------------------------- |
+  | :------------: | :-----: | ----------------------------------- | ---------------------------------------------------------------- |
   | `tselect`      | R4      | tD[i,j] = M[i,j] ? A[i,j] : B[i,j]  | 按位选择, 与元素 dtype 无关; mask 为 `u8`, 两个数据源均被读取.   |
   | `{a,v}select`  | R4      | D[p] = M[p] ? A[p] : B[p]           | 按位选择, 与元素 dtype 无关; mask 为 `u32`, 两个数据源均被读取.  |
 ]
@@ -1757,17 +1884,24 @@ select 必须读取两个数据源: M 为 true 时选择 A; M 为 false 时选�
 
 mask 使用寄存器配置中的 dtype; 它改写数据值, 保留区域之外写入显式 fill 值.
 
-#instruction-table(caption: [Mask 指令])[
-  | Instruction        | Format  | Operation                                           | Notes                                                                             |
-  | ------------------ | ------- | --------------------------------------------------- | --------------------------------------------------------------------------------- |
-  | `{t,a}mask.tail`   | R4      | D[i,j] = (i < nRows and j < nCols) ? S[i,j] : fill  | 边界为打包 Scalar `xBounds` 的字段; 其余有效寄存器位置写 fill; 不缩短有效 shape.  |
-  | `{t,a}mask.tril`   | R4      | D[i,j] = (j - i <= xDelta) ? S[i,j] : fill          | 有符号偏移; 包含边界, 其余位置写 fill.                                            |
-  | `{t,a}mask.triu`   | R4      | D[i,j] = (j - i >= xDelta) ? S[i,j] : fill          | 有符号偏移; 包含边界, 其余位置写 fill.                                            |
-  | `{b,v}mask.tail`   | R4      | D[j] = (j < xLen) ? S[j] : fill                     | 其余有效 lane 写 fill; 不缩短有效长度.                                            |
-  | `{t,a}maskx.tail`  | R4      | 同 `mask.tail`, fill 由 Scalar 提供                 | fill 可为任意值.                                                                  |
-  | `{t,a}maskx.tril`  | R4      | 同 `mask.tril`, fill 由 Scalar 提供                 | fill 可为任意值.                                                                  |
-  | `{t,a}maskx.triu`  | R4      | 同 `mask.triu`, fill 由 Scalar 提供                 | fill 可为任意值.                                                                  |
-  | `{b,v}maskx.tail`  | R4      | 同 `mask.tail`, fill 由 Scalar 提供                 | fill 可为任意值.                                                                  |
+mask 使用 R4 格式; `FS` 选择 fill 来源 (立即数 `fill5` 或 Scalar `xFill`), 边界 `xCoord` 按操作解释为打包 `xBounds`, `xLen` 或 `xDelta`:
+
+#rivet-fmt-figure(e-mask-schema, caption: [mask 格式 (E_MASK)])
+
+#instruction-table(
+  columns: (1fr, 0.5fr, 2fr, 2fr),
+  caption: [Mask 指令],
+)[
+  | Instruction        | Format  | Operation                                          | Notes                                                 |
+  | :----------------: | :-----: | -------------------------------------------------- | ----------------------------------------------------- |
+  | `{t,a}mask.tail`   | R4      | D[i,j] = (i < nRows && j < nCols) ? S[i,j] : fill  | 边界为打包 Scalar `xBounds` 的字段; 其余位置写 fill.  |
+  | `{t,a}mask.tril`   | R4      | D[i,j] = (j - i <= xDelta) ? S[i,j] : fill         | 有符号偏移; 包含边界, 其余位置写 fill.                |
+  | `{t,a}mask.triu`   | R4      | D[i,j] = (j - i >= xDelta) ? S[i,j] : fill         | 有符号偏移; 包含边界, 其余位置写 fill.                |
+  | `{b,v}mask.tail`   | R4      | D[j] = (j < xLen) ? S[j] : fill                    | 其余有效 lane 写 fill; 不缩短有效长度.                |
+  | `{t,a}maskx.tail`  | R4      | 同 `mask.tail`, fill 由 Scalar 提供                | fill 可为任意值.                                      |
+  | `{t,a}maskx.tril`  | R4      | 同 `mask.tril`, fill 由 Scalar 提供                | fill 可为任意值.                                      |
+  | `{t,a}maskx.triu`  | R4      | 同 `mask.triu`, fill 由 Scalar 提供                | fill 可为任意值.                                      |
+  | `{b,v}maskx.tail`  | R4      | 同 `mask.tail`, fill 由 Scalar 提供                | fill 可为任意值.                                      |
 ]
 
 mask 指令将源数据的某些位置替换为指定 fill 值. `mask` 的 fill 为 6-bit 立即数编码 (按目的 dtype 解释); `maskx` 的 fill 由 Scalar 寄存器提供, 可为任意值.
@@ -1893,7 +2027,7 @@ vdiv.f32       vOut, v2, vSum
 
 #instruction-table(caption: [规约指令])[
   | Instruction               | Format  | Operation                                                                     | Notes                                        |
-  | ------------------------- | ------- | ----------------------------------------------------------------------------- | -------------------------------------------- |
+  | :-----------------------: | :-----: | ----------------------------------------------------------------------------- | -------------------------------------------- |
   | `areduce.rows.sum.f32`    | R2      | $"vD"[i] = sum_j "aS"[i,j]$                                                   | 源与目的为 f32; 只规约源有效元素.            |
   | `areduce.rows.max.f32`    | R2      | $"vD"[i] = max_j "aS"[i,j]$                                                   | 源与目的为 f32; 只规约源有效元素.            |
   | `areduce.rows.min.f32`    | R2      | $"vD"[i] = min_j "aS"[i,j]$                                                   | 源与目的为 f32; 只规约源有效元素.            |
@@ -1904,6 +2038,17 @@ vdiv.f32       vOut, v2, vSum
   | `vreduce.sumsq.f32`       | R2      | $"xD" = sum_j "vS"[j]^2$                                                      | 按对应 fold 规则规约; 空结果使用规定单位元.  |
   | `vreduce.argmax.f32`      | R4      | $"xIndex" = op("argmax")_j "vS"[j]$ #linebreak() $"xValue" = "vS"["xIndex"]$  | 并列取较小索引; NaN 选择规则及空结果见正文.  |
 ]
+
+普通单目的规约使用 R2 格式:
+
+#rivet-fmt-figure(red-schema, caption: [规约格式 (AREDUCE/VREDUCE)])
+
+`vreduce.argmax.f32` 使用 R4 双目的变体, 写两个 Scalar 目的寄存器:
+
+#rivet-fmt-figure(
+  vreduce-argmax-schema,
+  caption: [argmax 格式 (VREDUCE, R4 双目的变体)],
+)
 
 基础矩阵规约形式为:
 
@@ -2092,13 +2237,20 @@ else:
 
 == 类型转换指令
 
-#instruction-table(caption: [类型转换与扩大指令])[
+#instruction-table(
+  columns: (1fr, 0.5fr, 2fr, 2fr),
+  caption: [类型转换与扩大指令],
+)[
   | Instruction      | Format  | Operation                    | Notes                                    |
-  | ---------------- | ------- | ---------------------------- | ---------------------------------------- |
+  | :--------------: | :-----: | ---------------------------- | ---------------------------------------- |
   | `acvt.i32.f32`   | R2      | aD[i,j] = f32(aS[i,j])       | 允许原地执行; 成功接收时更新目的 dtype.  |
   | `vcvt.i32.f32`   | R2      | vD[j] = f32(vS[j])           | 允许原地执行; 成功接收时更新目的 dtype.  |
   | `twiden.i8.i32`  | R2      | aD[i,j] = sign_ext(tS[i,j])  | 跨数据域, 不能原地执行; 保持有效 shape.  |
 ]
+
+类型转换与扩大使用 R2 格式; `rf2` 选择目的数据域:
+
+#rivet-fmt-figure(cvt-schema, caption: [类型转换与扩大格式 (CVT)])
 
 本节的转换助记符采用源类型在前, 目的类型在后:
 
@@ -2220,14 +2372,21 @@ vScore = vScore × scale
 
 = 量化与反量化 <quantization>
 
-#instruction-table(caption: [量化与反量化指令])[
+#instruction-table(
+  columns: (1.5fr, 0.5fr, 2.5fr, 2fr),
+  caption: [量化与反量化指令],
+)[
   | Instruction          | Format  | Operation                                                                                | Notes                                          |
-  | -------------------- | ------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------- |
+  | :------------------: | :-----: | ---------------------------------------------------------------------------------------- | ---------------------------------------------- |
   | `tquant.rows.q8s32`  | R4      | tD[i,:] = quant_q8s32(aS[i,:]).bits #linebreak() vScale[i] = quant_q8s32(aS[i,:]).scale  | Tile bits 与 Vec32 scale 是两个显式目的.       |
   | `vquant.q8s32`       | R4      | bD = quant_q8s32(vS).bits #linebreak() vScale[lane] = quant_q8s32(vS).scale              | Vec8 bits 与 Vec32 scale lane 是两个显式目的.  |
   | `tdequant.rows.f32`  | R4      | aD[i,j] = f32(tS[i,j]) × vScale[i]                                                       | Tile bits 和 Vec32 scale 都是显式源.           |
   | `bdequant.f32`       | R4      | vD[j] = f32(bS[j]) × vScale[lane]                                                        | Vec8 bits 和 Vec32 scale lane 都是显式源.      |
 ]
+
+量化与反量化使用 R4 双目的/双源格式; `vScale` 始终是 Vec32 scale 寄存器, `rf2` 选择主目的数据域, 量化方向随之确定:
+
+#rivet-fmt-figure(qnt-schema, caption: [量化与反量化格式 (QNT)])
 
 ```asm
 tquant.rows.q8s32 tD, vScale, aS
@@ -2272,7 +2431,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 #instruction-listing(caption: [同步指令清单])[
   | Instruction   | Format  | Function                           | Summary                            |
-  | ------------- | ------- | ---------------------------------- | ---------------------------------- |
+  | :-----------: | :-----: | ---------------------------------- | ---------------------------------- |
   | `fence.mem`   | Z       | 等待此前访存完成并达到约定可见点.  | 等待此前访存完成并达到约定可见点.  |
   | `fence.sa`    | Z       | 等待此前 SA 操作完成.              | 等待此前 SA 操作完成.              |
   | `fence.all`   | Z       | 等待此前全部后端工作完成.          | 等待此前全部后端工作完成.          |
@@ -2285,7 +2444,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 #instruction-listing(caption: [配置指令清单])[
   | Instruction  | Format  | Function                  | Summary                                    |
-  | ------------ | ------- | ------------------------- | ------------------------------------------ |
+  | :----------: | :-----: | ------------------------- | ------------------------------------------ |
   | `cfg.seti`   | I       | C[field] = extend(imm)    | 扩展立即数, 校验后写入指定配置字段.        |
   | `cfg.setx`   | R4      | C[field] = x[xS]          | 从 Scalar 读取完整值, 校验后写入配置字段.  |
   | `cfg.copy`   | R4      | $C_D = C_S$               | 复制同类型配置寄存器的全部字段.            |
@@ -2298,7 +2457,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 #instruction-listing(caption: [地址与访存指令清单])[
   | Instruction   | Format  | Function                      | Summary                                |
-  | ------------- | ------- | ----------------------------- | -------------------------------------- |
+  | :-----------: | :-----: | ----------------------------- | -------------------------------------- |
   | `tload`       | R4      | tD[i,j] = memory[addr(i,j)]   | 从 TM 描述的内存读取到 Tile 有效区域.  |
   | `tstore`      | R4      | memory[addr(i,j)] = S[i,j]    | 将 Tile 有效区域写入 TM 描述的内存.    |
   | `tload.row`   | MR      | tD[rd,j] = memory[addr(0,j)]  | 从 TM 描述的内存读取到 Tile 指定行.    |
@@ -2319,7 +2478,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 #instruction-listing(caption: [初始化, 搬运与转置指令清单])[
   | Instruction     | Format  | Function           | Summary                                     |
-  | --------------- | ------- | ------------------ | ------------------------------------------- |
+  | :-------------: | :-----: | ------------------ | ------------------------------------------- |
   | `tfill.TYPE`    | I       | tD[i,j] = imm      | 将立即数填入 Tile 的有效区域.               |
   | `tfillx.TYPE`   | R2      | tD[i,j] = xS       | 用 Scalar 值填充 Tile 的有效区域.           |
   | `tcopy`         | R2      | tD[i,j] = S[i,j]   | 复制同域 Tile 的有效数据.                   |
@@ -2351,7 +2510,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 #instruction-listing(caption: [矩阵乘与点积指令清单])[
   | Instruction           | Format  | Function                                        | Summary                                              |
-  | --------------------- | ------- | ----------------------------------------------- | ---------------------------------------------------- |
+  | :-------------------: | :-----: | ----------------------------------------------- | ---------------------------------------------------- |
   | `mma.nn.zero.i8.i32`  | R4      | $"aD"[m,n] = sum_k "tA"[m,k] times "tB"[k,n]$   | 按普通右矩阵执行矩阵乘, 写入 `i32` Acc.              |
   | `mma.nn.acc.i8.i32`   | R4      | $"aD"[m,n] += sum_k "tA"[m,k] times "tB"[k,n]$  | 按普通右矩阵执行矩阵乘, 累加到旧 `i32` Acc.          |
   | `bdot.nn.i8.i32`      | R4      | $"vD"[n] = sum_k "bA"[k] times "tB"[k,n]$       | Vec8 与 Tile 各列执行点积, 结果写入 Vec32.           |
@@ -2366,7 +2525,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 #instruction-listing(caption: [Tile 基础逐元素指令清单])[
   | Instruction   | Format  | Function                       | Summary                                                 |
-  | ------------- | ------- | ------------------------------ | ------------------------------------------------------- |
+  | :-----------: | :-----: | ------------------------------ | ------------------------------------------------------- |
   | `tadd.TYPE`   | R3      | tD[i,j] = A[i,j] + B[i,j]      | 同域逐元素加法; 溢出模式由配置 `arith_mode` 决定.       |
   | `taddx.TYPE`  | R3      | tD[i,j] = A[i,j] + xS          | Scalar 值逐元素加法; 溢出模式由配置 `arith_mode` 决定.  |
   | `tsub.TYPE`   | R3      | tD[i,j] = A[i,j] - B[i,j]      | 同域逐元素减法; 溢出模式由配置 `arith_mode` 决定.       |
@@ -2392,7 +2551,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 #instruction-listing(caption: [Acc 基础逐元素指令清单])[
   | Instruction   | Format  | Function                       | Summary                              |
-  | ------------- | ------- | ------------------------------ | ------------------------------------ |
+  | :-----------: | :-----: | ------------------------------ | ------------------------------------ |
   | `aadd.TYPE`   | R3      | aD[i,j] = A[i,j] + B[i,j]      | 同域逐元素加法; `i32/u32/f32`.       |
   | `aaddx.TYPE`  | R3      | aD[i,j] = A[i,j] + xS          | Scalar 值逐元素加法; `i32/u32/f32`.  |
   | `asub.TYPE`   | R3      | aD[i,j] = A[i,j] - B[i,j]      | 同域逐元素减法; `i32/u32/f32`.       |
@@ -2424,7 +2583,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 #instruction-listing(caption: [Vec32 基础逐元素指令清单])[
   | Instruction   | Format  | Function                 | Summary                              |
-  | ------------- | ------- | ------------------------ | ------------------------------------ |
+  | :-----------: | :-----: | ------------------------ | ------------------------------------ |
   | `vadd.TYPE`   | R3      | vD[j] = A[j] + B[j]      | 同域逐元素加法; `i32/u32/f32`.       |
   | `vaddx.TYPE`  | R3      | vD[j] = A[j] + xS        | Scalar 值逐元素加法; `i32/u32/f32`.  |
   | `vsub.TYPE`   | R3      | vD[j] = A[j] - B[j]      | 同域逐元素减法; `i32/u32/f32`.       |
@@ -2456,14 +2615,14 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 #instruction-listing(caption: [融合乘加指令清单])[
   | Instruction   | Format  | Function                               | Summary                         |
-  | ------------- | ------- | -------------------------------------- | ------------------------------- |
+  | :-----------: | :-----: | -------------------------------------- | ------------------------------- |
   | `afmadd.f32`  | R4      | aD[i,j] = fma(A[i,j], B[i,j], C[i,j])  | Acc 融合乘加, 单次 f32 舍入.    |
   | `vfmadd.f32`  | R4      | vD[j] = fma(A[j], B[j], C[j])          | Vec32 融合乘加, 单次 f32 舍入.  |
 ]
 
 #instruction-listing(caption: [近似特殊函数指令清单])[
   | Instruction      | Format  | Function                        | Summary                  |
-  | ---------------- | ------- | ------------------------------- | ------------------------ |
+  | :--------------: | :-----: | ------------------------------- | ------------------------ |
   | `aexp2.approx`   | R2      | aD[i,j] = exp2_approx(A[i,j])   | 逐元素计算 2 的幂.       |
   | `arcp.approx`    | R2      | aD[i,j] = rcp_approx(A[i,j])    | 逐元素计算倒数.          |
   | `arsqrt.approx`  | R2      | aD[i,j] = rsqrt_approx(A[i,j])  | 逐元素计算倒数平方根.    |
@@ -2472,11 +2631,9 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `vrsqrt.approx`  | R2      | vD[j] = rsqrt_approx(A[j])      | 逐 lane 计算倒数平方根.  |
 ]
 
-
-
 #instruction-listing(caption: [矩阵源行广播指令清单])[
   | Instruction       | Format  | Function                          | Summary                                              |
-  | ----------------- | ------- | --------------------------------- | ---------------------------------------------------- |
+  | :---------------: | :-----: | --------------------------------- | ---------------------------------------------------- |
   | `tadd.brow.TYPE`  | RB      | tD[i,j] = tA[i,j] + tB[rb,j]      | 矩阵源行广播加法; 溢出模式由配置 `arith_mode` 决定.  |
   | `tsub.brow.TYPE`  | RB      | tD[i,j] = tA[i,j] - tB[rb,j]      | 矩阵源行广播减法; 溢出模式由配置 `arith_mode` 决定.  |
   | `tmin.brow.TYPE`  | RB      | tD[i,j] = min(tA[i,j], tB[rb,j])  | 矩阵源行广播取小; `i8/u8`.                           |
@@ -2503,7 +2660,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 #instruction-listing(caption: [向量按行广播指令清单])[
   | Instruction         | Format  | Function                       | Summary                                              |
-  | ------------------- | ------- | ------------------------------ | ---------------------------------------------------- |
+  | :-----------------: | :-----: | ------------------------------ | ---------------------------------------------------- |
   | `taddb.byrow.TYPE`  | R3      | tD[i,j] = tA[i,j] + bS[i]      | 向量按行广播加法; 溢出模式由配置 `arith_mode` 决定.  |
   | `tsubb.byrow.TYPE`  | R3      | tD[i,j] = tA[i,j] - bS[i]      | 向量按行广播减法; 溢出模式由配置 `arith_mode` 决定.  |
   | `tminb.byrow.TYPE`  | R3      | tD[i,j] = min(tA[i,j], bS[i])  | 向量按行广播取小; `i8/u8`.                           |
@@ -2530,7 +2687,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 #instruction-listing(caption: [向量按列广播指令清单])[
   | Instruction         | Format  | Function                       | Summary                                              |
-  | ------------------- | ------- | ------------------------------ | ---------------------------------------------------- |
+  | :-----------------: | :-----: | ------------------------------ | ---------------------------------------------------- |
   | `taddb.bycol.TYPE`  | R3      | tD[i,j] = tA[i,j] + bS[j]      | 向量按列广播加法; 溢出模式由配置 `arith_mode` 决定.  |
   | `tsubb.bycol.TYPE`  | R3      | tD[i,j] = tA[i,j] - bS[j]      | 向量按列广播减法; 溢出模式由配置 `arith_mode` 决定.  |
   | `tminb.bycol.TYPE`  | R3      | tD[i,j] = min(tA[i,j], bS[j])  | 向量按列广播取小; `i8/u8`.                           |
@@ -2557,7 +2714,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 #instruction-listing(caption: [比较指令清单])[
   | Instruction        | Format  | Function                             | Summary                            |
-  | ------------------ | ------- | ------------------------------------ | ---------------------------------- |
+  | :----------------: | :-----: | ------------------------------------ | ---------------------------------- |
   | `acmp.eq.TYPE`     | R4      | aD[i,j] = A[i,j] == B[i,j]           | 同域右源相等比较; `i32/u32/f32`.   |
   | `acmp.ne.TYPE`     | R4      | aD[i,j] = A[i,j] != B[i,j]           | 同域右源不等比较; `i32/u32`.       |
   | `acmp.lt.TYPE`     | R4      | aD[i,j] = A[i,j] < B[i,j]            | 同域右源小于比较; `i32/u32/f32`.   |
@@ -2586,7 +2743,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 #instruction-listing(caption: [选择指令清单])[
   | Instruction  | Format  | Function                            | Summary                         |
-  | ------------ | ------- | ----------------------------------- | ------------------------------- |
+  | :----------: | :-----: | ----------------------------------- | ------------------------------- |
   | `tselect`    | R4      | tD[i,j] = M[i,j] ? A[i,j] : B[i,j]  | mask 非零时选择 A, 否则选择 B.  |
   | `aselect`    | R4      | aD[i,j] = M[i,j] ? A[i,j] : B[i,j]  | mask 非零时选择 A, 否则选择 B.  |
   | `vselect`    | R4      | vD[j] = M[j] ? A[j] : B[j]          | mask 非零时选择 A, 否则选择 B.  |
@@ -2594,7 +2751,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 #instruction-listing(caption: [Mask 指令清单])[
   | Instruction    | Format  | Function                                             | Summary                                                   |
-  | -------------- | ------- | ---------------------------------------------------- | --------------------------------------------------------- |
+  | :------------: | :-----: | ---------------------------------------------------- | --------------------------------------------------------- |
   | `tmask.tail`   | R4      | tD[i,j] = (i < nRows and j < nCols) ? S[i,j] : fill  | 保留行列坐标小于 `xBounds` 中 `nRows`, `nCols` 的源元素.  |
   | `tmask.tril`   | R4      | tD[i,j] = (j - i <= xDelta) ? S[i,j] : fill          | 保留满足 $j-i <= "xDelta"$ 的源元素.                      |
   | `tmask.triu`   | R4      | tD[i,j] = (j - i >= xDelta) ? S[i,j] : fill          | 保留满足 $j-i >= "xDelta"$ 的源元素.                      |
@@ -2619,7 +2776,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 #instruction-listing(caption: [规约指令清单])[
   | Instruction               | Format  | Function                                                                      | Summary                                         |
-  | ------------------------- | ------- | ----------------------------------------------------------------------------- | ----------------------------------------------- |
+  | :-----------------------: | :-----: | ----------------------------------------------------------------------------- | ----------------------------------------------- |
   | `areduce.rows.sum.f32`    | R2      | $"vD"[i] = sum_j "aS"[i,j]$                                                   | 将 Acc 按行求和到 Vec32.                        |
   | `areduce.rows.max.f32`    | R2      | $"vD"[i] = max_j "aS"[i,j]$                                                   | 将 Acc 按行取最大到 Vec32.                      |
   | `areduce.rows.min.f32`    | R2      | $"vD"[i] = min_j "aS"[i,j]$                                                   | 将 Acc 按行取最小到 Vec32.                      |
@@ -2633,7 +2790,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 #instruction-listing(caption: [类型转换与扩大指令清单])[
   | Instruction      | Format  | Function                     | Summary                                   |
-  | ---------------- | ------- | ---------------------------- | ----------------------------------------- |
+  | :--------------: | :-----: | ---------------------------- | ----------------------------------------- |
   | `acvt.i32.f32`   | R2      | aD[i,j] = f32(aS[i,j])       | 将 Acc 中的 `i32` 逐元素转为 `f32`.       |
   | `vcvt.i32.f32`   | R2      | vD[j] = f32(vS[j])           | 将 Vec32 中的 `i32` 逐 lane 转为 `f32`.   |
   | `twiden.i8.i32`  | R2      | aD[i,j] = sign_ext(tS[i,j])  | 将 Tile 的 `i8` 符号扩展到 Acc 的 `i32`.  |
@@ -2645,7 +2802,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 #instruction-listing(caption: [量化与反量化指令清单])[
   | Instruction          | Format  | Function                                                                                 | Summary                                            |
-  | -------------------- | ------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------- |
+  | :------------------: | :-----: | ---------------------------------------------------------------------------------------- | -------------------------------------------------- |
   | `tquant.rows.q8s32`  | R4      | tD[i,:] = quant_q8s32(aS[i,:]).bits #linebreak() vScale[i] = quant_q8s32(aS[i,:]).scale  | 将 Acc 按行量化到 Tile, 每行产生一个 Vec32 scale.  |
   | `vquant.q8s32`       | R4      | bD = quant_q8s32(vS).bits #linebreak() vScale[lane] = quant_q8s32(vS).scale              | 将 Vec32 量化到 Vec8, 产生一个指定 lane 的 scale.  |
   | `tdequant.rows.f32`  | R4      | aD[i,j] = f32(tS[i,j]) × vScale[i]                                                       | 用每行的 Vec32 scale 将 Tile 反量化到 f32 Acc.     |
