@@ -1,48 +1,50 @@
 #import "@preview/rivet:0.3.1": config, schema
 
-#let source = yaml("yai-isa-rivet.yaml")
+#let descriptors = yaml("descriptors.yaml")
+#let formats = yaml("formats.yaml")
+#let chapters = yaml("chapters.yaml")
 
-#let load-format(name) = (schema.load)((
-  colors: (main: source.colors.at(name)),
-  structures: (main: source.structures.at(name)),
+#let load-format(file, name) = (schema.load)((
+  colors: (main: file.colors.at(name)),
+  structures: (main: file.structures.at(name)),
 ))
 
-#let tc-schema = load-format("tc")
-#let bc-schema = load-format("bc")
-#let tm-0-schema = load-format("tm-0")
-#let tm-1-schema = load-format("tm-1")
-#let vm-schema = load-format("vm")
+#let tc-schema = load-format(descriptors, "tc")
+#let bc-schema = load-format(descriptors, "bc")
+#let tm-0-schema = load-format(descriptors, "tm-0")
+#let tm-1-schema = load-format(descriptors, "tm-1")
+#let vm-schema = load-format(descriptors, "vm")
 
-#let fmt-r4-schema = load-format("fmt-r4")
-#let fmt-r3-schema = load-format("fmt-r3")
-#let fmt-r2-schema = load-format("fmt-r2")
-#let fmt-mr-schema = load-format("fmt-mr")
-#let fmt-rb-schema = load-format("fmt-rb")
-#let fmt-i-schema = load-format("fmt-i")
-#let fmt-z-schema = load-format("fmt-z")
+#let fmt-r4-schema = load-format(formats, "fmt-r4")
+#let fmt-r3-schema = load-format(formats, "fmt-r3")
+#let fmt-r2-schema = load-format(formats, "fmt-r2")
+#let fmt-mr-schema = load-format(formats, "fmt-mr")
+#let fmt-rb-schema = load-format(formats, "fmt-rb")
+#let fmt-i-schema = load-format(formats, "fmt-i")
+#let fmt-z-schema = load-format(formats, "fmt-z")
 
-#let cfg-seti-schema = load-format("cfg-seti")
-#let cfg-reg-schema = load-format("cfg-reg")
-#let m-blk-schema = load-format("m-blk")
-#let m-row-schema = load-format("m-row")
+#let cfg-seti-schema = load-format(chapters, "cfg-seti")
+#let cfg-reg-schema = load-format(chapters, "cfg-reg")
+#let m-blk-schema = load-format(chapters, "m-blk")
+#let m-row-schema = load-format(chapters, "m-row")
 
-#let init-fill-schema = load-format("init-fill")
-#let init-move-schema = load-format("init-move")
-#let row-move-schema = load-format("row-move")
-#let lane-move-schema = load-format("lane-move")
-#let mma-bdot-schema = load-format("mma-bdot")
-#let red-schema = load-format("red")
-#let vreduce-argmax-schema = load-format("vreduce-argmax")
-#let cvt-schema = load-format("cvt")
-#let qnt-schema = load-format("qnt")
-#let sys-schema = load-format("sys")
-#let e-bin-schema = load-format("e-bin")
-#let e-bcast-schema = load-format("e-bcast")
-#let e-brow-schema = load-format("e-brow")
-#let e-unary-schema = load-format("e-unary")
-#let e-cmp-schema = load-format("e-cmp")
-#let e-r4-schema = load-format("e-r4")
-#let e-mask-schema = load-format("e-mask")
+#let init-fill-schema = load-format(chapters, "init-fill")
+#let init-move-schema = load-format(chapters, "init-move")
+#let row-move-schema = load-format(chapters, "row-move")
+#let lane-move-schema = load-format(chapters, "lane-move")
+#let mma-bdot-schema = load-format(chapters, "mma-bdot")
+#let red-schema = load-format(chapters, "red")
+#let vreduce-argmax-schema = load-format(chapters, "vreduce-argmax")
+#let cvt-schema = load-format(chapters, "cvt")
+#let qnt-schema = load-format(chapters, "qnt")
+#let sys-schema = load-format(chapters, "sys")
+#let e-bin-schema = load-format(chapters, "e-bin")
+#let e-bcast-schema = load-format(chapters, "e-bcast")
+#let e-brow-schema = load-format(chapters, "e-brow")
+#let e-unary-schema = load-format(chapters, "e-unary")
+#let e-cmp-schema = load-format(chapters, "e-cmp")
+#let e-r4-schema = load-format(chapters, "e-r4")
+#let e-mask-schema = load-format(chapters, "e-mask")
 
 // Light background instead of the rivet blueprint preset's dark blue.
 #let rivet-c-config = config.config(

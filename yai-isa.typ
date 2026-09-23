@@ -1,5 +1,5 @@
 #import "yai-isa-style.typ": *
-#import "yai-isa-rivet.typ": *
+#import "rivet/yai-isa-rivet.typ": *
 
 #show: setup
 
@@ -294,7 +294,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `X5`      | 值目的寄存器字段, 仅 `vreduce.argmax.f32` 使用                                        |
 ]
 
-字段名后的数字表示位宽, 如 `D5`, `rf2`, `funct3`; 同一字段作为汇编操作数时通常省略位宽后缀. `S2` 中的 `2` 表示第二源编号而非位宽.
+字段名后的数字表示位宽, 如 `D5`, `rf2`, `funct3`; 同一字段作为汇编操作数时通常省略位宽后缀. `S2` 中的 `2` 表示第二源编号.
 
 === `major4` 分配
 
