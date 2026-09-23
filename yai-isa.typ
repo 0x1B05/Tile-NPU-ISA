@@ -291,6 +291,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `G`       | 操作组; 与 `op3` 共同组成 `funct4`, 选择逐元素操作                                    |
   | `xCoord`  | Scalar 坐标操作数: 按指令解释为 `xRowCol`, `xIndex`, `xLen` 或 `xDelta`               |
   | `index5`  | 5-bit 索引字段: 由 `IS` 选择立即数索引或 Scalar 寄存器索引                            |
+  | `X5`      | 值目的寄存器字段, 仅 `vreduce.argmax.f32` 使用                                        |
 ]
 
 字段名后的数字表示位宽, 如 `D5`, `rf2`, `funct3`; 同一字段作为汇编操作数时通常省略位宽后缀. `S2` 中的 `2` 表示第二源编号而非位宽.
@@ -455,6 +456,8 @@ cfg.copy C_D, C_S
     C_D ← C_S
 ```
 
+两个配置操作数共享 `sel3`, 因此只能同类型复制, 并复制该类型的全部字段.
+
 == `cfg.get` — 读配置字段到 Scalar
 
 ```asm
@@ -490,9 +493,13 @@ cfg.get xD, C, field
 
 #rivet-fmt-figure(m-blk-schema, caption: [整块与向量访存格式 (M_BLK)])
 
-行访存使用 MR 格式; 内存行列坐标打包为 `xRowCol` 由 Scalar 提供, 目标行号 `rd`/`rs` 为独立的 `index5` 字段:
+行访存使用 MR 格式; 内存行列坐标打包为 `xRowCol` 由 Scalar 提供, 目标行号 `rd`/`rs` 为独立的 `index5` 字段, 与行搬运和 lane 操作的索引字段位置对齐:
 
 #rivet-fmt-figure(m-row-schema, caption: [行访存格式 (M_ROW)])
+
+#note[
+  设计意图: 矩阵访存与向量访存共用同一布局而没有分离成两套, 因为即使把矩阵访存单独压紧, 多出来的位也没有明确用途, 反而会产生两套访存字段布局; `rf2` 的 2 bit 开销换来单一布局.
+]
 
 == 基础访存指令
 
@@ -1904,7 +1911,7 @@ mask 使用 R4 格式; `FS` 选择 fill 来源 (立即数 `fill5` 或 Scalar `xF
   | `{b,v}maskx.tail`  | R4      | 同 `mask.tail`, fill 由 Scalar 提供                | fill 可为任意值.                                      |
 ]
 
-mask 指令将源数据的某些位置替换为指定 fill 值. `mask` 的 fill 为 6-bit 立即数编码 (按目的 dtype 解释); `maskx` 的 fill 由 Scalar 寄存器提供, 可为任意值.
+mask 指令将源数据的某些位置替换为指定 fill 值. `mask` 的 fill 为 5-bit 立即数编码 (按目的 dtype 解释, 常量码表待定); `maskx` 的 fill 由 Scalar 寄存器提供, 可为任意值.
 
 矩阵 mask:
 
