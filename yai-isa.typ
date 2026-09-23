@@ -21,18 +21,15 @@
 
 = 前言
 
-本手册定义 Tile NPU 的物理指令集 (Tile-oriented ISA). 手册规定架构状态 (数据寄存器与配置寄存器), 指令的操作语义, 访存与同步规则, 并汇总全部已命名指令.
+本手册定义 Tile NPU 的物理指令集 (Tile-oriented ISA).
 
-手册按功能组织: @overview 描述架构状态并给出指令分类; @scalar-sync 至 @quantization 按指令族定义语义; @instructions 汇总全部已命名指令; 附录提供助记符速查与编码图版.
+手册按功能组织: @overview 描述架构状态并给出指令分类; @scalar-sync 至 @quantization 按指令族定义语义; @instructions 汇总全部已命名指令.
 
 记法约定:
 + 指令助记符, 寄存器名与字段名使用等宽字体 (如 `vadd.f32`, `a0`, `rows`)
-+ 数学公式与伪代码共同定义指令语义
 + `i8`, `u8`, `i32`, `u32`, `f32` 表示元素数据类型; 整数元素用作 mask 时取全 0 (假) 或全 1 (真)
-+ 尚未定义的内容在文中统一标注为 "待定".
-+ `{t,a}` 形式的展开记号依次表示 t 形式和 a 形式两条指令, 多处出现时按顺序配对 (如 `{t,a}insert.row` 中 `{b,v}` 与 `{t,a}` 配对).
-+ 指令表 Operation 列以显式元素索引给出赋值形式; 未约束的下标对目的有效区域全称量化 (如 `D[i,j] = A[i,j] + B[i,j]` 表示逐元素执行); 源操作数 `A`, `B`, `S` 未标注域前缀时与目的同域, 跨域时显式写出 (如 `{t,a}insert.row` 的 `{b,v}S`).
-+ 伪代码只描述合法执行下的核心数据流: 赋值写作 `←`, 循环为半开区间 `for 0 <= i < n:`, 条件中的相等比较写作 `=`. 操作数的 dtype, shape, 寄存器编号与索引合法性等约束由指令表的 Notes 列和正文统一规定, 伪代码不重复这些检查.
++ 花括号表示该位置可取的一组文本, 并展开为所有对应的助记符. 例如 `{t,a}insert.row` 表示 `tinsert.row` 和 `ainsert.row`; `{t,a}{load,store}` 表示 `tload`, `tstore`, `aload` 和 `astore`.
++ 指令表 Operation 列以显式元素索引给出赋值形式; 未约束的下标对目的有效区域全称量化 (如 `D[i,j] = A[i,j] + B[i,j]` 表示逐元素执行). `D`, `A`, `B`, `S` 是与数据域无关的操作数角色, 具体寄存器域由展开后的指令和对应指令定义确定. 例如 `{t,a}insert.row` 的 `D[rd,j] = S[j]` 分别表示 `tD[rd,j] = bS[j]` 和 `aD[rd,j] = vS[j]`.
 
 指令表与伪代码中的通用操作数记号:
 
@@ -54,7 +51,7 @@
   | `[j]`                | 向量 lane 索引                                     |
   | `[p]`                | position, 元素坐标: 矩阵为 `[i,j]`, 向量为 `[j]`   |
   | `[rd,j]`             | 行操作中目的的指定行; `ra`, `rb` 为两个源的指定行  |
-  | `sat`, `wrap`        | 饱和 / 回绕, 定义见 @elementwise                   |
+  | `sat`, `wrap`        | 饱和 / 回绕, 定义见 @integer-arithmetic            |
 ]
 
 Operation 列使用的函数记号:
@@ -66,17 +63,15 @@ Operation 列使用的函数记号:
   | 记号                      | 含义                                                             |
   | ------------------------- | ---------------------------------------------------------------- |
   | `min(A, B)`, `max(A, B)`  | 逐元素取小/取大; 浮点按 IEEE 754 minNum/maxNum 语义, NaN 不传播  |
-  | `shl(A, B)`               | 逻辑左移; 移位量取 `B` 的低 $log_2 w$ 位 ($w$ 为元素位宽)        |
+  | `shl(A, B)`               | 逻辑左移; 移位量取 $B$ 的低 $log_2 w$ 位 ($w$ 为元素位宽)        |
   | `shr(A, B)`               | 逻辑右移 (零填充); 移位量同上                                    |
   | `sra(A, B)`               | 算术右移 (符号填充); 移位量同上                                  |
   | `abs(A)`                  | 逐元素绝对值                                                     |
   | `not A`                   | 逐元素按位取反                                                   |
   | `and`, `or`, `xor`        | 逐元素按位与/或/异或                                             |
   | `quant_q8s32(...)` 等     | 量化与反量化函数, 定义见 @quantization                           |
-  | `fma(A, B, C)`            | 融合乘加 `A × B + C`, 单次舍入; 仅 f32                           |
+  | `fma(A, B, C)`            | 融合乘加 $A × B + C$, 单次舍入; 仅 f32                           |
 ]
-
-浮点 `+`, `-`, `×`, `/` 遵循 IEEE 754 binary32 规则, 舍入模式为 round-to-nearest-even.
 
 = 指令集概览 <overview>
 
@@ -99,31 +94,33 @@ Operation 列使用的函数记号:
 
 以上构成五个不同的*数据域*. 标量域的指令集为 RV64IM (见 @scalar-sync); 其余数据域的指令由本手册定义.
 
-#note[
-  Vec8 (`b`) 是低精度存储与搬运域, 不定义逐元素计算指令 (加法, 位运算, 移位等); 量化数据需经 `bdequant` 反量化到 Vec32 后计算, 或经 `vquant` 从 Vec32 量化存入. Tile/Acc/Vec32 的计算指令分别在各域章节定义.
-]
-
-#important[
-  32-bit 寄存器内无法存储两个半精度数(如`f16`/`bf16`), `f16`/`bf16`等半精度数加载后扩展到 f32 Acc/Vec.
-]
-
 === 配置寄存器
 
 配置寄存器分为计算配置寄存器和访存描述符.
 
 #manual-table(
-  columns: (1.05fr, 1fr, 1.2fr, 0.6fr, 2.2fr),
+  columns: (1fr, 0.6fr, 1fr, 0.4fr, 2fr),
   caption: [计算配置寄存器与访存描述符],
 )[
-  | 寄存器类型          | 汇编名称     | 绑定或适用对象             | 容量    | 配置字段                                                                              |
-  | :-----------------: | :----------: | -------------------------- | ------- | ------------------------------------------------------------------------------------- |
-  | TC: Tile 计算配置   | `tc0..tc15`  | `tc[i]` ↔ `t[i]`           | 32bit   | `dtype`, `rows`, `cols`, `layout`, `arith_mode`                                       |
-  | AC: Acc 计算配置    | `ac0..ac11`  | `ac[i]` ↔ `a[i]`           | 32bit   | `dtype`, `rows`, `cols`, `layout`                                                     |
-  | BC: Vec8 计算配置   | `bc0..bc31`  | `bc[i]` ↔ `b[i]`           | 32bit   | `dtype`, `len`                                                                        |
-  | VC: Vec32 计算配置  | `vc0..vc31`  | `vc[i]` ↔ `v[i]`           | 32bit   | `dtype`, `len`                                                                        |
-  | TM: 矩阵访存描述符  | `tm0..tm15`  | Tile / Acc 访存显式选择    | 256bit  | `rows`, `cols`, `row_stride_bytes`, `col_stride_bytes`, `storage_dtype`, `transform`  |
-  | VM: 向量访存描述符  | `vm0..vm31`  | Vec8 / Vec32 访存显式选择  | 128bit  | `length`, `stride_bytes`, `storage_dtype`                                             |
+  | 寄存器类型          | 汇编名称     | 绑定或适用对象    | 容量   | 配置字段                                         |
+  | :-----------------: | :----------: | :---------------: | ------ | ------------------------------------------------ |
+  | TC: Tile 计算配置   | `tc0..tc15`  | `tc[i]` ↔ `t[i]`  | 32bit  | `dtype`, `rows`, `cols`, `layout`, `arith_mode`  |
+  | AC: Acc 计算配置    | `ac0..ac11`  | `ac[i]` ↔ `a[i]`  | 32bit  | `dtype`, `rows`, `cols`, `layout`                |
+  | BC: Vec8 计算配置   | `bc0..bc31`  | `bc[i]` ↔ `b[i]`  | 32bit  | `dtype`, `len`                                   |
+  | VC: Vec32 计算配置  | `vc0..vc31`  | `vc[i]` ↔ `v[i]`  | 32bit  | `dtype`, `len`                                   |
 ]
+
+#figure(
+  manual-table(
+    columns: (1fr, 0.6fr, 1fr, 0.4fr, 2fr),
+    caption: [访存描述符],
+  )[
+    | 寄存器类型          | 汇编名称     | 绑定或适用对象     | 容量    | 配置字段                                                                              |
+    | :-----------------: | :----------: | :----------------: | ------- | ------------------------------------------------------------------------------------- |
+    | TM: 矩阵访存描述符  | `tm0..tm15`  | Tile / Acc 访存    | 256bit  | `rows`, `cols`, `row_stride_bytes`, `col_stride_bytes`, `storage_dtype`, `transform`  |
+    | VM: 向量访存描述符  | `vm0..vm31`  | Vec8 / Vec32 访存  | 128bit  | `length`, `stride_bytes`, `storage_dtype`                                             |
+  ],
+)<mem-desc>
 
 计算配置寄存器 TC/AC 与 BC/VC 均为 32-bit; 矩阵访存描述符 TM 为 256-bit (四个 64-bit word), 向量访存描述符 VM 为 128-bit (两个 64-bit word). 位段分配如下.
 
@@ -134,8 +131,6 @@ Operation 列使用的函数记号:
 #rivet-tm-figure((tm-0-schema, tm-1-schema), caption: [TM 矩阵访存描述符位段])
 
 #rivet-vm-figure(vm-schema, caption: [VM 向量访存描述符位段])
-
-`flags.bit0` (EN) 为 0 时, 使用该描述符的访存指令被拒绝并产生 `CFG_ERROR`; flags 的其余位保留, 写零.
 
 == 编程模型 <model>
 
@@ -165,49 +160,52 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 == 指令空间组织 <instruction-space>
 
-指令空间按指令字最低两位划分. `[1:0] = 11` 的空间用于标量指令: 标量指令集采用 RV64IM (RISC-V 64-bit 基础整数指令集与乘除扩展). `[1:0]` 为 `00`, `01`, `10` 的原压缩指令空间全部用于非标量指令, `00` 的逐元素计算走向量计算通路, `01` 走访存与搬运通路, `10` 汇集跨域计算 (矩阵乘, 规约, 量化) 与控制类指令. 所有指令 (标量与非标量) 均为定长 32-bit, 最低两位作为类别标签.
+所有指令 (标量与非标量) 均为定长 32-bit. 指令空间按指令字最低两位划分:
 
-非标量空间按功能域分为三部分:
+`[1:0] = 11` 的空间用于标量指令: 标量指令集采用 RV64IM (RISC-V 64-bit 基础整数指令集与乘除扩展).`[1:0]` 为 `00`, `01`, `10` 的原压缩指令空间全部用于非标量指令, `00` 的逐元素计算走向量计算通路, `01` 走访存与搬运通路, `10` 汇集跨域计算 (矩阵乘, 规约, 量化) 与控制类指令. 如下表所示
 
 #manual-table(
-  columns: (1fr, 1.5fr, 3.6fr),
+  columns: (0.5fr, 1fr, 3fr),
   caption: [非标量指令空间分配],
 )[
-  | 最低两位  | 功能域          | 内容                                                                                                 |
-  | :-------: | --------------- | ---------------------------------------------------------------------------------------------------- |
-  | `00`      | 通用逐元素计算  | 算术, 位运算, 比较, Scalar 变体 (`opx`, `cmpx`), 行广播与向量广播, 融合乘加, select, mask, 特殊函数  |
-  | `01`      | 数据传输与重排  | 矩阵/向量访存, fill, copy, 行和 lane 搬运, 转置                                                      |
-  | `10`      | 跨域计算与控制  | 矩阵乘与点积, 规约, 类型转换与扩大, 量化与反量化, 配置, 同步, `kernel.end`; 其余编码预留             |
+  | `[1:0]`  | 功能域          | 内容                                                                                                 |
+  | :------: | --------------- | ---------------------------------------------------------------------------------------------------- |
+  | `00`     | 通用逐元素计算  | 算术, 位运算, 比较, Scalar 变体 (`opx`, `cmpx`), 行广播与向量广播, 融合乘加, select, mask, 特殊函数  |
+  | `01`     | 数据传输与重排  | 矩阵/向量访存, fill, copy, 行和 lane 搬运, 转置                                                      |
+  | `10`     | 跨域计算与控制  | 矩阵乘与点积, 规约, 类型转换与扩大, 量化与反量化, 配置, 同步, `kernel.end`; 其余编码预留             |
 ]
 
 #note[
   预留策略: `10` 空间除配置与系统指令外的空间作为预留. 未来的扩展 (新的数据类型, 更宽的 Tile, 多核同步, DMA 等) 优先使用预留空间.
-  #link("https://opensecura.googlesource.com/hw/kelvin/")也使用了类似的策略, 即复用RV64im, 压缩指令的空间用于custom的向量指令.
+]
+
+#note[
+  #link("https://opensecura.googlesource.com/hw/kelvin/")也使用了类似的策略: 复用RV64im, 压缩指令的空间用于custom的向量指令.
 ]
 
 == 指令格式 <encoding>
 
 标量指令格式见 RISC-V 规范; 本章定义非标量指令格式.
 
-所有非标量指令定长 32-bit. 指令字最低两位 `[1:0]` 为类别标签 (见 @instruction-space); `[31:28]` 为主操作码 `major4`, 按指令族划分; 中间的选择子与操作数字段按 `major4` 解释. 格式与功能域划分正交: 同一格式可以出现在不同功能域, 指令的归属按其功能决定.
+所有非标量指令定长 32-bit. 指令字最低两位 `[1:0]` 为类别标签 (见 @instruction-space); `[31:28]` 为主操作码 `major4`, 中间的选择子与操作数字段按 `major4` 解释.
 
 === 格式分类
 
-非标量指令按操作数字段的数量与类型归为七种格式:
+所有格式均以 `major4[31:28]` 开头, 以 `q[1:0]` 结尾. 下表仅列出中间字段 `[27:2]` 及其主要用途; 各指令族的完整分配见后文的 `major4` 分配表.
 
 #manual-table(
-  columns: (0.8fr, 3.6fr, 3.4fr),
-  caption: [指令格式一览],
+  columns: (0.6fr, 3fr, 3.2fr),
+  caption: [非标量指令格式],
 )[
-  | 格式  | 字段布局                                        | 覆盖指令                                                                                                                   |
-  | ----- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-  | R4    | `major4 + sel3 + funct3 + 4 × field5`           | 整块访存, 行与 lane 搬运, 矩阵乘与点积, `vreduce.argmax`, 量化与反量化, `cfg.setx/copy/get`, 比较, `select`/`fmadd`, mask  |
-  | R3    | `major4 + sel3 + funct4 + 3 × field5`           | 普通二元操作 (`op`/`opx`), 向量广播 (`byrow`/`bycol`)                                                                      |
-  | R2    | `major4 + sel3 + funct3 + S5 + D5`              | `fillx`/`copy`/`ttranspose`, 规约, 类型转换与扩大, 一元操作与特殊函数                                                      |
-  | MR    | `major4 + sel3 + tmJ4 + R4 + 3 × field5`        | 行访存 (`.row` 族)                                                                                                         |
-  | RB    | `major4 + sel3 + funct4 + index5 + 3 × field4`  | 矩阵源行广播 (`brow`)                                                                                                      |
-  | I     | `major4 + sel2 + funct3 + imm16 + D5/C5`        | `fill`, `cfg.seti`                                                                                                         |
-  | Z     | `major4 + funct3`                               | `fence.*`, `kernel.end`                                                                                                    |
+  | 格式  | 中间字段 `[27:2]`                                  | 主要用途                              |
+  | :---: | -------------------------------------------------- | ------------------------------------- |
+  | R4    | `sel3 + funct3 + 4 × field5`                       | 访存与搬运; 多源或跨域计算; 配置访问  |
+  | R3    | `sel3 + funct4 + reserved4 + 3 × field5`           | 二元逐元素计算; 矩阵与向量广播        |
+  | R2    | `sel3 + funct3 + reserved10 + S5 + D5`             | 单源单目的搬运; 规约、转换与一元计算  |
+  | MR    | `sel3 + tmJ4 + R4 + index5 + xCoord5 + xBase5`     | 矩阵行访存                            |
+  | RB    | `sel3 + funct4 + reserved2 + index5 + 3 × field4`  | 矩阵源行广播                          |
+  | I     | `sel2 + funct3 + imm16 + D5/C5`                    | 立即数填充与配置                      |
+  | Z     | `funct3 + reserved23`                              | 同步与 kernel 结束                    |
 ]
 
 === 位段布局
@@ -254,7 +252,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 === `major4` 分配
 
-`major4` 的具体编码值待定; 各功能域的指令族分配如下:
+`major4` 的具体编码值尚未分配, 各功能域的指令族分配如下:
 
 #manual-table(
   columns: (1fr, 3.2fr, 1.4fr),
@@ -269,8 +267,8 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 编码原则:
 
-+ 指令不包含 dtype 信息; 操作数的元素类型由绑定的配置寄存器 (TC/AC/BC/VC) 的 dtype 字段给出, 助记符中的 `.TYPE` 后缀是汇编层的可读性标注;
-+ `reserved` 字段必须为 0, 非零组合为保留编码; 超出实际寄存器数量的编码为非法指令;
++ `reserved` 字段必须为 0, 非零组合为保留编码;
++ 寄存器编号字段的合法范围由操作数所属的数据域决定; 编码值未对应到该数据域中已定义的架构寄存器时, 该指令编码为保留编码, 执行时按非法指令处理 (例如 Tile 仅允许 `t0..t15`, Acc 仅允许 `a0..a11`);
 + 各指令族内部的字段解释与合法码点见正文各章.
 
 = 标量与同步 <scalar-sync>
@@ -286,24 +284,20 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `kernel.end`  | Z       | 报告 kernel 完成.                  | 隐含 `fence.all`.            |
 ]
 
-```asm
-fence.mem       # 此前访存完成并达到约定可见点, 后续访存不得越过
-fence.sa        # 此前 SA 操作完成, 后续 SA 操作不得越过
-fence.all       # 此前全部后端工作完成, 后续后端工作不得越过
-kernel.end      # 隐含 fence.all, 报告 kernel 完成
-```
-
 = 配置指令 <configuration>
 
-下表列出配置指令的语义摘要; `Format` 为尚待定义的二进制编码格式.
+下表列出配置指令的语义摘要.
 
-#instruction-table(caption: [配置指令])[
-  | Instruction  | Format  | Operation                 | Notes                                                  |
-  | ------------ | ------- | ------------------------- | ------------------------------------------------------ |
-  | `cfg.seti`   | I       | C[field] = extend(imm)    | 校验失败时产生 `CFG_ERROR`.                            |
-  | `cfg.setx`   | R4      | C[field] = x[xS]          | 字段定义扩展, 截断与范围规则; 失败时产生 `CFG_ERROR`.  |
-  | `cfg.copy`   | R4      | $C_D = C_S$               | 源和目的配置类型一致时执行复制.                        |
-  | `cfg.get`    | R4      | x[xD] = extend(C[field])  | 结果为字段的整数或枚举值.                              |
+#instruction-table(
+  columns: (1fr, 0.5fr, 2fr, 2fr),
+  caption: [配置指令],
+)[
+  | Instruction  | Format  | Operation                 | Notes                            |
+  | :----------: | :-----: | ------------------------- | -------------------------------- |
+  | `cfg.seti`   | I       | C[field] = extend(imm)    | 校验失败时产生 `CFG_ERROR`.      |
+  | `cfg.setx`   | R4      | C[field] = x[xS]          | 失败时产生 `CFG_ERROR`.          |
+  | `cfg.copy`   | R4      | $C_D = C_S$               | 源和目的配置类型一致时执行复制.  |
+  | `cfg.get`    | R4      | x[xD] = extend(C[field])  | 结果为字段的整数或枚举值.        |
 ]
 
 == `cfg.seti` — 写立即数配置字段
@@ -393,9 +387,12 @@ cfg.get xD, C, field
 
 本章定义按描述符寻址的访存指令. 矩阵访存 (`tload`, `tstore`, `aload`, `astore` 及行形式) 由 TM 描述, 向量访存 (`bload`, `vload`, `bstore`, `vstore`) 由 VM 描述; Scalar 访存由 RV64IM load/store 指令承担. 所有 x/t/a/b/v 访存保持统一的程序可见顺序.
 
-#instruction-table(caption: [地址与访存指令])[
+#instruction-table(
+  columns: (1.5fr, 0.5fr, 2.5fr, 2.1fr),
+  caption: [地址与访存指令],
+)[
   | Instruction       | Format  | Operation                    | Notes                                              |
-  | ----------------- | ------- | ---------------------------- | -------------------------------------------------- |
+  | :---------------- | :-----: | ---------------------------- | -------------------------------------------------- |
   | `{t,a}load`       | R4      | D[i,j] = memory[addr(i,j)]   | 越界元素补零, 整块 load 清零目的其余位置.          |
   | `{t,a}store`      | R4      | memory[addr(i,j)] = S[i,j]   | 仅写有效交集; 越界位置不访问内存.                  |
   | `{t,a}load.row`   | MR      | D[rd,j] = memory[addr(0,j)]  | 仅处理目的行; 无效列补零, 其余行保持.              |
@@ -406,11 +403,7 @@ cfg.get xD, C, field
 
 == 访存描述符和地址操作数
 
-矩阵访存使用 `TM` 描述符, 向量访存使用 `VM` 描述符.
-
-`TM` 字段有`rows`, `cols`, `row_stride_bytes`, `col_stride_bytes`, `storage_dtype`, `transform`
-
-`VM` 字段有`length`, `stride_bytes`, `storage_dtype`:
+矩阵访存使用 `TM` 描述符, 向量访存使用 `VM` 描述符. 对应描述符所含配置字段参见 @mem-desc
 
 基地址和访问坐标由 64-bit Scalar 操作数提供.
 对一维 VM, 内存元素地址定义为:
@@ -1002,9 +995,9 @@ mma.nn.zero.i8.i32 aD, tA, tB
 约束:
 
 $
-   op("rows")("tA") & = M, op("cols")("tA") = K \
-   op("rows")("tB") & = K, op("cols")("tB") = N \
-   op("rows")("aD") & = M, op("cols")("aD") = N
+  op("rows")("tA") & = M, op("cols")("tA") = K \
+  op("rows")("tB") & = K, op("cols")("tB") = N \
+  op("rows")("aD") & = M, op("cols")("aD") = N
 $
 
 操作:
@@ -1104,10 +1097,10 @@ Vec8 与 Tile 各列执行点积, 结果写入 `i32` Vec32.
 约束:
 
 $
-    op("len")("bA") & = K \
-   op("rows")("tB") & = K \
-   op("cols")("tB") & = N \
-    op("len")("vD") & = N
+   op("len")("bA") & = K \
+  op("rows")("tB") & = K \
+  op("cols")("tB") & = N \
+   op("len")("vD") & = N
 $
 
 操作:
@@ -1137,7 +1130,7 @@ Vec8 与 Tile 各行执行点积, 结果写入 `i32` Vec32.
 约束:
 
 $
-  op("len")("bA") & = K and op("len")("vD") = N \
+   op("len")("bA") & = K and op("len")("vD") = N \
   op("cols")("tB") & = K and op("rows")("tB") = N \
 $
 
@@ -1386,9 +1379,7 @@ D[p] ← op(A[p], value)
   | `{a,v}neg.TYPE`   | R2      | D[p] = -A[p]            | 类型: `i32/f32`; 仅有一个数据源.                        |
 ]
 
-
-
-== 整数算术规则
+== 整数算术规则 <integer-arithmetic>
 
 8-bit 域 (`i8/u8`) 的 `add` 和 `sub` 的溢出行为由绑定配置寄存器的 `arith_mode` 字段决定: 0 = wrap (回绕), 1 = sat (饱和), 2-3 预留. 汇编后缀 `.sat`/`.wrap` 是对配置状态的标注, 必须与实际配置一致; 不携带后缀时行为同样由配置决定. 32-bit 整数 `add`, `sub`, `mul` 默认使用 wrap32 回绕.
 
@@ -2229,8 +2220,6 @@ vScore = vScore × scale
 
 = 量化与反量化 <quantization>
 
-bits 和 scale 都是显式操作数. Q8 MMA, decode scale 重建与 P×V 量化流程是基础指令序列, 不另外分配复合指令助记符.
-
 #instruction-table(caption: [量化与反量化指令])[
   | Instruction          | Format  | Operation                                                                                | Notes                                          |
   | -------------------- | ------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------- |
@@ -2273,7 +2262,7 @@ $ "Pscaled" = P "Vscale" $
 
 == 清单说明
 
-`Format`, `Opcode` 和 `Function` 为尚待定义的二进制编码字段, 统一标为待定. `TYPE` 的合法取值以对应章节的每行说明为准; 带固定类型后缀的指令直接按该类型解释. 比较条件取独立子集: 整数为 `eq/ne/lt/ge`, f32 为 `eq/lt/le/unord`; `gt`/`le` 由交换操作数获得, `ord` 由 `unord` 取反获得.
+`TYPE` 的合法取值以对应章节的每行说明为准; 带固定类型后缀的指令直接按该类型解释. 比较条件取独立子集: 整数为 `eq/ne/lt/ge`, f32 为 `eq/lt/le/unord`; `gt`/`le` 由交换操作数获得, `ord` 由 `unord` 取反获得.
 
 Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变体均不作为已分配编码处理.
 
@@ -2662,23 +2651,3 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `tdequant.rows.f32`  | R4      | aD[i,j] = f32(tS[i,j]) × vScale[i]                                                       | 用每行的 Vec32 scale 将 Tile 反量化到 f32 Acc.     |
   | `bdequant.f32`       | R4      | vD[j] = f32(bS[j]) × vScale[lane]                                                        | 用指定 scale lane 将 Vec8 反量化到 f32 Vec32.      |
 ]
-
-= 附录: 助记符速查 <quickref>
-
-#manual-table(
-  columns: (1.1fr, 2fr, 2.9fr),
-  caption: [ISA 助记符速查],
-)[
-  | 前缀或功能族        | 主要对象                    | 读法示例                                                                        |
-  | ------------------- | --------------------------- | ------------------------------------------------------------------------------- |
-  | 标量                | Scalar `x` 与内存, 控制流   | 标量指令集为 RV64IM, 按 RISC-V 规范执行, 本手册不展开.                          |
-  | `t` / `a`           | Tile / Acc 矩阵数据域       | `tload` / `aload` 使用 `TM`; `tcopy` / `acopy` 执行同域复制.                    |
-  | `b` / `v`           | Vec8 / Vec32 向量数据域     | `bload` / `vload` 使用 `VM`; `bdequant` / `vquant` 在 Vec8 与 Vec32 之间转换.   |
-  | `cfg`               | `TC/AC/BC/VC/TM/VM`         | `cfg.seti` 写立即数字段; `cfg.setx` 从 Scalar 写字段.                           |
-  | `mma`               | Tile × Tile → Acc           | `mma.nt.acc.i8.i32` 以 `i8` 输入执行逻辑转置矩阵乘, 并累加到 `i32` Acc.         |
-  | `bdot`              | Vec8 × Tile → Vec32         | `bdot.nn.i8.i32` 产生 `i32` 向量; 跨块累加使用 `vadd.i32`.                      |
-  | 跨域转换            | 指令显式规定输入与输出域    | `twiden`: Tile → Acc; `tquant`: Acc → Tile; `vquant`: Vec32 → Vec8.             |
-  | `fence` / `kernel`  | 后端完成与 kernel 生命周期  | `fence.mem` / `fence.sa` / `fence.all` 建立完成边界; `kernel.end` 结束 kernel.  |
-]
-
-前缀表示指令所属的数据域或功能族, 跨域指令须结合操作数阅读. 例如 `treduce` 的目的为 Vec32, `vreduce` 的目的为 Scalar, 不能仅根据前缀推断目的寄存器.
