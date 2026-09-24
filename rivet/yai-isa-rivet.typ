@@ -22,7 +22,6 @@
 #let fmt-r3-schema = load-format(formats, "fmt-r3")
 #let fmt-r2-schema = load-format(formats, "fmt-r2")
 #let fmt-mr-schema = load-format(formats, "fmt-mr")
-#let fmt-rb-schema = load-format(formats, "fmt-rb")
 #let fmt-i-schema = load-format(formats, "fmt-i")
 #let fmt-z-schema = load-format(formats, "fmt-z")
 
@@ -43,7 +42,6 @@
 #let sys-schema = load-format(chapters, "sys")
 #let e-bin-schema = load-format(chapters, "e-bin", deps: ("reg-b", "reg-x"))
 #let e-bcast-schema = load-format(chapters, "e-bcast")
-#let e-brow-schema = load-format(chapters, "e-brow", deps: ("index-imm", "index-x"))
 #let e-unary-schema = load-format(chapters, "e-unary")
 #let e-cmp-schema = load-format(chapters, "e-cmp", deps: ("reg-b", "reg-x"))
 #let e-r4-schema = load-format(chapters, "e-r4")

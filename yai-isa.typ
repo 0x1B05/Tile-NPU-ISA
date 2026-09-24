@@ -196,7 +196,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | 地址与访存      | 内存 ↔ `t/a/b/v`                                                               | 按 TM/VM 描述符执行整块, 行和向量访问      | `{t,a}{load,store}` #linebreak() `{b,v}{load,store}`                                                                                            |
   | 初始化与搬运    | 域内 #linebreak() `t` ↔ `b` #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane  | 填充, 复制, 行搬运, lane 搬运, 广播和转置  | `{t,a,b,v}{fill,fillx,copy}` #linebreak() `{t,a}{insert,extract}.row` #linebreak() `{b,v}{insert,extract,broadcast}` #linebreak() `ttranspose`  |
   | 矩阵乘与点积    | `t` × `t` → `a` #linebreak() `b` × `t` → `v`                                   | `i8` 乘法, `i32` 累加或点积                | `mma` #linebreak() `bdot`                                                                                                                       |
-  | 逐元素与广播    | `t/a/v` 同域 #linebreak() 矩阵 ↔ 向量广播                                      | 算术, 位运算, 移位, 特殊函数, 比较和选择   | `{t,a,v}op` #linebreak() `.brow`, `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                                                       |
+  | 逐元素与广播    | `t/a/v` 同域 #linebreak() 矩阵 ↔ 向量广播                                      | 算术, 位运算, 移位, 特殊函数, 比较和选择   | `{t,a,v}op` #linebreak() `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                                                                |
   | 规约            | `a` → `v` #linebreak() `v` → Scalar                                            | 行规约, 向量规约, 平方和和 argmax          | `areduce` #linebreak() `vreduce`                                                                                                                |
   | 类型转换与扩大  | `a/v` 内部 #linebreak() `t` → `a`                                              | 数值类型转换和 `i8` → `i32` 扩大           | `acvt`, `vcvt` #linebreak() `twiden`                                                                                                            |
   | 量化与反量化    | `a` ↔ `t` #linebreak() `v` ↔ `b`                                               | 低精度存储与 `f32` 计算之间的显式转换      | `tquant`, `tdequant` #linebreak() `vquant`, `bdequant`                                                                                          |
@@ -242,15 +242,14 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   columns: (0.6fr, 3fr, 3.2fr),
   caption: [非标量指令格式],
 )[
-  | 格式  | 中间字段 `[27:2]`                                  | 主要用途                              |
-  | :---: | -------------------------------------------------- | ------------------------------------- |
-  | R4    | `sel3 + funct3 + 4 × field5`                       | 访存与搬运; 多源或跨域计算; 配置访问  |
-  | R3    | `sel3 + funct4 + reserved4 + 3 × field5`           | 二元逐元素计算; 矩阵与向量广播        |
-  | R2    | `sel3 + funct3 + reserved10 + S5 + D5`             | 单源单目的搬运; 规约、转换与一元计算  |
-  | MR    | `sel3 + tmJ4 + R4 + index5 + xCoord5 + xBase5`     | 矩阵行访存                            |
-  | RB    | `sel3 + funct4 + reserved2 + index5 + 3 × field4`  | 矩阵源行广播                          |
-  | I     | `sel2 + funct3 + imm16 + D5/C5`                    | 立即数填充与配置                      |
-  | Z     | `funct3 + reserved23`                              | 同步与 kernel 结束                    |
+  | 格式  | 中间字段 `[27:2]`                               | 主要用途                              |
+  | :---: | ----------------------------------------------- | ------------------------------------- |
+  | R4    | `sel3 + funct3 + 4 × field5`                    | 访存与搬运; 多源或跨域计算; 配置访问  |
+  | R3    | `sel3 + funct4 + reserved4 + 3 × field5`        | 二元逐元素计算; 矩阵与向量广播        |
+  | R2    | `sel3 + funct3 + reserved10 + S5 + D5`          | 单源单目的搬运; 规约、转换与一元计算  |
+  | MR    | `sel3 + tmJ4 + R4 + index5 + xCoord5 + xBase5`  | 矩阵行访存                            |
+  | I     | `sel2 + funct3 + imm16 + D5/C5`                 | 立即数填充与配置                      |
+  | Z     | `funct3 + reserved23`                           | 同步与 kernel 结束                    |
 ]
 
 === 位段布局
@@ -262,8 +261,6 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 #rivet-plate-figure(fmt-r2-schema, caption: [R2 格式: 两个 5-bit 字段])
 
 #rivet-plate-figure(fmt-mr-schema, caption: [MR 格式: 行访存])
-
-#rivet-plate-figure(fmt-rb-schema, caption: [RB 格式: 矩阵源行广播])
 
 #rivet-plate-figure(fmt-i-schema, caption: [I 格式: 16-bit 立即数])
 
@@ -312,7 +309,6 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `00`    | `0011`    | `E_R4`          | R4     |
   | `00`    | `0100`    | `E_MASK`        | R4     |
   | `00`    | `0101`    | `E_BCAST`       | R3     |
-  | `00`    | `0110`    | `E_BROW`        | RB     |
   | `01`    | `0000`    | `M_BLK`         | R4     |
   | `01`    | `0001`    | `M_ROW`         | MR     |
   | `01`    | `0010`    | `INIT_MOVE`     | I/R2   |
@@ -1375,7 +1371,7 @@ D[p] ← op(A[p], value)
 
 == 基础操作集合
 
-`E_BIN`, `E_BCAST` 与 `E_BROW` 共用逐元素操作编码 `funct4 = {G, op3}`:
+`E_BIN` 与 `E_BCAST` 共用逐元素操作编码 `funct4 = {G, op3}`:
 
 #manual-table(
   columns: (0.8fr, 1fr, 1.2fr, 3.4fr),
@@ -1589,70 +1585,6 @@ for 0 <= i < rows(D):
 ```
 
 == 行广播
-
-=== Tile/Acc 行广播
-
-右矩阵指定行的各列元素广播到每个目的行.
-
-矩阵源行广播使用 RB 格式; 三个矩阵寄存器为 4-bit 字段, `IS` 选择行号来源, `index5` 对齐行搬运与 lane 操作的索引字段位置:
-
-#rivet-fmt-figure(e-brow-schema, caption: [矩阵源行广播格式 (E_BROW)])
-
-#instruction-table(
-  columns: (1fr, 0.5fr, 2fr, 2fr),
-  caption: [矩阵源行广播指令],
-)[
-  | Instruction       | Format  | Operation                         | Notes                                                   |
-  | :---------------: | :-----: | --------------------------------- | ------------------------------------------------------- |
-  | `tadd.brow.TYPE`  | RB      | tD[i,j] = tA[i,j] + tB[rb,j]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
-  | `tsub.brow.TYPE`  | RB      | tD[i,j] = tA[i,j] - tB[rb,j]      | TYPE: `i8/u8`; 溢出模式由配置 `arith_mode` 决定.        |
-  | `tmin.brow.TYPE`  | RB      | tD[i,j] = min(tA[i,j], tB[rb,j])  | TYPE: `i8/u8`.                                          |
-  | `tmax.brow.TYPE`  | RB      | tD[i,j] = max(tA[i,j], tB[rb,j])  | TYPE: `i8/u8`.                                          |
-  | `tand.brow`       | RB      | tD[i,j] = tA[i,j] and tB[rb,j]    | 按位操作, 与元素 dtype 无关.                            |
-  | `tor.brow`        | RB      | tD[i,j] = tA[i,j] or tB[rb,j]     | 按位操作, 与元素 dtype 无关.                            |
-  | `txor.brow`       | RB      | tD[i,j] = tA[i,j] xor tB[rb,j]    | 按位操作, 与元素 dtype 无关.                            |
-  | `tshl.brow.TYPE`  | RB      | tD[i,j] = shl(tA[i,j], tB[rb,j])  | TYPE: `i8/u8`.                                          |
-  | `tshr.brow.TYPE`  | RB      | tD[i,j] = shr(tA[i,j], tB[rb,j])  | TYPE: `i8/u8`.                                          |
-  | `tsra.brow.TYPE`  | RB      | tD[i,j] = sra(tA[i,j], tB[rb,j])  | TYPE: `i8/u8`.                                          |
-  | `aadd.brow.TYPE`  | RB      | aD[i,j] = aA[i,j] + aB[rb,j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
-  | `asub.brow.TYPE`  | RB      | aD[i,j] = aA[i,j] - aB[rb,j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
-  | `amul.brow.TYPE`  | RB      | aD[i,j] = aA[i,j] × aB[rb,j]      | TYPE: `i32/u32/f32`; 整数使用 wrap32, 浮点按 f32 规则.  |
-  | `adiv.brow.TYPE`  | RB      | aD[i,j] = aA[i,j] / aB[rb,j]      | TYPE: `f32`.                                            |
-  | `amin.brow.TYPE`  | RB      | aD[i,j] = min(aA[i,j], aB[rb,j])  | TYPE: `i32/u32/f32`.                                    |
-  | `amax.brow.TYPE`  | RB      | aD[i,j] = max(aA[i,j], aB[rb,j])  | TYPE: `i32/u32/f32`.                                    |
-  | `aand.brow`       | RB      | aD[i,j] = aA[i,j] and aB[rb,j]    | 按位操作, 与元素 dtype 无关.                            |
-  | `aor.brow`        | RB      | aD[i,j] = aA[i,j] or aB[rb,j]     | 按位操作, 与元素 dtype 无关.                            |
-  | `axor.brow`       | RB      | aD[i,j] = aA[i,j] xor aB[rb,j]    | 按位操作, 与元素 dtype 无关.                            |
-  | `ashl.brow.TYPE`  | RB      | aD[i,j] = shl(aA[i,j], aB[rb,j])  | TYPE: `i32/u32`.                                        |
-  | `ashr.brow.TYPE`  | RB      | aD[i,j] = shr(aA[i,j], aB[rb,j])  | TYPE: `i32/u32`.                                        |
-  | `asra.brow.TYPE`  | RB      | aD[i,j] = sra(aA[i,j], aB[rb,j])  | TYPE: `i32/u32`.                                        |
-]
-
-Tile 或 Acc 可以将右操作数的一行广播到目的对象的每一行:
-
-```asm
-top.brow.TYPE tD, tA, tB[rb]
-
-aop.brow.TYPE aD, aA, aB[rb]
-```
-
-执行语义为:
-
-```text
-for 0 <= i < rows(D):
-    for 0 <= j < cols(D):
-        D[i,j] ← op(A[i,j], B[rb,j])
-```
-
-例如, 选择饱和减法:
-
-```asm
-tsub.brow.sat.i8 t0, t1, t2[0]
-```
-
-表示:
-
-$ "t0"_(i,j) = op("sat")_("i8")("t1"_(i,j) - "t2"_(0,j)) $
 
 === 按行广播
 
@@ -2638,32 +2570,6 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `vrsqrt.approx`  | R2      | vD[j] = rsqrt_approx(A[j])      | 逐 lane 计算倒数平方根.  |
 ]
 
-#instruction-listing(caption: [矩阵源行广播指令清单])[
-  | Instruction       | Format  | Function                          | Summary                                              |
-  | :---------------: | :-----: | --------------------------------- | ---------------------------------------------------- |
-  | `tadd.brow.TYPE`  | RB      | tD[i,j] = tA[i,j] + tB[rb,j]      | 矩阵源行广播加法; 溢出模式由配置 `arith_mode` 决定.  |
-  | `tsub.brow.TYPE`  | RB      | tD[i,j] = tA[i,j] - tB[rb,j]      | 矩阵源行广播减法; 溢出模式由配置 `arith_mode` 决定.  |
-  | `tmin.brow.TYPE`  | RB      | tD[i,j] = min(tA[i,j], tB[rb,j])  | 矩阵源行广播取小; `i8/u8`.                           |
-  | `tmax.brow.TYPE`  | RB      | tD[i,j] = max(tA[i,j], tB[rb,j])  | 矩阵源行广播取大; `i8/u8`.                           |
-  | `tand.brow`       | RB      | tD[i,j] = tA[i,j] and tB[rb,j]    | 矩阵源行广播按位与.                                  |
-  | `tor.brow`        | RB      | tD[i,j] = tA[i,j] or tB[rb,j]     | 矩阵源行广播按位或.                                  |
-  | `txor.brow`       | RB      | tD[i,j] = tA[i,j] xor tB[rb,j]    | 矩阵源行广播按位异或.                                |
-  | `tshl.brow.TYPE`  | RB      | tD[i,j] = shl(tA[i,j], tB[rb,j])  | 矩阵源行广播左移; `i8/u8`.                           |
-  | `tshr.brow.TYPE`  | RB      | tD[i,j] = shr(tA[i,j], tB[rb,j])  | 矩阵源行广播逻辑右移; `i8/u8`.                       |
-  | `tsra.brow.TYPE`  | RB      | tD[i,j] = sra(tA[i,j], tB[rb,j])  | 矩阵源行广播算术右移; `i8/u8`.                       |
-  | `aadd.brow.TYPE`  | RB      | aD[i,j] = aA[i,j] + aB[rb,j]      | 矩阵源行广播加法; `i32/u32/f32`.                     |
-  | `asub.brow.TYPE`  | RB      | aD[i,j] = aA[i,j] - aB[rb,j]      | 矩阵源行广播减法; `i32/u32/f32`.                     |
-  | `amul.brow.TYPE`  | RB      | aD[i,j] = aA[i,j] × aB[rb,j]      | 矩阵源行广播乘法; `i32/u32/f32`.                     |
-  | `adiv.brow.TYPE`  | RB      | aD[i,j] = aA[i,j] / aB[rb,j]      | 矩阵源行广播除法; `f32`.                             |
-  | `amin.brow.TYPE`  | RB      | aD[i,j] = min(aA[i,j], aB[rb,j])  | 矩阵源行广播取小; `i32/u32/f32`.                     |
-  | `amax.brow.TYPE`  | RB      | aD[i,j] = max(aA[i,j], aB[rb,j])  | 矩阵源行广播取大; `i32/u32/f32`.                     |
-  | `aand.brow`       | RB      | aD[i,j] = aA[i,j] and aB[rb,j]    | 矩阵源行广播按位与.                                  |
-  | `aor.brow`        | RB      | aD[i,j] = aA[i,j] or aB[rb,j]     | 矩阵源行广播按位或.                                  |
-  | `axor.brow`       | RB      | aD[i,j] = aA[i,j] xor aB[rb,j]    | 矩阵源行广播按位异或.                                |
-  | `ashl.brow.TYPE`  | RB      | aD[i,j] = shl(aA[i,j], aB[rb,j])  | 矩阵源行广播左移; `i32/u32`.                         |
-  | `ashr.brow.TYPE`  | RB      | aD[i,j] = shr(aA[i,j], aB[rb,j])  | 矩阵源行广播逻辑右移; `i32/u32`.                     |
-  | `asra.brow.TYPE`  | RB      | aD[i,j] = sra(aA[i,j], aB[rb,j])  | 矩阵源行广播算术右移; `i32/u32`.                     |
-]
 
 #instruction-listing(caption: [向量按行广播指令清单])[
   | Instruction         | Format  | Function                       | Summary                                              |

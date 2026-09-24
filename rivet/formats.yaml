@@ -39,8 +39,6 @@ colors:
     "11-7": "167,199,200"
     "6-2": "191,177,211"
     "1-0": "222,184,203"
-  fmt-rb:
-    "31-28": "179,163,205"
     "27": "196,186,209"
     "26": "230,230,230"
     "25": "196,186,209"
@@ -122,21 +120,6 @@ structures:
         name: q
         description: space tag
         values: {"00": "elementwise", "01": "data movement", "10": "cross-domain/control", "11": "scalar (RV64IM)"}
-  fmt-rb:
-    bits: 32
-    ranges:
-      31-28: {name: major4, description: "major opcode (E_BROW)"}
-      27: {name: TA, description: matrix domain, values: {"0": "Tile", "1": "Acc"}}
-      26: {name: "0", description: must be 0}
-      25: {name: IS, description: row index src, values: {"0": "imm row", "1": "Scalar row"}}
-      24-21: {name: funct4, description: "{G, op3}"}
-      20-19: {name: reserved2, description: must be 0}
-      18-14: {name: index5, description: "row imm / Scalar idx (by IS)"}
-      13-10: {name: B4, description: "matrix src2 (row broadcast)"}
-      9-6: {name: A4, description: matrix src1}
-      5-2: {name: D4, description: matrix dst}
-      1-0:
-        name: q
         description: space tag
         values: {"00": "elementwise", "01": "data movement", "10": "cross-domain/control", "11": "scalar (RV64IM)"}
   fmt-i:
