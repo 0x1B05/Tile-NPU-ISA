@@ -206,10 +206,19 @@ structures:
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0000": "E_BIN"}}
       27-26: {name: rf2, description: data domain, values: {"00": "Tile", "01": "Acc", "11": "Vec32", "10": "reserved"}}
-      25: {name: S2, description: src2 sel, values: {"0": "reg B", "1": "Scalar xS"}}
+      25: {name: S2}
       24-21: {name: funct4, description: "{G, op3}"}
       20-17: {name: reserved4, description: must be 0}
-      16-12: {name: B5, description: "src2 B / Scalar xS (by S2)"}
+      16-12:
+        name: B5
+        depends-on: 25
+        values:
+          0:
+            description: B register
+            structure: reg-b
+          1:
+            description: Scalar xS
+            structure: reg-x
       11-7: {name: A5, description: src1 A}
       6-2: {name: D5, description: dst D}
       1-0: {name: q, description: "space tag (00)"}
@@ -232,10 +241,19 @@ structures:
       31-28: {name: major4, description: major opcode, values: {"0110": "E_BROW"}}
       27: {name: TA, description: matrix domain, values: {"0": "Tile", "1": "Acc"}}
       26: {name: "0", description: must be 0}
-      25: {name: IS, description: row index src, values: {"0": "imm row", "1": "Scalar row"}}
+      25: {name: IS}
       24-21: {name: funct4, description: "{G, op3}"}
       20-19: {name: rsv2, description: must be 0}
-      18-14: {name: index5, description: "row imm / Scalar idx (by IS)"}
+      18-14:
+        name: index5
+        depends-on: 25
+        values:
+          0:
+            description: immediate index
+            structure: index-imm
+          1:
+            description: Scalar index register
+            structure: index-x
       13-10: {name: B4, description: "matrix src2 (row broadcast)"}
       9-6: {name: A4, description: matrix src1}
       5-2: {name: D4, description: matrix dst}
@@ -256,10 +274,19 @@ structures:
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0010": "E_CMP"}}
       27-26: {name: rf2, description: data domain, values: {"01": "Acc", "11": "Vec32", "00": "reserved", "10": "reserved"}}
-      25: {name: S2, description: src2 sel, values: {"0": "reg B", "1": "Scalar xS"}}
+      25: {name: S2}
       24-22: {name: funct3, description: cond, values: {"000": "eq (int/f32)", "001": "ne (int)", "010": "lt (int/f32)", "011": "ge (int)", "100": "le (f32)", "101": "unord (f32)"}}
       21-17: {name: reserved5, description: must be 0}
-      16-12: {name: B5, description: "src2 B / Scalar xS (by S2)"}
+      16-12:
+        name: B5
+        depends-on: 25
+        values:
+          0:
+            description: B register
+            structure: reg-b
+          1:
+            description: Scalar xS
+            structure: reg-x
       11-7: {name: A5, description: src1 A}
       6-2: {name: M5, description: "mask dst (u32)"}
       1-0: {name: q, description: "space tag (00)"}
@@ -280,9 +307,18 @@ structures:
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0100": "E_MASK"}}
       27-26: {name: rf2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "Vec8", "11": "Vec32"}}
-      25: {name: FS, values: {"0": "imm fill5", "1": "Scalar xFill"}}
+      25: {name: FS}
       24-22: {name: funct3, values: {"000": "tail", "001": "tril", "010": "triu"}}
-      21-17: {name: arg5, description: "imm fill5 / Scalar xFill (by FS)"}
+      21-17:
+        name: arg5
+        depends-on: 25
+        values:
+          0:
+            description: immediate fill
+            structure: fill-imm
+          1:
+            description: Scalar xFill
+            structure: fill-x
       16-12: {name: xCoord5, description: "Scalar bound (xBounds/xLen/xDelta)"}
       11-7: {name: S5, description: src reg}
       6-2: {name: D5, description: dst reg}
@@ -305,10 +341,19 @@ structures:
       31-28: {name: major4, description: major opcode, values: {"0001": "M_ROW"}}
       27: {name: TA, description: matrix domain, values: {"0": "Tile", "1": "Acc"}}
       26: {name: LS, values: {"0": "load.row", "1": "store.row"}}
-      25: {name: IS, description: row index src, values: {"0": "imm row", "1": "Scalar row"}}
+      25: {name: IS}
       24-21: {name: tmJ4, description: TM descriptor}
       20-17: {name: R4, description: Tile/Acc reg}
-      16-12: {name: index5, description: "row imm / Scalar idx (by IS)"}
+      16-12:
+        name: index5
+        depends-on: 25
+        values:
+          0:
+            description: immediate index
+            structure: index-imm
+          1:
+            description: Scalar index register
+            structure: index-x
       11-7: {name: xCoord5, description: Scalar coord xRowCol}
       6-2: {name: xBase5, description: Scalar base addr}
       1-0: {name: q, description: "space tag (01)"}
@@ -338,10 +383,19 @@ structures:
       31-28: {name: major4, description: major opcode, values: {"0011": "ROW_MOVE"}}
       27: {name: EW, description: element width, values: {"0": "8-bit (Tile/Vec8)", "1": "32-bit (Acc/Vec32)"}}
       26: {name: "0", description: must be 0}
-      25: {name: IS, description: index src, values: {"0": "imm index", "1": "Scalar index"}}
+      25: {name: IS}
       24-22: {name: funct3, description: op, values: {"000": "insert.row", "001": "extract.row"}}
       21-17: {name: reserved5, description: must be 0}
-      16-12: {name: index5, description: "row imm / Scalar idx (by IS)"}
+      16-12:
+        name: index5
+        depends-on: 25
+        values:
+          0:
+            description: immediate index
+            structure: index-imm
+          1:
+            description: Scalar index register
+            structure: index-x
       11-7: {name: S5, description: src reg}
       6-2: {name: D5, description: dst reg}
       1-0: {name: q, description: "space tag (01)"}
@@ -351,10 +405,19 @@ structures:
       31-28: {name: major4, description: major opcode, values: {"0100": "LANE_MOVE"}}
       27: {name: EW, description: element width, values: {"0": "8-bit (Vec8)", "1": "32-bit (Vec32)"}}
       26: {name: "0", description: must be 0}
-      25: {name: IS, description: index src, values: {"0": "imm index", "1": "Scalar index"}}
+      25: {name: IS}
       24-22: {name: funct3, description: op, values: {"000": "extract", "001": "insert", "010": "broadcast"}}
       21-17: {name: reserved5, description: must be 0}
-      16-12: {name: index5, description: "lane imm / Scalar idx (by IS)"}
+      16-12:
+        name: index5
+        depends-on: 25
+        values:
+          0:
+            description: immediate index
+            structure: index-imm
+          1:
+            description: Scalar index register
+            structure: index-x
       11-7: {name: S5, description: src reg}
       6-2: {name: D5, description: dst reg}
       1-0: {name: q, description: "space tag (01)"}
@@ -406,10 +469,19 @@ structures:
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0100": "QNT"}}
       27-26: {name: rf2, description: dst domain, values: {"00": "Tile", "01": "Acc", "10": "Vec8", "11": "Vec32"}}
-      25: {name: IS, description: scale lane src, values: {"0": "imm lane", "1": "Scalar lane"}}
+      25: {name: IS}
       24-22: {name: funct3, description: "000 (only code point)"}
       21-17: {name: vScale5, description: "scale reg (quant dst / dequant src)"}
-      16-12: {name: index5, description: "lane imm / Scalar idx (vquant/bdequant, else 0)"}
+      16-12:
+        name: index5
+        depends-on: 25
+        values:
+          0:
+            description: immediate index
+            structure: index-imm
+          1:
+            description: Scalar index register
+            structure: index-x
       11-7: {name: S5, description: main src}
       6-2: {name: D5, description: main dst}
       1-0: {name: q, description: "space tag (10)"}
@@ -441,3 +513,27 @@ structures:
       27-25: {name: funct3, description: op, values: {"000": "fence.mem", "001": "fence.sa", "010": "fence.all", "011": "kernel.end"}}
       24-2: {name: reserved23, description: must be 0}
       1-0: {name: q, description: "space tag (10)"}
+  index-imm:
+    bits: 5
+    ranges:
+      4-0: {name: imm5, description: "immediate index"}
+  index-x:
+    bits: 5
+    ranges:
+      4-0: {name: xIdx5, description: "Scalar index register"}
+  reg-b:
+    bits: 5
+    ranges:
+      4-0: {name: B5, description: "B register"}
+  reg-x:
+    bits: 5
+    ranges:
+      4-0: {name: xS5, description: "Scalar source register"}
+  fill-imm:
+    bits: 5
+    ranges:
+      4-0: {name: fill5, description: "fill immediate"}
+  fill-x:
+    bits: 5
+    ranges:
+      4-0: {name: xFill5, description: "Scalar fill register"}

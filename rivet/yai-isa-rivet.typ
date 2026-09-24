@@ -4,9 +4,12 @@
 #let formats = yaml("formats.yaml")
 #let chapters = yaml("chapters.yaml")
 
-#let load-format(file, name) = (schema.load)((
+#let load-format(file, name, deps: ()) = (schema.load)((
   colors: (main: file.colors.at(name)),
-  structures: (main: file.structures.at(name)),
+  structures: (
+    main: file.structures.at(name),
+    ..deps.map(d => ((d): file.structures.at(d))).sum(default: (:)),
+  ),
 ))
 
 #let tc-schema = load-format(descriptors, "tc")
@@ -26,25 +29,25 @@
 #let cfg-seti-schema = load-format(chapters, "cfg-seti")
 #let cfg-reg-schema = load-format(chapters, "cfg-reg")
 #let m-blk-schema = load-format(chapters, "m-blk")
-#let m-row-schema = load-format(chapters, "m-row")
+#let m-row-schema = load-format(chapters, "m-row", deps: ("index-imm", "index-x"))
 
 #let init-fill-schema = load-format(chapters, "init-fill")
 #let init-move-schema = load-format(chapters, "init-move")
-#let row-move-schema = load-format(chapters, "row-move")
-#let lane-move-schema = load-format(chapters, "lane-move")
+#let row-move-schema = load-format(chapters, "row-move", deps: ("index-imm", "index-x"))
+#let lane-move-schema = load-format(chapters, "lane-move", deps: ("index-imm", "index-x"))
 #let mma-bdot-schema = load-format(chapters, "mma-bdot")
 #let red-schema = load-format(chapters, "red")
 #let vreduce-argmax-schema = load-format(chapters, "vreduce-argmax")
 #let cvt-schema = load-format(chapters, "cvt")
-#let qnt-schema = load-format(chapters, "qnt")
+#let qnt-schema = load-format(chapters, "qnt", deps: ("index-imm", "index-x"))
 #let sys-schema = load-format(chapters, "sys")
-#let e-bin-schema = load-format(chapters, "e-bin")
+#let e-bin-schema = load-format(chapters, "e-bin", deps: ("reg-b", "reg-x"))
 #let e-bcast-schema = load-format(chapters, "e-bcast")
-#let e-brow-schema = load-format(chapters, "e-brow")
+#let e-brow-schema = load-format(chapters, "e-brow", deps: ("index-imm", "index-x"))
 #let e-unary-schema = load-format(chapters, "e-unary")
-#let e-cmp-schema = load-format(chapters, "e-cmp")
+#let e-cmp-schema = load-format(chapters, "e-cmp", deps: ("reg-b", "reg-x"))
 #let e-r4-schema = load-format(chapters, "e-r4")
-#let e-mask-schema = load-format(chapters, "e-mask")
+#let e-mask-schema = load-format(chapters, "e-mask", deps: ("fill-imm", "fill-x"))
 
 // Light background instead of the rivet blueprint preset's dark blue.
 #let rivet-c-config = config.config(
