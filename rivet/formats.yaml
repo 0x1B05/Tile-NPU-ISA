@@ -33,11 +33,10 @@ colors:
     "27": "196,186,209"
     "26": "196,186,209"
     "25": "196,186,209"
-    "24-21": "240,214,148"
-    "20-17": "238,183,150"
+    "24-17": "230,230,230"
     "16-12": "163,200,177"
-    "11-7": "167,199,200"
-    "6-2": "191,177,211"
+    "11-7": "230,230,230"
+    "6-2": "238,183,150"
     "1-0": "222,184,203"
   fmt-i:
     "31-28": "179,163,205"
@@ -60,7 +59,7 @@ structures:
       27-25: {name: sel3, description: "selector or 000"}
       24-22: {name: funct3, description: op select}
       21-17: {name: field5, description: per major4}
-      16-12: {name: field5, description: "usually B/xCoord"}
+      16-12: {name: field5, description: "usually B/xBound"}
       11-7: {name: field5, description: "usually A/S"}
       6-2: {name: field5, description: "usually D"}
       1-0:
@@ -101,15 +100,12 @@ structures:
       27: {name: TA, description: matrix domain, values: {"0": "Tile", "1": "Acc"}}
       26: {name: LS, description: load/store sel, values: {"0": "load", "1": "store"}}
       25: {name: IS, description: row index src, values: {"0": "imm row", "1": "Scalar row"}}
-      24-21: {name: tmJ4, description: TM descriptor}
-      20-17: {name: reg4, description: Tile/Acc reg}
+      24-17: {name: reserved8, description: must be 0}
       16-12: {name: index5, description: "row imm / Scalar idx (by IS)"}
-      11-7: {name: xCoord5, description: "Scalar coord (xRowCol/xIndex)"}
-      6-2: {name: xBase5, description: Scalar base addr reg}
+      11-7: {name: reserved5, description: must be 0}
+      6-2: {name: reg5, description: "Tile/Acc reg (bound TM/AM implied)"}
       1-0:
         name: q
-        description: space tag
-        values: {"00": "elementwise", "01": "data movement", "10": "cross-domain/control", "11": "scalar (RV64IM)"}
         description: space tag
         values: {"00": "elementwise", "01": "data movement", "10": "cross-domain/control", "11": "scalar (RV64IM)"}
   fmt-i:

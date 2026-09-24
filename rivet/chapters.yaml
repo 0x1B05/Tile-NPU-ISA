@@ -22,16 +22,6 @@ colors:
     "11-7": "163,200,177"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
-    "27": "196,186,209"
-    "26": "230,230,230"
-    "25": "196,186,209"
-    "24-21": "192,200,210"
-    "20-19": "230,230,230"
-    "18-14": "240,214,148"
-    "13-10": "238,183,150"
-    "9-6": "163,200,177"
-    "5-2": "167,199,200"
-    "1-0": "222,184,203"
   e-unary:
     "31-28": "179,163,205"
     "27-26": "196,186,209"
@@ -75,9 +65,8 @@ colors:
     "31-28": "179,163,205"
     "27-26": "196,186,209"
     "25": "196,186,209"
-    "24-22": "230,230,230"
-    "21-17": "240,214,148"
-    "16-12": "238,183,150"
+    "24-22": "192,200,210"
+    "21-12": "230,230,230"
     "11-7": "163,200,177"
     "6-2": "191,177,211"
     "1-0": "222,184,203"
@@ -86,11 +75,10 @@ colors:
     "27": "196,186,209"
     "26": "196,186,209"
     "25": "196,186,209"
-    "24-21": "240,214,148"
-    "20-17": "238,183,150"
+    "24-17": "230,230,230"
     "16-12": "163,200,177"
-    "11-7": "167,199,200"
-    "6-2": "191,177,211"
+    "11-7": "230,230,230"
+    "6-2": "238,183,150"
     "1-0": "222,184,203"
   init-fill:
     "31-28": "179,163,205"
@@ -304,7 +292,7 @@ structures:
           1:
             description: Scalar xFill
             structure: fill-x
-      16-12: {name: xCoord5, description: "Scalar bound (xBounds/xLen/xDelta)"}
+      16-12: {name: xBound5, description: "Scalar bound (xBounds/xLen/xDelta)"}
       11-7: {name: S5, description: src reg}
       6-2: {name: D5, description: dst reg}
       1-0: {name: q, description: "space tag (00)"}
@@ -314,11 +302,10 @@ structures:
       31-28: {name: major4, description: major opcode, values: {"0000": "M_BLK"}}
       27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "Vec8", "11": "Vec32"}}
       25: {name: LS, values: {"0": "load", "1": "store"}}
-      24-22: {name: reserved3, description: must be 0}
-      21-17: {name: desc5, description: "tmJ / vmJ (by domain)"}
-      16-12: {name: reg5, description: "D (load) / S (store)"}
-      11-7: {name: xCoord5, description: "xRowCol / xIndex (by domain)"}
-      6-2: {name: xBase5, description: Scalar base addr}
+      24-22: {name: funct3, description: op, values: {"000": "block load/store", "001": "gather (Tile load)", "010-111": "reserved"}}
+      21-12: {name: reserved10, description: must be 0}
+      11-7: {name: S5, description: "gather index vS; else 0"}
+      6-2: {name: D5, description: "D (load) / S (store); bound descriptor implied"}
       1-0: {name: q, description: "space tag (01)"}
   m-row:
     bits: 32
@@ -327,8 +314,7 @@ structures:
       27: {name: TA, description: matrix domain, values: {"0": "Tile", "1": "Acc"}}
       26: {name: LS, values: {"0": "load.row", "1": "store.row"}}
       25: {name: IS}
-      24-21: {name: tmJ4, description: TM descriptor}
-      20-17: {name: reg4, description: Tile/Acc reg}
+      24-17: {name: reserved8, description: must be 0}
       16-12:
         name: index5
         depends-on: 25
@@ -339,8 +325,8 @@ structures:
           1:
             description: Scalar index register
             structure: index-x
-      11-7: {name: xCoord5, description: Scalar coord xRowCol}
-      6-2: {name: xBase5, description: Scalar base addr}
+      11-7: {name: reserved5, description: must be 0}
+      6-2: {name: reg5, description: "Tile/Acc reg (bound TM/AM implied)"}
       1-0: {name: q, description: "space tag (01)"}
   init-fill:
     bits: 32
@@ -455,8 +441,8 @@ structures:
       31-28: {name: major4, description: major opcode, values: {"0100": "QNT"}}
       27-26: {name: dom2, description: dst domain, values: {"00": "Tile", "01": "Acc", "10": "Vec8", "11": "Vec32"}}
       25: {name: IS}
-      24-22: {name: funct3, description: "000 (only code point)"}
-      21-17: {name: vScale5, description: "scale reg (quant dst / dequant src)"}
+      24-22: {name: funct3, description: op, values: {"000": "quant/dequant", "001": "quant w/ ext scale (Tile dst)", "010-111": "reserved"}}
+      21-17: {name: vScale5, description: "scale reg (dst/src by op)"}
       16-12:
         name: index5
         depends-on: 25
@@ -474,8 +460,8 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0101": "CFG_MAT_SETI", "0110": "CFG_VEC_SETI"}}
-      27-26: {name: sel2, description: config type, values: {"00": "TC / BC", "01": "AC / VC", "10": "TM / VM", "11": "reserved"}}
-      25-23: {name: field3, description: "field no.", values: {"000": "dtype / storage_dtype", "001": "rows / len / length", "010": "cols", "011": "layout / stride", "100": "arith_mode / col_stride", "101": "transform", "110": "flags", "111": "reserved"}}
+      27-26: {name: sel2, description: config type, values: {"00": "TC / BC", "01": "AC / VC", "10": "TM / BM", "11": "AM / VM"}}
+      25-23: {name: field3, description: "field number, see field table"}
       22-7: {name: imm16, description: field value}
       6-2: {name: C5, description: dst config reg}
       1-0: {name: q, description: "space tag (10)"}
@@ -483,7 +469,7 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0111": "CFG_REG"}}
-      27-26: {name: sel2, description: config type, values: {"00": "TC / BC", "01": "AC / VC", "10": "TM / VM", "11": "reserved"}}
+      27-26: {name: sel2, description: config type, values: {"00": "TC / BC", "01": "AC / VC", "10": "TM / BM", "11": "AM / VM"}}
       25: {name: MV, description: config side, values: {"0": "matrix config", "1": "vector config"}}
       24-22: {name: funct3, description: op, values: {"000": "cfg.setx C, field, xS", "001": "cfg.copy CD, CS", "010": "cfg.get xD, C, field"}}
       21-17: {name: field5, description: "field no. (low 3 bits; high 2 = 00)"}
