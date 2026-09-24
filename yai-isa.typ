@@ -207,7 +207,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 所有指令 (标量与非标量) 均为定长 32-bit. 指令空间按指令字最低两位划分:
 
-`[1:0] = 11` 的空间用于标量指令: 标量指令集采用 RV64IM (RISC-V 64-bit 基础整数指令集与乘除扩展).`[1:0]` 为 `00`, `01`, `10` 的原压缩指令空间全部用于非标量指令, `00` 的逐元素计算走向量计算通路, `01` 走访存与搬运通路, `10` 汇集跨域计算 (矩阵乘, 规约, 量化) 与控制类指令. 如下表所示
+`[1:0] = 11` 的空间用于标量指令: 标量指令集采用 RV64IM (RISC-V 64-bit 基础整数指令集与乘除扩展).`[1:0]` 为 `00`, `01`, `10` 的原压缩指令空间全部用于非标量指令, `00` 的逐元素计算走向量计算通路, `01` 走访存与搬运通路, `10` 汇集跨域计算 (矩阵乘, 规约, 量化) 与控制类指令. 最低两位记为 `q` (沿用 RISC-V 的 quadrant 缩写). 如下表所示
 
 #manual-table(
   columns: (0.5fr, 1fr, 3fr),
@@ -242,14 +242,14 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   columns: (0.6fr, 3fr, 3.2fr),
   caption: [非标量指令格式],
 )[
-  | 格式  | 中间字段 `[27:2]`                               | 主要用途                              |
-  | :---: | ----------------------------------------------- | ------------------------------------- |
-  | R4    | `sel3 + funct3 + 4 × field5`                    | 访存与搬运; 多源或跨域计算; 配置访问  |
-  | R3    | `sel3 + funct4 + reserved4 + 3 × field5`        | 二元逐元素计算; 矩阵与向量广播        |
-  | R2    | `sel3 + funct3 + reserved10 + S5 + D5`          | 单源单目的搬运; 规约、转换与一元计算  |
-  | MR    | `sel3 + tmJ4 + R4 + index5 + xCoord5 + xBase5`  | 矩阵行访存                            |
-  | I     | `sel2 + funct3 + imm16 + D5/C5`                 | 立即数填充与配置                      |
-  | Z     | `funct3 + reserved23`                           | 同步与 kernel 结束                    |
+  | 格式  | 中间字段 `[27:2]`                                 | 主要用途                              |
+  | :---: | ------------------------------------------------- | ------------------------------------- |
+  | R4    | `sel3 + funct3 + 4 × field5`                      | 访存与搬运; 多源或跨域计算; 配置访问  |
+  | R3    | `sel3 + funct4 + reserved4 + 3 × field5`          | 二元逐元素计算; 矩阵与向量广播        |
+  | R2    | `sel3 + funct3 + reserved10 + S5 + D5`            | 单源单目的搬运; 规约、转换与一元计算  |
+  | MR    | `sel3 + tmJ4 + reg4 + index5 + xCoord5 + xBase5`  | 矩阵行访存                            |
+  | I     | `sel2 + funct3 + imm16 + D5/C5`                   | 立即数填充与配置                      |
+  | Z     | `funct3 + reserved23`                             | 同步与 kernel 结束                    |
 ]
 
 === 位段布局
@@ -268,30 +268,30 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 === 选择子与简写
 
-`sel2`/`sel3` 为 2-bit/3-bit 选择子, 具体含义由 `major4` 解释; 承载数据域编码时语义值记为 `rf2`. `funct3`/`funct4` 为操作选择. 各选择子位的语义:
+`sel2`/`sel3` 为 2-bit/3-bit 选择子, 具体含义由 `major4` 解释; 承载数据域编码时语义值记为 `dom2`. `funct3`/`funct4` 为操作选择. 各选择子位的语义:
 
 #manual-table(
   columns: (1fr, 5.6fr),
   caption: [选择子位语义],
 )[
-  | 简写      | 含义                                                                                  |
-  | --------- | ------------------------------------------------------------------------------------- |
-  | `rf2`     | 数据域选择: `00/01/10/11` 依次表示 Tile/Acc/Vec8/Vec32; 具体合法码点由各指令族规定    |
-  | `S2`      | 第二源选择: `0` 选择同域寄存器 `B`, `1` 选择 Scalar 寄存器 `xS`                       |
-  | `FS`      | fill 来源选择: `0` 选择立即数 `fill5`, `1` 选择 Scalar 寄存器 `xFill`                 |
-  | `IS`      | 索引来源选择: `0` 选择 `index5` 中的立即数, `1` 选择由 `index5` 指定的 Scalar 寄存器  |
-  | `EW`      | 元素位宽选择: `0` 选择 8-bit 寄存器组合, `1` 选择 32-bit 寄存器组合                   |
-  | `TA`      | Tile/Acc 选择: `0` 选择 Tile, `1` 选择 Acc; `E_BCAST` 中同时选择对应的 Vec8/Vec32 源  |
-  | `LS`      | load/store 选择: `0` 表示 load, `1` 表示 store                                        |
-  | `DIR`     | 广播方向: `0` 表示按行, `1` 表示按列                                                  |
-  | `MV`      | 矩阵/向量配置选择: `0` 选择矩阵配置, `1` 选择向量配置                                 |
-  | `G`       | 操作组; 与 `op3` 共同组成 `funct4`, 选择逐元素操作                                    |
-  | `xCoord`  | Scalar 坐标操作数: 按指令解释为 `xRowCol`, `xIndex`, `xLen` 或 `xDelta`               |
-  | `index5`  | 5-bit 索引字段: 由 `IS` 选择立即数索引或 Scalar 寄存器索引                            |
-  | `X5`      | 值目的寄存器字段, 仅 `vreduce.argmax` 使用                                            |
+  | 简写      | 含义                                                                                          |
+  | --------- | --------------------------------------------------------------------------------------------- |
+  | `dom2`    | 架构数据域 (domain) 选择: `00/01/10/11` 依次表示 Tile/Acc/Vec8/Vec32; 合法码点由各指令族规定  |
+  | `BX`      | 第二源选择 (`B`/`xS` 二选一): `0` 选择同域寄存器 `B`, `1` 选择 Scalar 寄存器 `xS`             |
+  | `FS`      | fill 来源选择: `0` 选择立即数 `fill5`, `1` 选择 Scalar 寄存器 `xFill`                         |
+  | `IS`      | 索引来源选择: `0` 选择 `index5` 中的立即数, `1` 选择由 `index5` 指定的 Scalar 寄存器          |
+  | `EW`      | 元素位宽选择: `0` 选择 8-bit 寄存器组合, `1` 选择 32-bit 寄存器组合                           |
+  | `TA`      | Tile/Acc 选择: `0` 选择 Tile, `1` 选择 Acc; `E_BCAST` 中同时选择对应的 Vec8/Vec32 源          |
+  | `LS`      | load/store 选择: `0` 表示 load, `1` 表示 store                                                |
+  | `DIR`     | 广播方向: `0` 表示按行, `1` 表示按列                                                          |
+  | `MV`      | 矩阵/向量配置选择: `0` 选择矩阵配置, `1` 选择向量配置                                         |
+  | `G`       | 操作组; 与 `op3` 共同组成 `funct4`, 选择逐元素操作                                            |
+  | `xCoord`  | Scalar 坐标操作数: 按指令解释为 `xRowCol`, `xIndex`, `xLen` 或 `xDelta`                       |
+  | `index5`  | 5-bit 索引字段: 由 `IS` 选择立即数索引或 Scalar 寄存器索引                                    |
+  | `xVal5`   | `xValue` 目的寄存器字段, 仅 `vreduce.argmax` 使用                                             |
 ]
 
-字段名后的数字表示位宽, 如 `D5`, `rf2`, `funct3`; 同一字段作为汇编操作数时通常省略位宽后缀. `S2` 中的 `2` 表示第二源编号.
+字段名后的数字表示位宽, 如 `D5`, `dom2`, `funct3`; 同一字段作为汇编操作数时通常省略位宽后缀. 
 
 === `major4` 分配
 
@@ -364,7 +364,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `cfg.get`    | R4      | x[xD] = extend(C[field])  | 结果为字段的整数或枚举值.        |
 ]
 
-`cfg.seti` 使用 I 格式, `sel2` 选择配置寄存器类型, `funct3` 直接编号字段:
+`cfg.seti` 使用 I 格式, `sel2` 选择配置寄存器类型, `field3` 直接编号字段:
 
 #rivet-fmt-figure(cfg-seti-schema, caption: [cfg.seti 格式 (I)])
 
@@ -372,13 +372,13 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 #rivet-fmt-figure(cfg-reg-schema, caption: [cfg.setx/copy/get 格式 (R4)])
 
-`funct3` 字段编号按配置类型解释:
+`field3` 字段编号按配置类型解释:
 
 #manual-table(
   columns: (1fr, 1.4fr, 1.4fr, 1.8fr, 1.2fr, 1.2fr, 1.6fr),
-  caption: [配置字段编号 (funct3)],
+  caption: [配置字段编号 (field3)],
 )[
-  | `funct3`  | TC          | AC      | TM                | BC     | VC     | VM             |
+  | `field3`  | TC          | AC      | TM                | BC     | VC     | VM             |
   | --------- | ----------- | ------- | ----------------- | ------ | ------ | -------------- |
   | `000`     | dtype       | dtype   | storage_dtype     | dtype  | dtype  | storage_dtype  |
   | `001`     | rows        | rows    | rows              | len    | len    | length         |
@@ -485,7 +485,7 @@ cfg.get xD, C, field
   | `{b,v}store`      | R4      | memory[addr(j)] = S[j]       | 仅写有效交集, 越界位置不访问内存.                  |
 ]
 
-整块与向量访存使用 R4 格式; `rf2` 选择数据域, `LS` 区分 load/store, 描述符与坐标字段按数据域解释:
+整块与向量访存使用 R4 格式; `dom2` 选择数据域, `LS` 区分 load/store, 描述符与坐标字段按数据域解释:
 
 #rivet-fmt-figure(m-blk-schema, caption: [整块与向量访存格式 (M_BLK)])
 
@@ -494,7 +494,7 @@ cfg.get xD, C, field
 #rivet-fmt-figure(m-row-schema, caption: [行访存格式 (M_ROW)])
 
 #note[
-  设计意图: 矩阵访存与向量访存共用同一布局而没有分离成两套, 因为即使把矩阵访存单独压紧, 多出来的位也没有明确用途, 反而会产生两套访存字段布局; `rf2` 的 2 bit 开销换来单一布局.
+  设计意图: 矩阵访存与向量访存共用同一布局而没有分离成两套, 因为即使把矩阵访存单独压紧, 多出来的位也没有明确用途, 反而会产生两套访存字段布局; `dom2` 的 2 bit 开销换来单一布局.
 ]
 
 == 基础访存指令
@@ -1365,7 +1365,7 @@ value ← decode_scalar(xS, TYPE)
 D[p] ← op(A[p], value)
 ```
 
-普通二元操作使用 R3 格式; `S2` 选择第二源为同域寄存器或 Scalar:
+普通二元操作使用 R3 格式; `BX` 选择第二源为同域寄存器或 Scalar:
 
 #rivet-fmt-figure(e-bin-schema, caption: [普通二元操作格式 (E_BIN)])
 
@@ -1723,7 +1723,7 @@ $ "a0"_(i,j) = "a1"_(i,j) "v0"_j $
 
 条件取独立子集: 整数为 `eq/ne/lt/ge`, `gt` 与 `le` 由交换两个源操作数获得; f32 为 `eq/lt/le/unord`, `ord` 由 `unord` 结果取反获得, `ne` 由 `eq` 结果取反获得. 比较只在 Acc 与 Vec32 上定义, 分寄存器和 Scalar 两种形式. `TYPE` 为源数值类型, 目的为同宽 mask.
 
-比较使用 R4 格式, `S2` 选择第二源为同域寄存器或 Scalar; mask 目的为 `M5` 槽位:
+比较使用 R4 格式, `BX` 选择第二源为同域寄存器或 Scalar; mask 目的为 `M5` 槽位:
 
 #rivet-fmt-figure(e-cmp-schema, caption: [比较格式 (E_CMP)])
 
@@ -2186,7 +2186,7 @@ else:
   | `twiden.i8.i32`  | R2      | aD[i,j] = sign_ext(tS[i,j])  | 跨数据域, 不能原地执行; 保持有效 shape.  |
 ]
 
-类型转换与扩大使用 R2 格式; `rf2` 选择目的数据域:
+类型转换与扩大使用 R2 格式; `dom2` 选择目的数据域:
 
 #rivet-fmt-figure(cvt-schema, caption: [类型转换与扩大格式 (CVT)])
 
@@ -2322,7 +2322,7 @@ vScore = vScore × scale
   | `bdequant.f32`       | R4      | vD[j] = f32(bS[j]) × vScale[lane]                                                        | Vec8 bits 和 Vec32 scale lane 都是显式源.      |
 ]
 
-量化与反量化使用 R4 双目的/双源格式; `vScale` 始终是 Vec32 scale 寄存器, `rf2` 选择主目的数据域, 量化方向随之确定:
+量化与反量化使用 R4 双目的/双源格式; `vScale` 始终是 Vec32 scale 寄存器, `dom2` 选择主目的数据域, 量化方向随之确定:
 
 #rivet-fmt-figure(qnt-schema, caption: [量化与反量化格式 (QNT)])
 

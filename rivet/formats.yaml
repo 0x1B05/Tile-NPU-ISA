@@ -112,7 +112,7 @@ structures:
       26: {name: LS, description: load/store sel, values: {"0": "load", "1": "store"}}
       25: {name: IS, description: row index src, values: {"0": "imm row", "1": "Scalar row"}}
       24-21: {name: tmJ4, description: TM descriptor}
-      20-17: {name: R4, description: Tile/Acc reg}
+      20-17: {name: reg4, description: Tile/Acc reg}
       16-12: {name: index5, description: "row imm / Scalar idx (by IS)"}
       11-7: {name: xCoord5, description: "Scalar coord (xRowCol/xIndex)"}
       6-2: {name: xBase5, description: Scalar base addr reg}
@@ -126,7 +126,7 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode}
-      27-26: {name: sel2, description: "rf2 / config type"}
+      27-26: {name: sel2, description: "dom2 / config type"}
       25-23: {name: funct3, description: "op / field select"}
       22-7: {name: imm16, description: "imm16 / payload16"}
       6-2: {name: D5/C5, description: "data/config dst reg"}
