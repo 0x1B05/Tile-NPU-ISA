@@ -222,16 +222,6 @@ structures:
       11-7: {name: A5, description: matrix src1 A}
       6-2: {name: D5, description: matrix dst D}
       1-0: {name: q, description: "space tag (00)"}
-    bits: 32
-    ranges:
-      31-28: {name: major4, description: major opcode, values: {"0001": "E_UNARY"}}
-      27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "11": "Vec32", "10": "reserved"}}
-      25: {name: "0", description: must be 0}
-      24-22: {name: funct3, description: op, values: {"000": "not", "001": "abs", "010": "neg", "011": "exp2.approx", "100": "rcp.approx", "101": "rsqrt.approx"}}
-      21-12: {name: reserved10, description: must be 0}
-      11-7: {name: S5, description: src reg}
-      6-2: {name: D5, description: dst reg}
-      1-0: {name: q, description: "space tag (00)"}
   e-unary:
     bits: 32
     ranges:
@@ -422,8 +412,8 @@ structures:
       27-25: {name: reserved3, description: must be 0}
       24-22: {name: funct3, description: "100 = argmax"}
       21-17: {name: reserved5, description: must be 0}
-      16-12: {name: S5, description: "src vS (Vec32)"}
-      11-7: {name: xVal5, description: "dst xValue (f32 bits)"}
+      16-12: {name: xVal5, description: "dst xValue (f32 bits)"}
+      11-7: {name: S5, description: "src vS (Vec32)"}
       6-2: {name: D5, description: "dst xIndex (i32)"}
       1-0: {name: q, description: "space tag (10)"}
   cvt:

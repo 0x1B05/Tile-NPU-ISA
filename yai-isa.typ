@@ -71,6 +71,8 @@ Operation 列使用的函数记号:
   | `and`, `or`, `xor`        | 逐元素按位与/或/异或                                             |
   | `quant_q8s32(...)` 等     | 量化与反量化函数, 定义见 @quantization                           |
   | `fma(A, B, C)`            | 融合乘加 $A × B + C$, 单次舍入; 仅 f32                           |
+  | `decode_scalar(xS, TYPE)` | 将 Scalar 寄存器 `xS` 的值按 `TYPE` 解码为元素值                 |
+  | `fold_add` 等             | 规约折叠函数 `fold_add`/`fold_max`/`fold_min`: 累加/取大/取小    |
 ]
 
 = 指令集概览 <overview>
@@ -93,6 +95,8 @@ Operation 列使用的函数记号:
 ]
 
 以上构成五个不同的*数据域*. 标量域的指令集为 RV64IM (见 @scalar-sync); 其余数据域的指令由本手册定义.
+
+矩阵寄存器的物理尺寸为 32 行 $times$ 32 列, 向量寄存器为 32 lane; 配置寄存器中的 `rows`, `cols`, `len` 均不得超过对应的物理尺寸.
 
 === 配置寄存器
 
@@ -133,7 +137,7 @@ Operation 列使用的函数记号:
 
 访存描述符属于*内存侧*配置, 与数据寄存器一一绑定: `tm[i]`, `am[i]`, `bm[i]`, `vm[i]` 分别绑定 `t[i]`, `a[i]`, `b[i]`, `v[i]`. 矩阵访存使用 `TM`/`AM` 描述符, 向量访存使用 `BM`/`VM` 描述符.
 
-访存的有效范围不由描述符给出, 而由绑定的计算配置寄存器决定: `TM`/`AM` 的有效行, 列数取自 `TC`/`AC` 的 `rows`/`cols`, `BM`/`VM` 的有效长度取自 `BC`/`VC` 的 `len`. 内存中的元素类型同样按绑定配置寄存器的 `dtype` 解释, 访存路径不执行类型转换. 基地址由描述符的 `base_addr` 字段给出, 访存指令不再从 Scalar 操作数获取地址; 访问坐标在建立描述符时已折算进 `base_addr`.
+访存的有效范围不由描述符给出, 而由绑定的计算配置寄存器决定: `TM`/`AM` 的有效行, 列数取自 `TC`/`AC` 的 `rows`/`cols`, `BM`/`VM` 的有效长度取自 `BC`/`VC` 的 `len`. 内存中的元素类型同样按绑定配置寄存器的 `dtype` 解释, 访存路径不执行类型转换. 基地址由描述符的 `base_addr` 字段给出, 访问坐标在建立描述符时已折算进 `base_addr`.
 
 `BM`/`VM` 主要提供：
 - `base_addr`：一维内存 view 原点的字节地址, 即逻辑元素 0 的地址.
@@ -186,7 +190,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | --------------- | ------------------------------------------------------------------------------ | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
   | 标量与控制      | Scalar ↔ Scalar #linebreak() Scalar ↔ 内存                                     | 地址, 索引, 标量计算, 控制流                       | RV64IM (见 RISC-V 规范)                                                                                                                         |
   | 配置            | Scalar → TC, AC, BC, VC, TM, AM, BM, VM                                        | 建立数据域的类型, shape, 布局和访存描述            | `cfg.seti`, `cfg.setx`, `cfg.copy`, `cfg.get`                                                                                                   |
-  | 地址与访存      | 内存 ↔ `t/a/b/v`                                                               | 按绑定的 TM/AM/BM/VM 描述符执行整块, 行和向量访问  | `{t,a}{load,store}` #linebreak() `{b,v}{load,store}` #linebreak() `tload.gather`                                                                                      |
+  | 地址与访存      | 内存 ↔ `t/a/b/v`                                                               | 按绑定的 TM/AM/BM/VM 描述符执行整块, 行和向量访问  | `{t,a}{load,store}` #linebreak() `{t,a}{load,store}.row` #linebreak() `{b,v}{load,store}` #linebreak() `tload.gather`                      |
   | 初始化与搬运    | 域内 #linebreak() `t` ↔ `b` #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane  | 填充, 复制, 行搬运, lane 搬运, 广播和转置          | `{t,a,b,v}{fill,fillx,copy}` #linebreak() `{t,a}{insert,extract}.row` #linebreak() `{b,v}{insert,extract,broadcast}` #linebreak() `ttranspose`  |
   | 矩阵乘与点积    | `t` × `t` → `a` #linebreak() `b` × `t` → `v`                                   | `i8` 乘法, `i32` 累加或点积                        | `mma` #linebreak() `bdot`                                                                                                                       |
   | 逐元素与广播    | `t/a/v` 同域 #linebreak() 矩阵 ↔ 向量广播                                      | 算术, 位运算, 移位, 特殊函数, 比较和选择           | `{t,a,v}op` #linebreak() `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                                                                |
@@ -208,7 +212,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 )[
   | `[1:0]`  | 功能域          | 内容                                                                                                 |
   | :------: | --------------- | ---------------------------------------------------------------------------------------------------- |
-  | `00`     | 通用逐元素计算  | 算术, 位运算, 比较, Scalar 变体 (`opx`, `cmpx`), 行广播与向量广播, 融合乘加, select, mask, 特殊函数  |
+  | `00`     | 通用逐元素计算  | 算术, 位运算, 比较, Scalar 变体 (`opx`, `cmpx`), 向量广播, 融合乘加, select, mask, 特殊函数          |
   | `01`     | 数据传输与重排  | 矩阵/向量访存, fill, copy, 行和 lane 搬运, 转置                                                      |
   | `10`     | 跨域计算与控制  | 矩阵乘与点积, 规约, 类型转换与扩大, 量化与反量化, 配置, 同步, `kernel.end`; 其余编码预留             |
 ]
@@ -446,7 +450,7 @@ cfg.copy C_D, C_S
     C_D ← C_S
 ```
 
-两个配置操作数共享 `sel3`, 因此只能同类型复制, 并复制该类型的全部字段.
+`cfg.copy` 要求 `field5 = 00000`; 两个配置操作数共享 `sel3`, 因此只能同类型复制, 并复制该类型的全部字段.
 
 == `cfg.get` — 读配置字段到 Scalar
 
@@ -463,7 +467,7 @@ cfg.get xD, C, field
 
 = 地址与访存指令 <memory>
 
-本章定义按描述符寻址的访存指令. 访存描述符与数据寄存器一一绑定 (见 @overview): 矩阵访存 (`tload`, `tstore`, `aload`, `astore` 及行形式) 使用绑定的 `TM`/`AM`, 向量访存 (`bload`, `vload`, `bstore`, `vstore`) 使用绑定的 `BM`/`VM`; 指令不显式给出描述符编号, 基地址与访问坐标都在描述符的 `base_addr` 字段中. Scalar 访存由 RV64IM load/store 指令承担. 所有 x/t/a/b/v 访存保持统一的程序可见顺序.
+本章定义按描述符寻址的访存指令. 访存描述符与数据寄存器一一绑定 (见 @overview): 矩阵访存 (`tload`, `tstore`, `aload`, `astore` 及行形式) 使用绑定的 `TM`/`AM`, 向量访存 (`bload`, `vload`, `bstore`, `vstore`) 使用绑定的 `BM`/`VM`; 描述符编号由数据寄存器操作数隐含, 基地址与访问坐标都在描述符的 `base_addr` 字段中. Scalar 访存由 RV64IM load/store 指令承担. 所有 x/t/a/b/v 访存保持统一的程序可见顺序.
 
 #instruction-table(
   columns: (1.5fr, 0.5fr, 2.5fr, 2.1fr),
@@ -606,7 +610,7 @@ for 0 <= j < len(CS):
 内存中的元素类型由绑定配置寄存器的 `dtype` 决定; load/store 均为原样搬运, 访存路径不执行类型转换. 转置加载通过 `TM`/`AM` 的 `transform` 字段选择, 仍使用 `tload` (见 @transpose-load).
 
 #note[
-  `i8` → `i32`, `i8` → `f32`, 子字节格式 (如 `q4`) 以及打包量化格式 (如 `q8` + scale) 到 `f32` 的直接反量化; 这些转换必须使用 `twiden`, `acvt`/`vcvt`, `tquant`/`vquant`, `tdequant`/`bdequant` 等显式指令完成 (见 @quantization).
+  类型与精度转换 (`i8` → `i32`, `i8` → `f32`, 子字节格式如 `q4` 的展开, 以及打包量化格式如 `q8` + scale 到 `f32` 的反量化) 由 `twiden`, `acvt`/`vcvt`, `tquant`/`vquant`, `tdequant`/`bdequant` 等显式指令完成 (见 @quantization).
 ]
 
 == Embedding 的行 Gather
@@ -622,7 +626,7 @@ tload.gather t0, v1        # tm0 指向 embedding 表
 
 == KV Cache 追加示例
 
-Decode 的 KV 追加可直接用 `bstore` 写 `i8` 行片段, 用 `vstore` 写 scale, 无需先把向量插入 Tile. bits 和 scale 分别使用 Vec8 和 Vec32 访存; 追加位置的地址由 Scalar 代码计算后写入绑定描述符的 `base_addr`:
+Decode 的 KV 追加可直接用 `bstore` 写 `i8` 行片段, 用 `vstore` 写 scale; bits 和 scale 分别使用 Vec8 和 Vec32 访存; 追加位置的地址由 Scalar 代码计算后写入绑定描述符的 `base_addr`:
 
 ```asm
 cfg.setx bm0, base_addr, xAppendBitsAddr
@@ -648,11 +652,11 @@ KV scale
   | Instruction         | Format  | Operation          | Notes                                                          |
   | :-----------------: | :-----: | ------------------ | -------------------------------------------------------------- |
   | `{t,a}fill`         | I       | D[i,j] = imm       | TYPE: t 为 `i8/u8`, a 为 `i32/u32/f32`; 无效物理位置保持原值.  |
-  | `{t,a}fillx`        | R2      | D[i,j] = xS        | TYPE: t 为 `i8/u8`, a 为 `i32/u32/f32`.                        |
-  | `{t,a}copy`         | R2      | D[i,j] = S[i,j]    | 源与目的 layout 一致.                                          |
+  | `{t,a}fillx`        | R2      | D[i,j] = xS        | TYPE: t 为 `i8/u8`, a 为 `i32/u32/f32`; 无效物理位置保持原值.  |
+  | `{t,a}copy`         | R2      | D[i,j] = S[i,j]    | 源与目的 layout 与有效 shape 一致.                             |
   | `{b,v}fill`         | I       | D[j] = imm         | TYPE: b 为 `i8/u8`, v 为 `i32/u32/f32`; 无效物理位置保持原值.  |
-  | `{b,v}fillx`        | R2      | D[j] = xS          | TYPE: b 为 `i8/u8`, v 为 `i32/u32/f32`.                        |
-  | `{b,v}copy`         | R2      | D[j] = S[j]        | 源与目的 layout 一致.                                          |
+  | `{b,v}fillx`        | R2      | D[j] = xS          | TYPE: b 为 `i8/u8`, v 为 `i32/u32/f32`; 无效物理位置保持原值.  |
+  | `{b,v}copy`         | R2      | D[j] = S[j]        | 源与目的有效长度一致.                                          |
   | `{t,a}insert.row`   | R4      | D[rd,j] = S[j]     | 向量长度等于列数; 其他行保持.                                  |
   | `{t,a}extract.row`  | R4      | D[j] = S[rs,j]     | 目的长度等于源列数.                                            |
   | `{b,v}extract`      | R4      | xD = S[lane]       | 按源 dtype 扩展或写入浮点位模式.                               |
@@ -716,7 +720,7 @@ for 0 <= j < N:
 {t,a,b,v}copy D, S
 ```
 
-复制同域寄存器的有效数据. 有效 shape 的定义: Tile/Acc 的 shape 为 `rows` 和 `cols`; Vec8/Vec32 的 shape 为 `len`.
+复制同域寄存器的有效数据. 源和目的的有效 shape 必须相同; 有效 shape 的定义: Tile/Acc 的 shape 为 `rows` 和 `cols`; Vec8/Vec32 的 shape 为 `len`.
 
 矩阵 copy 定义为:
 
@@ -742,7 +746,7 @@ cfg.copy tc1, tc0
 tcopy t1, t0
 ```
 
-前一条复制的是计算配置值, 后一条复制的是 Tile 数据. 两条指令都不会让 `t1` 永久引用 `t0`.
+前一条复制的是计算配置值, 后一条复制的是 Tile 数据; 两条指令均为值复制, 执行后目的与源相互独立.
 
 == Tile 和 Vec8 的行搬运
 
@@ -1281,7 +1285,7 @@ vadd vOut, vOut, vOutF32
 3. 源和目的有效 shape 相同;
 4. 所有动态行号和 lane 号均在有效范围内.
 
-fill, copy, 比较, select, mask 以及行搬运和 lane 操作遵循同样的 dtype 一致与索引有效性约束; 跨域指令的域配对和 shape 对应关系按各指令定义 (如行搬运中向量长度等于矩阵列数). 广播, 矩阵乘, 规约, 量化与访存指令的操作数约束在对应章节单独规定.
+fill, copy 以及行搬运和 lane 操作遵循同样的 dtype 一致与索引有效性约束; 比较, select, mask 指令的 mask 操作数与比较目的的 dtype 按各指令定义; 跨域指令的域配对和 shape 对应关系按各指令定义 (如行搬运中向量长度等于矩阵列数). 广播, 矩阵乘, 规约, 量化与访存指令的操作数约束在对应章节单独规定.
 
 == 基础逐元素指令形式
 
@@ -1551,7 +1555,7 @@ for 0 <= i < rows(D):
         D[i,j] ← f(S[i,j])
 ```
 
-== 行广播
+== 向量广播
 
 === 按行广播
 
@@ -1734,7 +1738,7 @@ vcmpx.COND  vM, vA, xS
 比较结果定义为:
 
 ```text
-true  → u8 lane 为 0xff, u32 lane 为 0xffffffff
+true  → u32 lane 为 0xffffffff
 false → 0
 ```
 
@@ -1753,7 +1757,7 @@ for 0 <= j < len(D):
     D[j] ← predicate(A[j], B[j])
 ```
 
-比较目的寄存器的 dtype 应是 `u8`/`u32`. 作为 mask 使用的整数元素应取全 0 (假) 或全 1 (真); 非规范值参与位运算组合时, 不保证等价于逻辑运算.
+比较目的寄存器的 dtype 应是 `u32`. 作为 mask 使用的整数元素应取全 0 (假) 或全 1 (真); 非规范值参与位运算组合时, 不保证等价于逻辑运算.
 
 == Select 指令
 
@@ -1810,7 +1814,27 @@ mask 使用 R4 格式; `FS` 选择 fill 来源 (立即数 `fill5` 或 Scalar `xF
   | `{b,v}maskx.tail`  | R4      | 同 `mask.tail`, fill 由 Scalar 提供                | fill 可为任意值.                                      |
 ]
 
-mask 指令将源数据的某些位置替换为指定 fill 值. `mask` 的 fill 为 5-bit 立即数编码 (按目的 dtype 解释, 常量码表待定); `maskx` 的 fill 由 Scalar 寄存器提供, 可为任意值.
+mask 指令将源数据的某些位置替换为指定 fill 值. `mask` 的 fill 为 5-bit 立即数编码 `fill5`, 按下表解码后转换为目的 dtype; `maskx` 的 fill 由 Scalar 寄存器提供, 可为任意值.
+
+#manual-table(
+  columns: (1fr, 1fr, 3fr),
+  caption: [fill5 常量码表],
+)[
+  | `fill5`  | 常量         | 说明        |
+  | -------- | ------------ | ----------- |
+  | `00000`  | $+0$         |             |
+  | `00001`  | $+1$         |             |
+  | `00010`  | $-1$         |             |
+  | `00011`  | $+2$         |             |
+  | `00100`  | $-2$         |             |
+  | `00101`  | $+0.5$       | 仅 f32 目的 |
+  | `00110`  | $-0.5$       | 仅 f32 目的 |
+  | `00111`  | $+infinity$  | 仅 f32 目的 |
+  | `01000`  | $-infinity$  | 仅 f32 目的 |
+  | 其余     | —            | 保留        |
+]
+
+整数目的只使用 `00000..00100`; $plus.minus 0.5$ 与 $plus.minus infinity$ 仅在目的 dtype 为 `f32` 时有效.
 
 矩阵 mask:
 
@@ -2107,15 +2131,13 @@ else:
         candidate ← vS[j]
         if candidate is NaN:
             if best_value is not NaN:
-                choose candidate
-            else if j < best_index:
-                choose candidate
-        else if best_value is NaN:
-            keep best_value
-        else if candidate > best_value:
-            choose candidate
-        else if candidate = best_value and j < best_index:
-            choose candidate
+                best_index ← j
+                best_value ← candidate
+        else if best_value is not NaN and candidate > best_value:
+            best_index ← j
+            best_value ← candidate
+    xIndex ← best_index
+    xValue ← best_value
 ```
 
 如果算子需要忽略显式 mask 的位置, 不能只依赖 `-inf` 填充. 因为真实输入也可能是 `-inf`, 而且填充位置仍属于当前有效 Vector shape.
@@ -2139,7 +2161,7 @@ else:
   | f32 argmax  | $"index" = -1$, $"value" = -infinity$  |
 ]
 
-空规约可能由以下情况产生: 源的 $"rows" = 0$, $"cols" = 0$ 或 $"len" = 0$; 逻辑 view 与有效 shape 的交集为空.
+空规约可能由以下情况产生: 源的 $"rows" = 0$, $"cols" = 0$ 或 $"len" = 0$, 即有效区域不含任何元素.
 
 == 类型转换指令
 
@@ -2325,11 +2347,11 @@ $ "Pscaled" = P "Vscale" $
 
 = 指令集清单 <instructions>
 
-本章按正文的章节顺序列出已命名的指令, 并展开通用二元操作中的数据域, 操作名, 操作数来源, 行/广播模式和低精度整数的饱和/回绕变体. 每行是一个指令形式; 类型参数的多种取值不在这里重复展开.
+本章按正文的章节顺序列出已命名的指令, 并展开通用二元操作中的数据域, 操作名, 操作数来源和广播模式. 每行是一个指令形式; 类型参数的多种取值不在这里重复展开.
 
 == 清单说明
 
-元素类型的合法取值以对应章节的每行说明为准; 带固定类型后缀的指令 (如 `acvt.i32.f32`) 直接按该类型解释. 比较条件取独立子集: 整数为 `eq/ne/lt/ge`, f32 为 `eq/lt/le/unord`; `gt`/`le` 由交换操作数获得, `ord` 由 `unord` 取反获得.
+元素类型的合法取值以对应章节的每行说明为准; 带固定类型后缀的指令 (如 `acvt.i32.f32`) 直接按该类型解释. 比较条件取独立子集: 整数为 `eq/ne/lt/ge`, f32 为 `eq/lt/le/unord`; 整数的 `gt`/`le` 由交换操作数获得, `ord` 由 `unord` 取反获得.
 
 Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变体均不作为已分配编码处理.
 
@@ -2404,12 +2426,12 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `textract.row`  | R4      | bD[j] = tS[rs,j]   | 从 Tile 指定行提取到 Vec8.                  |
   | `ainsert.row`   | R4      | aD[rd,j] = vS[j]   | 将 Vec32 写入 Acc 的指定行.                 |
   | `aextract.row`  | R4      | vD[j] = aS[rs,j]   | 从 Acc 指定行提取到 Vec32.                  |
-  | `bextract`      | R3      | xD = bS[lane]      | 将 Vec8 的指定 lane 提取到 Scalar.          |
-  | `binsert`       | R3      | bD[lane] = xS      | 将 Scalar 值写入 Vec8 的指定 lane.          |
-  | `bbroadcast`    | R3      | bD[j] = bS[lane]   | 将源 Vec8 的一个 lane 广播到目的有效区域.   |
-  | `vextract`      | R3      | xD = vS[lane]      | 将 Vec32 的指定 lane 提取到 Scalar.         |
-  | `vinsert`       | R3      | vD[lane] = xS      | 将 Scalar 值写入 Vec32 的指定 lane.         |
-  | `vbroadcast`    | R3      | vD[j] = vS[lane]   | 将源 Vec32 的一个 lane 广播到目的有效区域.  |
+  | `bextract`      | R4      | xD = bS[lane]      | 将 Vec8 的指定 lane 提取到 Scalar.          |
+  | `binsert`       | R4      | bD[lane] = xS      | 将 Scalar 值写入 Vec8 的指定 lane.          |
+  | `bbroadcast`    | R4      | bD[j] = bS[lane]   | 将源 Vec8 的一个 lane 广播到目的有效区域.   |
+  | `vextract`      | R4      | xD = vS[lane]      | 将 Vec32 的指定 lane 提取到 Scalar.         |
+  | `vinsert`       | R4      | vD[lane] = xS      | 将 Scalar 值写入 Vec32 的指定 lane.         |
+  | `vbroadcast`    | R4      | vD[j] = vS[lane]   | 将源 Vec32 的一个 lane 广播到目的有效区域.  |
   | `ttranspose`    | R2      | tD[i,j] = tS[j,i]  | 交换 Tile 的行列, 将元素转置写入目的 Tile.  |
 ]
 
