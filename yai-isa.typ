@@ -151,7 +151,9 @@ $ op("addr")(j) = "base_addr" + j dot "stride_bytes" $
 
 对二维 TM/AM, 内存元素地址定义为:
 
-$ op("addr")(i,j) = "base_addr" + i dot "row_stride_bytes" + j dot "col_stride_bytes" $
+$
+  op("addr")(i,j) = "base_addr" + i dot "row_stride_bytes" + j dot "col_stride_bytes"
+$
 
 其中 $i$, $j$ 为当前 Tile 或 Vector 内的局部坐标.
 
@@ -161,7 +163,10 @@ $ op("addr")(i,j) = "base_addr" + i dot "row_stride_bytes" + j dot "col_stride_b
 
 #rivet-c-figure(bc-schema, caption: [BC/VC 计算配置寄存器位段])
 
-#rivet-tm-figure((tm-0-schema, tm-1-schema, tm-2-schema), caption: [TM/AM 矩阵访存描述符位段])
+#rivet-tm-figure(
+  (tm-0-schema, tm-1-schema, tm-2-schema),
+  caption: [TM/AM 矩阵访存描述符位段],
+)
 
 #rivet-vm-figure(vm-schema, caption: [BM/VM 向量访存描述符位段])
 
@@ -235,7 +240,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | R4    | `sel3 + funct3 + 4 × field5`                    | 多源或跨域计算; 配置访问                    |
   | R3    | `sel3 + funct4 + reserved4 + 3 × field5`        | 二元逐元素计算; 矩阵与向量广播              |
   | R2    | `sel3 + funct3 + reserved10 + S5 + D5`          | 访存; 单源单目的搬运; 规约、转换与一元计算  |
-  | MR    | `sel3 + reserved8 + index5 + reserved5 + reg5`  | 矩阵行访存                                  |
+  | MR    | `sel3 + funct3 + reserved5 + index5 + reserved5 + reg5`  | 矩阵行访存 (`M_BLK` 的 row 形式)           |
   | I     | `sel2 + funct3 + imm16 + D5/C5`                 | 立即数填充与配置                            |
   | Z     | `funct3 + reserved23`                           | 同步与 kernel 结束                          |
 ]
@@ -279,7 +284,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `xVal5`   | `xValue` 目的寄存器字段, 仅 `vreduce.argmax` 使用                                     |
 ]
 
-字段名后的数字表示位宽, 如 `D5`, `dom2`, `funct3`; 同一字段作为汇编操作数时通常省略位宽后缀. 
+字段名后的数字表示位宽, 如 `D5`, `dom2`, `funct3`; 同一字段作为汇编操作数时通常省略位宽后缀.
 
 === `major4` 分配
 
@@ -297,8 +302,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `00`    | `0011`    | `E_R4`          | R4     |
   | `00`    | `0100`    | `E_MASK`        | R4     |
   | `00`    | `0101`    | `E_BCAST`       | R3     |
-  | `01`    | `0000`    | `M_BLK`         | R2     |
-  | `01`    | `0001`    | `M_ROW`         | MR     |
+  | `01`    | `0000`    | `M_BLK`         | R2/MR  |
   | `01`    | `0010`    | `INIT_MOVE`     | I/R2   |
   | `01`    | `0011`    | `ROW_MOVE`      | R4     |
   | `01`    | `0100`    | `LANE_MOVE`     | R4     |
@@ -424,7 +428,9 @@ cfg.setx tm0, row_stride_bytes, x4
 
 如果`x4 = 128`, 则`tm0.row_stride_bytes = 128`,后续矩阵访存使用:
 
-$ op("addr")(i,j) = "tm0.base_addr" + i dot "tm0.row_stride_bytes" + j dot "tm0.col_stride_bytes" $
+$
+  op("addr")(i,j) = "tm0.base_addr" + i dot "tm0.row_stride_bytes" + j dot "tm0.col_stride_bytes"
+$
 
 == `cfg.copy` — 复制配置寄存器
 
@@ -472,13 +478,13 @@ cfg.get xD, C, field
   | `{b,v}store`      | R2      | memory[addr(j)] = S[j]       | 按有效长度写整个向量.                           |
 ]
 
-整块与向量访存使用 R2 格式; `dom2` 选择数据域, `LS` 区分 load/store, `funct3` 区分整块访问与 gather; `funct3 = 001` 的 gather 仅对 Tile load 定义, 其余码点保留; 描述符由数据寄存器号隐含确定:
+整块与向量访存使用 R2 格式; `dom2` 选择数据域, `LS` 区分 load/store, `funct3` 区分整块访问与 gather; `funct3 = 001` 的 gather 仅对 Tile load 定义; 描述符由数据寄存器号隐含确定:
 
 #rivet-fmt-figure(m-blk-schema, caption: [整块与向量访存格式 (M_BLK)])
 
-行访存使用 MR 格式; 目标行号 `rd`/`rs` 为独立的 `index5` 字段, 与行搬运和 lane 操作的索引字段位置对齐:
+行访存是 `M_BLK` 的 row 形式 (`funct3 = 010`), 使用 MR 格式; 目标行号 `rd`/`rs` 为独立的 `index5` 字段, 与行搬运和 lane 操作的索引字段位置对齐:
 
-#rivet-fmt-figure(m-row-schema, caption: [行访存格式 (M_ROW)])
+#rivet-fmt-figure(m-row-schema, caption: [行访存格式 (M_BLK row 形式)])
 
 == 基础访存指令
 
@@ -548,7 +554,9 @@ tload.gather   tD, vS
 
 `tload.gather` 使用 `tD` 绑定的 `TC` 配置与 `TM` 描述符; 索引向量为 `vS` (Vec32), 其有效 lane 数由绑定的 `VC.len` 给出. 访存地址定义为:
 
-$ op("gaddr")(i,j) = "base_addr" + "vS"[i] dot "col_stride_bytes" + j dot "row_stride_bytes" $
+$
+  op("gaddr")(i,j) = "base_addr" + "vS"[i] dot "col_stride_bytes" + j dot "row_stride_bytes"
+$
 
 即目的第 `i` 行以 `vS[i]` 为元素索引, 按 `col_stride_bytes` 定位被索引的元素 (如 embedding 表中 token `vS[i]` 对应的数据), 再沿 `row_stride_bytes` 方向连续取一行元素填入:
 

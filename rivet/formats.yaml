@@ -33,7 +33,8 @@ colors:
     "27": "196,186,209"
     "26": "196,186,209"
     "25": "196,186,209"
-    "24-17": "230,230,230"
+    "24-22": "192,200,210"
+    "21-17": "230,230,230"
     "16-12": "163,200,177"
     "11-7": "230,230,230"
     "6-2": "238,183,150"
@@ -96,11 +97,12 @@ structures:
   fmt-mr:
     bits: 32
     ranges:
-      31-28: {name: major4, description: "major opcode (M_ROW)"}
+      31-28: {name: major4, description: "major opcode (M_BLK)"}
       27: {name: TA, description: matrix domain, values: {"0": "Tile", "1": "Acc"}}
       26: {name: LS, description: load/store sel, values: {"0": "load", "1": "store"}}
       25: {name: IS, description: row index src, values: {"0": "imm row", "1": "Scalar row"}}
-      24-17: {name: reserved8, description: must be 0}
+      24-22: {name: funct3, description: "op (010 = row)"}
+      21-17: {name: reserved5, description: must be 0}
       16-12: {name: index5, description: "row imm / Scalar idx (by IS)"}
       11-7: {name: reserved5, description: must be 0}
       6-2: {name: reg5, description: "Tile/Acc reg (bound TM/AM implied)"}
