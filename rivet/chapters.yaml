@@ -336,7 +336,7 @@ structures:
       31-28: {name: major4, description: major opcode, values: {"0010": "INIT_MOVE"}}
       27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "Vec8", "11": "Vec32"}}
       25-23: {name: funct3, description: "000 = fill"}
-      22-7: {name: payload16, description: "imm payload (per dtype)"}
+      22-7: {name: imm16, description: "fill imm (per dtype)"}
       6-2: {name: D5, description: dst reg}
       1-0: {name: q, description: "space tag (01)"}
   init-move:

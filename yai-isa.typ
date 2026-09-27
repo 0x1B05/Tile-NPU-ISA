@@ -661,7 +661,7 @@ KV scale
   | `ttranspose`        | R2      | tD[i,j] = tS[j,i]  | 仅支持 8-bit Tile; 允许原地执行, 交换有效行列数.               |
 ]
 
-`fill` 使用 I 格式, 立即数 `payload16` 按目的 dtype 解释:
+`fill` 使用 I 格式, 立即数 `imm16` 按目的 dtype 解释:
 
 #rivet-fmt-figure(init-fill-schema, caption: [fill 格式 (INIT_MOVE, I)])
 

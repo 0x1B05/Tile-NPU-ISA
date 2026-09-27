@@ -116,7 +116,7 @@ structures:
       31-28: {name: major4, description: major opcode}
       27-26: {name: sel2, description: "dom2 / config type"}
       25-23: {name: funct3, description: "op / field select"}
-      22-7: {name: imm16, description: "imm16 / payload16"}
+      22-7: {name: imm16, description: "fill imm / field value"}
       6-2: {name: D5/C5, description: "data/config dst reg"}
       1-0:
         name: q
