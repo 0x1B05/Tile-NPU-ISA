@@ -260,7 +260,7 @@ structures:
       31-28: {name: major4, description: major opcode, values: {"0011": "E_R4"}}
       27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "11": "Vec32", "10": "reserved"}}
       25: {name: "0", description: must be 0}
-      24-22: {name: funct3, values: {"000": "select", "001": "fmadd"}}
+      24-22: {name: funct3, description: op, values: {"000": "select", "001": "fmadd"}}
       21-17: {name: arg5, description: "4th operand: mask M (select) / addend C (fmadd)"}
       16-12: {name: B5, description: src2 B}
       11-7: {name: A5, description: src1 A}
@@ -272,7 +272,7 @@ structures:
       31-28: {name: major4, description: major opcode, values: {"0100": "E_MASK"}}
       27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "Vec8", "11": "Vec32"}}
       25: {name: FS}
-      24-22: {name: funct3, values: {"000": "tail", "001": "tril", "010": "triu"}}
+      24-22: {name: funct3, description: op, values: {"000": "tail", "001": "tril", "010": "triu"}}
       21-17:
         name: arg5
         depends-on: 25
@@ -422,7 +422,7 @@ structures:
       31-28: {name: major4, description: major opcode, values: {"0011": "CVT"}}
       27-26: {name: dom2, description: dst domain, values: {"01": "Acc", "11": "Vec32", "00": "reserved", "10": "reserved"}}
       25: {name: "0", description: must be 0}
-      24-22: {name: funct3, values: {"000": "i32 -> f32 (acvt/vcvt)", "001": "i8 -> i32 widen (twiden)"}}
+      24-22: {name: funct3, description: op, values: {"000": "i32 -> f32 (acvt/vcvt)", "001": "i8 -> i32 widen (twiden)"}}
       21-12: {name: reserved10, description: must be 0}
       11-7: {name: S5, description: src reg}
       6-2: {name: D5, description: dst reg}
