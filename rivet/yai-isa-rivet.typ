@@ -16,6 +16,7 @@
 #let bc-schema = load-format(descriptors, "bc")
 #let tm-0-schema = load-format(descriptors, "tm-0")
 #let tm-1-schema = load-format(descriptors, "tm-1")
+#let tm-2-schema = load-format(descriptors, "tm-2")
 #let vm-schema = load-format(descriptors, "vm")
 
 #let fmt-r4-schema = load-format(formats, "fmt-r4")

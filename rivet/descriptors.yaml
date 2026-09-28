@@ -1,5 +1,5 @@
 # Config registers and memory descriptors: TC/AC (32-bit), BC/VC (32-bit),
-# TM (256-bit, split into tm-0/tm-1), VM (128-bit).
+# TM/AM (192-bit, split into tm-0/tm-1/tm-2), BM/VM (128-bit).
 colors:
   tc:
     "7-0": "240,214,148"
@@ -11,25 +11,21 @@ colors:
   bc:
     "7-0": "240,214,148"
     "11-8": "163,200,177"
-    "13-12": "196,186,209"
-    "31-14": "230,230,230"
+    "31-12": "230,230,230"
   vm:
-    "31-0": "240,214,148"
-    "35-32": "167,199,200"
-    "39-36": "222,184,203"
-    "63-40": "230,230,230"
-    "95-64": "230,230,230"
-    "127-96": "191,177,211"
+    "63-0": "240,214,148"
+    "95-64": "238,183,150"
+    "99-96": "196,186,209"
+    "127-100": "230,230,230"
   tm-0:
-    "3-0": "167,199,200"
-    "7-4": "192,200,210"
-    "15-8": "222,184,203"
-    "63-16": "230,230,230"
+    "63-0": "240,214,148"
   tm-1:
-    "127-64": "179,163,205"
-    "191-128": "191,177,211"
-    "223-192": "240,214,148"
-    "255-224": "238,183,150"
+    "95-64": "238,183,150"
+    "127-96": "222,184,203"
+  tm-2:
+    "131-128": "192,200,210"
+    "139-132": "196,186,209"
+    "191-140": "230,230,230"
 
 structures:
   tc:
@@ -48,26 +44,26 @@ structures:
       11-8: {name: dt, description: element type, values: {"0000": "i8", "0001": "u8", "0010": "i32", "0011": "u32", "0100": "f32", "5-15": "reserved"}}
       7-0: {name: len, description: valid len}
   tm-0:
-    bits: 128
+    bits: 64
     ranges:
-      127-64: {name: col_stride_bytes, description: "signed, in bytes"}
-      63-16: {name: reserved}
-      15-8: {name: fl, description: flags}
-      7-4: {name: tf, description: transform, values: {"0": "normal", "1": "transpose", "2-15": "reserved"}}
-      3-0: {name: sd, description: storage dtype, values: {"0000": "i8", "0001": "u8", "0010": "i32", "0011": "u32", "0100": "f32", "0101": "f16", "0110": "bf16", "7-15": "reserved"}}
+      63-0: {name: base_addr, description: "byte address of view origin"}
   tm-1:
-    bits: 128
+    bits: 64
+    start: 64
+    ranges:
+      95-64: {name: row_stride_bytes, description: "signed, in bytes"}
+      127-96: {name: col_stride_bytes, description: "signed, in bytes"}
+  tm-2:
+    bits: 64
     start: 128
     ranges:
-      255-224: {name: cols, description: memory view cols}
-      223-192: {name: rows, description: memory view rows}
-      191-128: {name: row_stride_bytes, description: "signed, in bytes"}
+      191-140: {name: reserved}
+      139-132: {name: fl, description: flags}
+      131-128: {name: tf, description: transform, values: {"0": "normal", "1": "transpose", "2-15": "reserved"}}
   vm:
     bits: 128
     ranges:
-      127-96: {name: stride_bytes, description: "signed, in bytes"}
-      95-64: {name: reserved}
-      63-40: {name: reserved}
-      39-36: {name: fl, description: flags}
-      35-32: {name: sd, description: storage dtype, values: {"0000": "i8", "0001": "u8", "0010": "i32", "0011": "u32", "0100": "f32", "0101": "f16", "0110": "bf16", "7-15": "reserved"}}
-      31-0: {name: length, description: memory view len}
+      127-100: {name: reserved}
+      99-96: {name: fl, description: flags}
+      95-64: {name: stride_bytes, description: "signed, in bytes"}
+      63-0: {name: base_addr, description: "byte address of view origin"}
