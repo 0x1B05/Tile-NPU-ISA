@@ -293,7 +293,7 @@ structures:
       31-28: {name: major4, description: major opcode, values: {"0000": "M_BLK"}}
       27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "Vec8", "11": "Vec32"}}
       25: {name: LS, values: {"0": "load", "1": "store"}}
-      24-22: {name: funct3, description: op, values: {"000": "block load/store", "001": "gather (Tile load)", "010": "row (MR layout)", "011-111": "reserved"}}
+      24-22: {name: funct3, description: op, values: {"000": "block load/store", "001": "gather load", "010": "row (MR layout)", "011-111": "reserved"}}
       21-12: {name: reserved10, description: must be 0}
       11-7: {name: S5, description: "gather index vS; else 0"}
       6-2: {name: D5, description: "D (load) / S (store); bound descriptor implied"}
@@ -400,7 +400,7 @@ structures:
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0001": "AREDUCE", "0010": "VREDUCE"}}
       27-25: {name: reserved3, description: must be 0}
-      24-22: {name: funct3, description: reduce op, values: {"000": "sum", "001": "max", "010": "min", "011": "sumsq", "100": "argmax (VREDUCE, R4 form)"}}
+      24-22: {name: funct3, description: reduce op, values: {"000": "sum", "001": "max", "010": "min", "011": "sumsq", "100": "argmax", "101": "absmax (AREDUCE)"}}
       21-12: {name: reserved10, description: must be 0}
       11-7: {name: S5, description: "src (Acc/Vec32)"}
       6-2: {name: D5, description: "dst (Vec32/Scalar)"}

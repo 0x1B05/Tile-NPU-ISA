@@ -37,21 +37,21 @@
   columns: (1.2fr, 5fr),
   caption: [通用操作数记号],
 )[
-  | 记号                       | 含义                                               |
-  | -------------------------- | -------------------------------------------------- |
-  | `D`                        | 目的寄存器, 对应汇编操作数 `tD`, `aD`, `bD`, `vD`  |
-  | `A`, `B`                   | 第一, 第二源寄存器, 对应 `tA`, `tB` 等             |
-  | `S`                        | 单源或广播向量源                                   |
-  | `M`                        | mask 寄存器, 值为全 0 或全 1 的 `u8`/`u32` 元素    |
-  | `imm`                      | 立即数                                             |
-  | `xS`                       | 来自 Scalar 寄存器的操作数                         |
-  | `xBounds`                  | 打包 Scalar 寄存器 (`[31:0]` = `nRows`, `[63:32]` = `nCols`)  |
-  | `xLen`, `xDelta`           | Scalar 长度 / 有符号偏移操作数                                 |
-  | `[i,j]`                    | 矩阵元素索引                                       |
-  | `[j]`                      | 向量 lane 索引                                     |
-  | `[p]`                      | position, 元素坐标: 矩阵为 `[i,j]`, 向量为 `[j]`   |
-  | `[rd,j]`                   | 行操作中目的的指定行; `ra`, `rb` 为两个源的指定行  |
-  | `sat`, `wrap`              | 饱和 / 回绕, 定义见 @integer-arithmetic            |
+  | 记号              | 含义                                                          |
+  | ----------------- | ------------------------------------------------------------- |
+  | `D`               | 目的寄存器, 对应汇编操作数 `tD`, `aD`, `bD`, `vD`             |
+  | `A`, `B`          | 第一, 第二源寄存器, 对应 `tA`, `tB` 等                        |
+  | `S`               | 单源或广播向量源                                              |
+  | `M`               | mask 寄存器, 值为全 0 或全 1 的 `u8`/`u32` 元素               |
+  | `imm`             | 立即数                                                        |
+  | `xS`              | 来自 Scalar 寄存器的操作数                                    |
+  | `xBounds`         | 打包 Scalar 寄存器 (`[31:0]` = `nRows`, `[63:32]` = `nCols`)  |
+  | `xLen`, `xDelta`  | Scalar 长度 / 有符号偏移操作数                                |
+  | `[i,j]`           | 矩阵元素索引                                                  |
+  | `[j]`             | 向量 lane 索引                                                |
+  | `[p]`             | position, 元素坐标: 矩阵为 `[i,j]`, 向量为 `[j]`              |
+  | `[rd,j]`          | 行操作中目的的指定行; `ra`, `rb` 为两个源的指定行             |
+  | `sat`, `wrap`     | 饱和 / 回绕, 定义见 @integer-arithmetic                       |
 ]
 
 Operation 列使用的函数记号:
@@ -60,19 +60,19 @@ Operation 列使用的函数记号:
   columns: (1.6fr, 5fr),
   caption: [Operation 函数记号],
 )[
-  | 记号                      | 含义                                                             |
-  | ------------------------- | ---------------------------------------------------------------- |
-  | `min(A, B)`, `max(A, B)`  | 逐元素取小/取大; 浮点按 IEEE 754 minNum/maxNum 语义, NaN 不传播  |
-  | `shl(A, B)`               | 逻辑左移; 移位量取 $B$ 的低 $log_2 w$ 位 ($w$ 为元素位宽)        |
-  | `shr(A, B)`               | 逻辑右移 (零填充); 移位量同上                                    |
-  | `sra(A, B)`               | 算术右移 (符号填充); 移位量同上                                  |
-  | `abs(A)`                  | 逐元素绝对值                                                     |
-  | `not A`                   | 逐元素按位取反                                                   |
-  | `and`, `or`, `xor`        | 逐元素按位与/或/异或                                             |
-  | `quant_q8s32(...)` 等     | 量化与反量化函数, 定义见 @quantization                           |
-  | `fma(A, B, C)`            | 融合乘加 $A × B + C$, 单次舍入; 仅 f32                           |
-  | `decode_scalar(xS, TYPE)` | 将 Scalar 寄存器 `xS` 的值按 `TYPE` 解码为元素值                 |
-  | `fold_add` 等             | 规约折叠函数 `fold_add`/`fold_max`/`fold_min`: 累加/取大/取小    |
+  | 记号                       | 含义                                                             |
+  | -------------------------- | ---------------------------------------------------------------- |
+  | `min(A, B)`, `max(A, B)`   | 逐元素取小/取大; 浮点按 IEEE 754 minNum/maxNum 语义, NaN 不传播  |
+  | `shl(A, B)`                | 逻辑左移; 移位量取 $B$ 的低 $log_2 w$ 位 ($w$ 为元素位宽)        |
+  | `shr(A, B)`                | 逻辑右移 (零填充); 移位量同上                                    |
+  | `sra(A, B)`                | 算术右移 (符号填充); 移位量同上                                  |
+  | `abs(A)`                   | 逐元素绝对值                                                     |
+  | `not A`                    | 逐元素按位取反                                                   |
+  | `and`, `or`, `xor`         | 逐元素按位与/或/异或                                             |
+  | `quant_q8s32(...)` 等      | 量化与反量化函数, 定义见 @quantization                           |
+  | `fma(A, B, C)`             | 融合乘加 $A × B + C$, 单次舍入; 仅 f32                           |
+  | `decode_scalar(xS, TYPE)`  | 将 Scalar 寄存器 `xS` 的值按 `TYPE` 解码为元素值                 |
+  | `fold_add` 等              | 规约折叠函数 `fold_add`/`fold_max`/`fold_min`: 累加/取大/取小    |
 ]
 
 = 指令集概览 <overview>
@@ -126,8 +126,8 @@ Operation 列使用的函数记号:
     columns: (1fr, 0.6fr, 1fr, 0.4fr, 2fr),
     caption: [访存描述符],
   )[
-    | 寄存器类型            | 汇编名称     | 绑定或适用对象    | 容量    | 配置字段                                                          |
-    | :-------------------: | :----------: | :---------------: | ------- | ----------------------------------------------------------------- |
+    | 寄存器类型            | 汇编名称     | 绑定或适用对象    | 容量    | 配置字段                                                                   |
+    | :-------------------: | :----------: | :---------------: | ------- | -------------------------------------------------------------------------- |
     | TM: Tile 访存描述符   | `tm0..tm15`  | `tm[i]` ↔ `t[i]`  | 192bit  | `base_addr`, `row_stride_bytes`, `col_stride_bytes`, `transform`, `flags`  |
     | AM: Acc 访存描述符    | `am0..am11`  | `am[i]` ↔ `a[i]`  | 192bit  | `base_addr`, `row_stride_bytes`, `col_stride_bytes`, `transform`, `flags`  |
     | BM: Vec8 访存描述符   | `bm0..bm31`  | `bm[i]` ↔ `b[i]`  | 128bit  | `base_addr`, `stride_bytes`, `flags`                                       |
@@ -190,7 +190,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | --------------- | ------------------------------------------------------------------------------ | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
   | 标量与控制      | Scalar ↔ Scalar #linebreak() Scalar ↔ 内存                                     | 地址, 索引, 标量计算, 控制流                       | RV64IM (见 RISC-V 规范)                                                                                                                         |
   | 配置            | Scalar → TC, AC, BC, VC, TM, AM, BM, VM                                        | 建立数据域的类型, shape, 布局和访存描述            | `cfg.seti`, `cfg.setx`, `cfg.copy`, `cfg.get`                                                                                                   |
-  | 地址与访存      | 内存 ↔ `t/a/b/v`                                                               | 按绑定的 TM/AM/BM/VM 描述符执行整块, 行和向量访问  | `{t,a}{load,store}` #linebreak() `{t,a}{load,store}.row` #linebreak() `{b,v}{load,store}` #linebreak() `tload.gather`                      |
+  | 地址与访存      | 内存 ↔ `t/a/b/v`                                                               | 按绑定的 TM/AM/BM/VM 描述符执行整块, 行和向量访问  | `{t,a}{load,store}` #linebreak() `{t,a}{load,store}.row` #linebreak() `{b,v}{load,store}` #linebreak() `{t,b,v}load.gather`                     |
   | 初始化与搬运    | 域内 #linebreak() `t` ↔ `b` #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane  | 填充, 复制, 行搬运, lane 搬运, 广播和转置          | `{t,a,b,v}{fill,fillx,copy}` #linebreak() `{t,a}{insert,extract}.row` #linebreak() `{b,v}{insert,extract,broadcast}` #linebreak() `ttranspose`  |
   | 矩阵乘与点积    | `t` × `t` → `a` #linebreak() `b` × `t` → `v`                                   | `i8` 乘法, `i32` 累加或点积                        | `mma` #linebreak() `bdot`                                                                                                                       |
   | 逐元素与广播    | `t/a/v` 同域 #linebreak() 矩阵 ↔ 向量广播                                      | 算术, 位运算, 移位, 特殊函数, 比较和选择           | `{t,a,v}op` #linebreak() `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                                                                |
@@ -210,11 +210,11 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   columns: (0.5fr, 1fr, 3fr),
   caption: [非标量指令空间分配],
 )[
-  | `[1:0]`  | 功能域          | 内容                                                                                                 |
-  | :------: | --------------- | ---------------------------------------------------------------------------------------------------- |
-  | `00`     | 通用逐元素计算  | 算术, 位运算, 比较, Scalar 变体 (`opx`, `cmpx`), 向量广播, 融合乘加, select, mask, 特殊函数          |
-  | `01`     | 数据传输与重排  | 矩阵/向量访存, fill, copy, 行和 lane 搬运, 转置                                                      |
-  | `10`     | 跨域计算与控制  | 矩阵乘与点积, 规约, 类型转换与扩大, 量化与反量化, 配置, 同步, `kernel.end`; 其余编码预留             |
+  | `[1:0]`  | 功能域          | 内容                                                                                         |
+  | :------: | --------------- | -------------------------------------------------------------------------------------------- |
+  | `00`     | 通用逐元素计算  | 算术, 位运算, 比较, Scalar 变体 (`opx`, `cmpx`), 向量广播, 融合乘加, select, mask, 特殊函数  |
+  | `01`     | 数据传输与重排  | 矩阵/向量访存, fill, copy, 行和 lane 搬运, 转置                                              |
+  | `10`     | 跨域计算与控制  | 矩阵乘与点积, 规约, 类型转换与扩大, 量化与反量化, 配置, 同步, `kernel.end`; 其余编码预留     |
 ]
 
 #note[
@@ -239,14 +239,14 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   columns: (0.6fr, 3fr, 3.2fr),
   caption: [非标量指令格式],
 )[
-  | 格式  | 中间字段 `[27:2]`                               | 主要用途                                    |
-  | :---: | ----------------------------------------------- | ------------------------------------------- |
-  | R4    | `sel3 + funct3 + 4 × field5`                    | 多源或跨域计算; 配置访问                    |
-  | R3    | `sel3 + funct4 + reserved4 + 3 × field5`        | 二元逐元素计算; 矩阵与向量广播              |
-  | R2    | `sel3 + funct3 + reserved10 + S5 + D5`          | 访存; 单源单目的搬运; 规约、转换与一元计算  |
-  | MR    | `sel3 + funct3 + reserved5 + index5 + reserved5 + reg5`  | 矩阵行访存 (`M_BLK` 的 row 形式)           |
-  | I     | `sel2 + funct3 + imm16 + D5/C5`                 | 立即数填充与配置                            |
-  | Z     | `funct3 + reserved23`                           | 同步与 kernel 结束                          |
+  | 格式  | 中间字段 `[27:2]`                                        | 主要用途                                    |
+  | :---: | -------------------------------------------------------- | ------------------------------------------- |
+  | R4    | `sel3 + funct3 + 4 × field5`                             | 多源或跨域计算; 配置访问                    |
+  | R3    | `sel3 + funct4 + reserved4 + 3 × field5`                 | 二元逐元素计算; 矩阵与向量广播              |
+  | R2    | `sel3 + funct3 + reserved10 + S5 + D5`                   | 访存; 单源单目的搬运; 规约、转换与一元计算  |
+  | MR    | `sel3 + funct3 + reserved5 + index5 + reserved5 + reg5`  | 矩阵行访存 (`M_BLK` 的 row 形式)            |
+  | I     | `sel2 + funct3 + imm16 + D5/C5`                          | 立即数填充与配置                            |
+  | Z     | `funct3 + reserved23`                                    | 同步与 kernel 结束                          |
 ]
 
 === 位段布局
@@ -473,18 +473,19 @@ cfg.get xD, C, field
   columns: (1.5fr, 0.5fr, 2.5fr, 2.1fr),
   caption: [地址与访存指令],
 )[
-  | Instruction       | Format  | Operation                    | Notes                                           |
-  | :---------------- | :-----: | ---------------------------- | ----------------------------------------------- |
-  | `{t,a}load`       | R2      | D[i,j] = memory[addr(i,j)]   | 加载整个有效区域到目的寄存器.                   |
-  | `{t,a}store`      | R2      | memory[addr(i,j)] = S[i,j]   | 将源的整个有效区域写入内存.                     |
-  | `{t,a}load.row`   | MR      | D[rd,j] = memory[addr(0,j)]  | 仅处理目的行 `rd`, 其余行保持.                  |
-  | `{t,a}store.row`  | MR      | memory[addr(0,j)] = S[rs,j]  | 仅写源行 `rs`.                                  |
-  | `tload.gather`    | R2      | D[i,j] = memory[gaddr(i,j)]  | 以 Vec32 各 lane 为索引, 按列跨步 gather 加载.  |
-  | `{b,v}load`       | R2      | D[j] = memory[addr(j)]       | 按有效长度加载整个向量.                         |
-  | `{b,v}store`      | R2      | memory[addr(j)] = S[j]       | 按有效长度写整个向量.                           |
+  | Instruction         | Format  | Operation                    | Notes                                                     |
+  | :------------------ | :-----: | ---------------------------- | --------------------------------------------------------- |
+  | `{t,a}load`         | R2      | D[i,j] = memory[addr(i,j)]   | 加载整个有效区域到目的寄存器.                             |
+  | `{t,a}store`        | R2      | memory[addr(i,j)] = S[i,j]   | 将源的整个有效区域写入内存.                               |
+  | `{t,a}load.row`     | MR      | D[rd,j] = memory[addr(0,j)]  | 仅处理目的行 `rd`, 其余行保持.                            |
+  | `{t,a}store.row`    | MR      | memory[addr(0,j)] = S[rs,j]  | 仅写源行 `rs`.                                            |
+  | `tload.gather`      | R2      | D[i,j] = memory[gaddr(i,j)]  | 以 Vec32 各 lane 为索引, 按列跨步 gather 加载到 Tile 行.  |
+  | `{b,v}load.gather`  | R2      | D[j] = memory[gaddr(j)]      | 以 Vec32 各 lane 为索引, 按步长 gather 加载向量.          |
+  | `{b,v}load`         | R2      | D[j] = memory[addr(j)]       | 按有效长度加载整个向量.                                   |
+  | `{b,v}store`        | R2      | memory[addr(j)] = S[j]       | 按有效长度写整个向量.                                     |
 ]
 
-整块与向量访存使用 R2 格式; `dom2` 选择数据域, `LS` 区分 load/store, `funct3` 区分整块访问与 gather; `funct3 = 001` 的 gather 仅对 Tile load 定义; 描述符由数据寄存器号隐含确定:
+整块与向量访存使用 R2 格式; `dom2` 选择数据域, `LS` 区分 load/store, `funct3` 区分整块访问, gather 与 row 形式; 描述符由数据寄存器号隐含确定:
 
 #rivet-fmt-figure(m-blk-schema, caption: [整块与向量访存格式 (M_BLK)])
 
@@ -556,9 +557,14 @@ for 0 <= j < cols(CS):
 
 ```asm
 tload.gather   tD, vS
+
+bload.gather   bD, vS
+vload.gather   vD, vS
 ```
 
-`tload.gather` 使用 `tD` 绑定的 `TC` 配置与 `TM` 描述符; 索引向量为 `vS` (Vec32), 其有效 lane 数由绑定的 `VC.len` 给出. 访存地址定义为:
+gather 的索引向量为 `vS` (Vec32), 其有效 lane 数由绑定的 `VC.len` 给出, 索引值按 `i32` 解释; 超出 `vS` 有效长度的目的元素填零, 索引越界 (`vS` 中的索引超出内存 view) 时的行为待定义.
+
+`tload.gather` 使用 `tD` 绑定的 `TC` 配置与 `TM` 描述符, 访存地址定义为:
 
 $
   op("gaddr")(i,j) = "base_addr" + "vS"[i] dot "col_stride_bytes" + j dot "row_stride_bytes"
@@ -575,7 +581,17 @@ for 0 <= i < rows(CD):
         CD[i,:] ← 0
 ```
 
-超出 `vS` 有效长度的目的行填零; 索引越界 ( `vS[i]` 超出内存 view ) 时的行为待定义.
+`bload.gather` 和 `vload.gather` 使用目的绑定的 `BC`/`VC` 配置与 `BM`/`VM` 描述符, 访存地址定义为:
+
+$ op("gaddr")(j) = "base_addr" + "vS"[j] dot "stride_bytes" $
+
+```text
+for 0 <= j < len(CD):
+    if j < len(vS):
+        CD[j] ← memory[gaddr(j)]
+    else:
+        CD[j] ← 0
+```
 
 === 向量访存
 
@@ -615,14 +631,15 @@ for 0 <= j < len(CS):
 
 == Embedding 的行 Gather
 
-Embedding 查表直接使用 `tload.gather`: token ID 先作为 `i32` 向量由 `vload` 载入 Vec32, 再作为索引 gather 到 Tile:
+Embedding 查表使用 gather 加载: token ID 先作为 `i32` 向量由 `vload` 载入 Vec32, 再由 `tload.gather` 索引出 embedding 行, 由 `vload.gather` 索引出对应的 scale:
 
 ```asm
 vload        v1            # vm1 指向 ids 块
 tload.gather t0, v1        # tm0 指向 embedding 表
+vload.gather v2, v1        # vm2 指向 table_scale
 ```
 
-`tm0` 的 `base_addr` 指向表原点, `col_stride_bytes` 为相邻 token 之间的字节跨步, `row_stride_bytes` 为 embedding 维方向的字节跨步. token ID 的合法性 ($0 <= "id" < "vocab_size"$) 由软件保证, 索引越界行为见 `tload.gather` 的定义.
+`tm0` 的 `base_addr` 指向表原点, `col_stride_bytes` 为相邻 token 之间的字节跨步, `row_stride_bytes` 为 embedding 维方向的字节跨步; `vm2` 的 `stride_bytes` 为相邻 token scale 之间的字节跨步. token ID 的合法性 ($0 <= "id" < "vocab_size"$) 由软件保证, 索引越界行为见 gather 加载的定义.
 
 == KV Cache 追加示例
 
@@ -1820,18 +1837,18 @@ mask 指令将源数据的某些位置替换为指定 fill 值. `mask` 的 fill 
   columns: (1fr, 1fr, 3fr),
   caption: [fill5 常量码表],
 )[
-  | `fill5`  | 常量         | 说明        |
-  | -------- | ------------ | ----------- |
-  | `00000`  | $+0$         |             |
-  | `00001`  | $+1$         |             |
-  | `00010`  | $-1$         |             |
-  | `00011`  | $+2$         |             |
-  | `00100`  | $-2$         |             |
-  | `00101`  | $+0.5$       | 仅 f32 目的 |
-  | `00110`  | $-0.5$       | 仅 f32 目的 |
-  | `00111`  | $+infinity$  | 仅 f32 目的 |
-  | `01000`  | $-infinity$  | 仅 f32 目的 |
-  | 其余     | —            | 保留        |
+  | `fill5`  | 常量         | 说明         |
+  | -------- | ------------ | ------------ |
+  | `00000`  | $+0$         |              |
+  | `00001`  | $+1$         |              |
+  | `00010`  | $-1$         |              |
+  | `00011`  | $+2$         |              |
+  | `00100`  | $-2$         |              |
+  | `00101`  | $+0.5$       | 仅 f32 目的  |
+  | `00110`  | $-0.5$       | 仅 f32 目的  |
+  | `00111`  | $+infinity$  | 仅 f32 目的  |
+  | `01000`  | $-infinity$  | 仅 f32 目的  |
+  | 其余     | —            | 保留         |
 ]
 
 整数目的只使用 `00000..00100`; $plus.minus 0.5$ 与 $plus.minus infinity$ 仅在目的 dtype 为 `f32` 时有效.
@@ -1953,20 +1970,22 @@ vdiv       vOut, v2, vSum
 
 == 规约指令格式
 
-行规约每行产生一个 Vec32 元素. 除基础 `sum/max/min` 外, 正文示例还定义了 `areduce.rows.sumsq`; 向量规约另含 f32 `sumsq` 与 `argmax`.
+行规约每行产生一个 Vec32 元素. 除基础 `sum/max/min` 外, 行规约还定义了 `sumsq`, `absmax` 与 `argmax`; 向量规约另含 f32 `sumsq` 与 `argmax`.
 
 #instruction-table(caption: [规约指令])[
-  | Instruction           | Format  | Operation                                                                     | Notes                                        |
-  | :-------------------: | :-----: | ----------------------------------------------------------------------------- | -------------------------------------------- |
-  | `areduce.rows.sum`    | R2      | $"vD"[i] = sum_j "aS"[i,j]$                                                   | 源与目的为 f32; 只规约源有效元素.            |
-  | `areduce.rows.max`    | R2      | $"vD"[i] = max_j "aS"[i,j]$                                                   | 源与目的为 f32; 只规约源有效元素.            |
-  | `areduce.rows.min`    | R2      | $"vD"[i] = min_j "aS"[i,j]$                                                   | 源与目的为 f32; 只规约源有效元素.            |
-  | `areduce.rows.sumsq`  | R2      | $"vD"[i] = sum_j "aS"[i,j]^2$                                                 | 源与目的为 f32; RMSNorm 示例中的行规约.      |
-  | `vreduce.sum`         | R2      | $"xD" = sum_j "vS"[j]$                                                        | 按对应 fold 规则规约; 空结果使用规定单位元.  |
-  | `vreduce.max`         | R2      | $"xD" = max_j "vS"[j]$                                                        | 按对应 fold 规则规约; 空结果使用规定单位元.  |
-  | `vreduce.min`         | R2      | $"xD" = min_j "vS"[j]$                                                        | 按对应 fold 规则规约; 空结果使用规定单位元.  |
-  | `vreduce.sumsq`       | R2      | $"xD" = sum_j "vS"[j]^2$                                                      | 按对应 fold 规则规约; 空结果使用规定单位元.  |
-  | `vreduce.argmax`      | R4      | $"xIndex" = op("argmax")_j "vS"[j]$ #linebreak() $"xValue" = "vS"["xIndex"]$  | 并列取较小索引; NaN 选择规则及空结果见正文.  |
+  | Instruction            | Format  | Operation                                                                     | Notes                                           |
+  | :--------------------: | :-----: | ----------------------------------------------------------------------------- | ----------------------------------------------- |
+  | `areduce.rows.sum`     | R2      | $"vD"[i] = sum_j "aS"[i,j]$                                                   | 源与目的为 f32; 只规约源有效元素.               |
+  | `areduce.rows.max`     | R2      | $"vD"[i] = max_j "aS"[i,j]$                                                   | 源与目的为 f32; 只规约源有效元素.               |
+  | `areduce.rows.min`     | R2      | $"vD"[i] = min_j "aS"[i,j]$                                                   | 源与目的为 f32; 只规约源有效元素.               |
+  | `areduce.rows.sumsq`   | R2      | $"vD"[i] = sum_j "aS"[i,j]^2$                                                 | 源与目的为 f32; RMSNorm 示例中的行规约.         |
+  | `areduce.rows.absmax`  | R2      | $"vD"[i] = max_j abs("aS"[i,j])$                                              | 源与目的为 f32; 量化 scale 的行规约.            |
+  | `areduce.rows.argmax`  | R2      | $"vD"[i] = op("argmax")_j "aS"[i,j]$                                          | 源为 f32, 目的为 i32 局部列号; 并列取较小索引.  |
+  | `vreduce.sum`          | R2      | $"xD" = sum_j "vS"[j]$                                                        | 按对应 fold 规则规约; 空结果使用规定单位元.     |
+  | `vreduce.max`          | R2      | $"xD" = max_j "vS"[j]$                                                        | 按对应 fold 规则规约; 空结果使用规定单位元.     |
+  | `vreduce.min`          | R2      | $"xD" = min_j "vS"[j]$                                                        | 按对应 fold 规则规约; 空结果使用规定单位元.     |
+  | `vreduce.sumsq`        | R2      | $"xD" = sum_j "vS"[j]^2$                                                      | 按对应 fold 规则规约; 空结果使用规定单位元.     |
+  | `vreduce.argmax`       | R4      | $"xIndex" = op("argmax")_j "vS"[j]$ #linebreak() $"xValue" = "vS"["xIndex"]$  | 并列取较小索引; NaN 选择规则及空结果见正文.     |
 ]
 
 普通单目的规约使用 R2 格式:
@@ -1986,14 +2005,15 @@ vdiv       vOut, v2, vSum
 areduce.rows.OP   vD, aS
 ```
 
-其中$"OP" in {"sum", "max", "min"}$
-
-基础形式包括:
+其中$"OP" in {"sum", "max", "min", "sumsq", "absmax", "argmax"}$
 
 ```asm
 areduce.rows.sum    vD, aS
 areduce.rows.max    vD, aS
 areduce.rows.min    vD, aS
+areduce.rows.sumsq  vD, aS
+areduce.rows.absmax vD, aS
+areduce.rows.argmax vD, aS
 ```
 
 向量到 Scalar 的规约形式为:
@@ -2051,6 +2071,37 @@ for 0 <= i < R:
     for 0 <= j < C:
         value ← fold_min(value, aS[i,j])
     vD[i] ← value
+```
+
+`areduce.rows.absmax` 的操作为:
+
+```text
+for 0 <= i < R:
+    value ← +0.0
+    for 0 <= j < C:
+        value ← fold_max(value, |aS[i,j]|)
+    vD[i] ← value
+```
+
+`areduce.rows.argmax` 每行取最大值, 目的 `vD` 的 dtype 为 `i32`, 值为该行最大值的有效局部列号; 并列取较小索引, NaN 选择规则与空结果与 `vreduce.argmax` 一致:
+
+```text
+for 0 <= i < R:
+    if C = 0:
+        vD[i] ← -1
+    else:
+        best_index ← 0
+        best_value ← aS[i,0]
+        for 1 <= j < C:
+            candidate ← aS[i,j]
+            if candidate is NaN:
+                if best_value is not NaN:
+                    best_index ← j
+                    best_value ← candidate
+            else if best_value is not NaN and candidate > best_value:
+                best_index ← j
+                best_value ← candidate
+        vD[i] ← best_index
 ```
 
 == 向量到 Scalar 的规约
@@ -2158,6 +2209,7 @@ else:
   | f32 sumsq   | $+0.0$                                 |
   | f32 max     | $-infinity$                            |
   | f32 min     | $+infinity$                            |
+  | f32 absmax  | $+0.0$                                 |
   | f32 argmax  | $"index" = -1$, $"value" = -infinity$  |
 ]
 
@@ -2393,6 +2445,8 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `tload.row`     | MR      | tD[rd,j] = memory[addr(0,j)]  | 按绑定的 TM 读取内存到 Tile 指定行.             |
   | `tstore.row`    | MR      | memory[addr(0,j)] = S[rs,j]   | 将 Tile 指定行按绑定的 TM 写入内存.             |
   | `tload.gather`  | R2      | tD[i,j] = memory[gaddr(i,j)]  | 以 Vec32 各 lane 为索引 gather 加载到 Tile 行.  |
+  | `bload.gather`  | R2      | bD[j] = memory[gaddr(j)]      | 以 Vec32 各 lane 为索引 gather 加载到 Vec8.     |
+  | `vload.gather`  | R2      | vD[j] = memory[gaddr(j)]      | 以 Vec32 各 lane 为索引 gather 加载到 Vec32.    |
   | `aload`         | R2      | aD[i,j] = memory[addr(i,j)]   | 按绑定的 AM 读取内存到 Acc 有效区域.            |
   | `astore`        | R2      | memory[addr(i,j)] = S[i,j]    | 将 Acc 有效区域按绑定的 AM 写入内存.            |
   | `aload.row`     | MR      | aD[rd,j] = memory[addr(0,j)]  | 按绑定的 AM 读取内存到 Acc 指定行.              |
@@ -2680,17 +2734,19 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 详细语义见 @reduction-conversion.
 
 #instruction-listing(caption: [规约指令清单])[
-  | Instruction           | Format  | Function                                                                      | Summary                                         |
-  | :-------------------: | :-----: | ----------------------------------------------------------------------------- | ----------------------------------------------- |
-  | `areduce.rows.sum`    | R2      | $"vD"[i] = sum_j "aS"[i,j]$                                                   | 将 Acc 按行求和到 Vec32.                        |
-  | `areduce.rows.max`    | R2      | $"vD"[i] = max_j "aS"[i,j]$                                                   | 将 Acc 按行取最大到 Vec32.                      |
-  | `areduce.rows.min`    | R2      | $"vD"[i] = min_j "aS"[i,j]$                                                   | 将 Acc 按行取最小到 Vec32.                      |
-  | `areduce.rows.sumsq`  | R2      | $"vD"[i] = sum_j "aS"[i,j]^2$                                                 | 将 Acc 每行有效元素的平方和写入 Vec32.          |
-  | `vreduce.sum`         | R2      | $"xD" = sum_j "vS"[j]$                                                        | 将 f32 Vec32 的有效 lane 求和到 Scalar.         |
-  | `vreduce.max`         | R2      | $"xD" = max_j "vS"[j]$                                                        | 将 f32 Vec32 的有效 lane 取最大到 Scalar.       |
-  | `vreduce.min`         | R2      | $"xD" = min_j "vS"[j]$                                                        | 将 f32 Vec32 的有效 lane 取最小到 Scalar.       |
-  | `vreduce.sumsq`       | R2      | $"xD" = sum_j "vS"[j]^2$                                                      | 将 f32 Vec32 的有效 lane 平方和到 Scalar.       |
-  | `vreduce.argmax`      | R4      | $"xIndex" = op("argmax")_j "vS"[j]$ #linebreak() $"xValue" = "vS"["xIndex"]$  | 输出最大值的逻辑索引与浮点位模式到两个 Scalar.  |
+  | Instruction            | Format  | Function                                                                      | Summary                                         |
+  | :--------------------: | :-----: | ----------------------------------------------------------------------------- | ----------------------------------------------- |
+  | `areduce.rows.sum`     | R2      | $"vD"[i] = sum_j "aS"[i,j]$                                                   | 将 Acc 按行求和到 Vec32.                        |
+  | `areduce.rows.max`     | R2      | $"vD"[i] = max_j "aS"[i,j]$                                                   | 将 Acc 按行取最大到 Vec32.                      |
+  | `areduce.rows.min`     | R2      | $"vD"[i] = min_j "aS"[i,j]$                                                   | 将 Acc 按行取最小到 Vec32.                      |
+  | `areduce.rows.sumsq`   | R2      | $"vD"[i] = sum_j "aS"[i,j]^2$                                                 | 将 Acc 每行有效元素的平方和写入 Vec32.          |
+  | `areduce.rows.absmax`  | R2      | $"vD"[i] = max_j abs("aS"[i,j])$                                              | 将 Acc 每行有效元素的绝对值最大写入 Vec32.      |
+  | `areduce.rows.argmax`  | R2      | $"vD"[i] = op("argmax")_j "aS"[i,j]$                                          | 将 Acc 每行最大值的局部列号写入 Vec32.          |
+  | `vreduce.sum`          | R2      | $"xD" = sum_j "vS"[j]$                                                        | 将 f32 Vec32 的有效 lane 求和到 Scalar.         |
+  | `vreduce.max`          | R2      | $"xD" = max_j "vS"[j]$                                                        | 将 f32 Vec32 的有效 lane 取最大到 Scalar.       |
+  | `vreduce.min`          | R2      | $"xD" = min_j "vS"[j]$                                                        | 将 f32 Vec32 的有效 lane 取最小到 Scalar.       |
+  | `vreduce.sumsq`        | R2      | $"xD" = sum_j "vS"[j]^2$                                                      | 将 f32 Vec32 的有效 lane 平方和到 Scalar.       |
+  | `vreduce.argmax`       | R4      | $"xIndex" = op("argmax")_j "vS"[j]$ #linebreak() $"xValue" = "vS"["xIndex"]$  | 输出最大值的逻辑索引与浮点位模式到两个 Scalar.  |
 ]
 
 #instruction-listing(caption: [类型转换与扩大指令清单])[
