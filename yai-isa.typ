@@ -1603,6 +1603,33 @@ for 0 <= i < rows(D):
         D[i,j] ← f(S[i,j])
 ```
 
+近似函数规则如下. 数学定义为:
+
+$ "exp2_approx"(x) = 2^x $
+$ "rcp_approx"(x) = 1 / x $
+$ "rsqrt_approx"(x) = 1 / sqrt(x) $
+$ "silu_approx"(x) = x dot sigma(x) = x / (1 + e^(-x)) $
+
+- 精度: 数学结果为有限非零值时, 结果的相对误差不超过 $2^(-10)$; 不要求正确舍入, 也不要求与其他实现逐位一致.
+- 确定性: 同一实现上, 相同输入产生相同结果.
+- 非正规数: 实现可将非正规输入冲刷为零后求值, 或将非正规结果冲刷为零 (FTZ), 冲刷保留符号; 数学结果为零或落入非正规范围时结果可为 $plus.minus 0$, 相对误差界不适用.
+- 上溢: `exp2_approx` 结果上溢时返回 $+infinity$.
+- 特殊值: 按下表求值; 其他有限输入按数学定义求值.
+
+#manual-table(
+  columns: (0.9fr, 1fr, 1fr, 1fr, 1fr),
+  caption: [近似函数特殊值规则],
+)[
+  | 输入 `x`      | `exp2_approx`  | `rcp_approx`  | `rsqrt_approx`  | `silu_approx`  |
+  | :-----------: | :------------: | :-----------: | :-------------: | :------------: |
+  | NaN           | NaN            | NaN           | NaN             | NaN            |
+  | $+infinity$   | $+infinity$    | $+0$          | $+0$            | $+infinity$    |
+  | $-infinity$   | $+0$           | $-0$          | NaN             | NaN            |
+  | $+0$          | $1$            | $+infinity$   | $+infinity$     | $+0$           |
+  | $-0$          | $1$            | $-infinity$   | $-infinity$     | $-0$           |
+  | 有限 $x < 0$  | 按定义         | 按定义        | NaN             | 按定义         |
+]
+
 == 向量广播
 
 === 按行广播
