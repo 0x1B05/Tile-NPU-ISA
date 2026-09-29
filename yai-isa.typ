@@ -75,7 +75,7 @@ Operation 列使用的函数记号:
   | `unordered(A, B)`          | IEEE unordered 比较: 任一操作数为 NaN 时为真                                                                 |
   | `f32(A)`, `sign_ext(A)`    | 转换为 f32 / 符号扩展                                                                                        |
   | `extend(v, w)`             | 整数值扩展到位宽 `w`; 省略 `w` 时按目标字段位宽                                                              |
-  | `exp2_approx(A)` 等        | `exp2_approx`/`rcp_approx`/`rsqrt_approx`: f32 近似函数, 规则见 "近似特殊函数" 小节                          |
+  | `exp2_approx(A)` 等        | `exp2_approx`/`rcp_approx`/`rsqrt_approx`/`silu_approx`: f32 近似函数, 规则见 "近似特殊函数" 小节            |
   | `decode_scalar(xS, TYPE)`  | 将 Scalar 寄存器 `xS` 的值按 `TYPE` 解码为元素值                                                             |
   | `fold_add` 等              | 规约折叠函数 `fold_add`/`fold_max`/`fold_min`: 累加/取大/取小                                                |
 ]
@@ -1422,7 +1422,7 @@ D[p] ← op(A[p], value)
   | `i32/u32`       | `add`, `sub`, `mul`, `min`, `max`, bitwise, shift, `cmp`, `select`                    |
   | `i32`           | 另外支持 `abs`, `neg`                                                                 |
   | `f32`           | `add`, `sub`, `mul`, `div`, `min`, `max`, `abs`, `neg`, `fma`, `cmp`, `select`        |
-  | `f32` 近似函数  | `exp2.approx`, `rcp.approx`, `rsqrt.approx`                                           |
+  | `f32` 近似函数  | `exp2.approx`, `rcp.approx`, `rsqrt.approx`, `silu.approx`                            |
 ]
 
 以下分 8-bit 域 (Tile) 与 32-bit 域 (Acc/Vec32) 两表列出基础操作. 8-bit 域的元素类型为 `i8/u8`, 32-bit 域为 `i32/u32/f32`, 由目的寄存器配置决定; 标注 "仅 f32" 或 "仅整数" 的行为例外. 二元操作展开为寄存器和 Scalar (`x`) 两种来源; 8-bit 域加法和减法的溢出模式由配置 `arith_mode` 决定 (见 @integer-arithmetic). 一元操作仅列单源形式, 融合乘加, 特殊函数, 比较和 select 在各自小节列出.
@@ -1566,11 +1566,12 @@ $ D_i = op("round")_("f32")(A_i B_i + C_i) $
   columns: (1.2fr, 0.5fr, 2fr, 2fr),
   caption: [近似特殊函数指令],
 )[
-  | Instruction          | Format  | Operation                  | Notes                                        |
-  | :------------------: | :-----: | -------------------------- | -------------------------------------------- |
-  | `{a,v}exp2.approx`   | R2      | D[p] = exp2_approx(A[p])   | 源和目的为 f32 Acc/Vec32; 采用近似函数规则.  |
-  | `{a,v}rcp.approx`    | R2      | D[p] = rcp_approx(A[p])    | 源和目的为 f32 Acc/Vec32; 采用近似函数规则.  |
-  | `{a,v}rsqrt.approx`  | R2      | D[p] = rsqrt_approx(A[p])  | 源和目的为 f32 Acc/Vec32; 采用近似函数规则.  |
+  | Instruction          | Format  | Operation                  | Notes                                                                         |
+  | :------------------: | :-----: | -------------------------- | ----------------------------------------------------------------------------- |
+  | `{a,v}exp2.approx`   | R2      | D[p] = exp2_approx(A[p])   | 源和目的为 f32 Acc/Vec32; 采用近似函数规则.                                   |
+  | `{a,v}rcp.approx`    | R2      | D[p] = rcp_approx(A[p])    | 源和目的为 f32 Acc/Vec32; 采用近似函数规则.                                   |
+  | `{a,v}rsqrt.approx`  | R2      | D[p] = rsqrt_approx(A[p])  | 源和目的为 f32 Acc/Vec32; 采用近似函数规则.                                   |
+  | `{a,v}silu.approx`   | R2      | D[p] = silu_approx(A[p])   | SwiGLU gate 激活 $x dot op("sigmoid")(x)$; 源和目的为 f32; 采用近似函数规则.  |
 ]
 
 基础 f32 近似函数为:
@@ -1579,10 +1580,12 @@ $ D_i = op("round")_("f32")(A_i B_i + C_i) $
 aexp2.approx  aD, aS
 arcp.approx   aD, aS
 arsqrt.approx aD, aS
+asilu.approx  aD, aS
 
 vexp2.approx  vD, vS
 vrcp.approx   vD, vS
 vrsqrt.approx vD, vS
+vsilu.approx  vD, vS
 ```
 
 这些指令对有效区域逐元素执行. 向量形式为:
@@ -2634,14 +2637,16 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 ]
 
 #instruction-listing(caption: [近似特殊函数指令清单])[
-  | Instruction      | Format  | Function                         | Summary                  |
-  | :--------------: | :-----: | -------------------------------- | ------------------------ |
-  | `aexp2.approx`   | R2      | aD[i,j] = exp2_approx(aA[i,j])   | 逐元素计算 2 的幂.       |
-  | `arcp.approx`    | R2      | aD[i,j] = rcp_approx(aA[i,j])    | 逐元素计算倒数.          |
-  | `arsqrt.approx`  | R2      | aD[i,j] = rsqrt_approx(aA[i,j])  | 逐元素计算倒数平方根.    |
-  | `vexp2.approx`   | R2      | vD[j] = exp2_approx(vA[j])       | 逐 lane 计算 2 的幂.     |
-  | `vrcp.approx`    | R2      | vD[j] = rcp_approx(vA[j])        | 逐 lane 计算倒数.        |
-  | `vrsqrt.approx`  | R2      | vD[j] = rsqrt_approx(vA[j])      | 逐 lane 计算倒数平方根.  |
+  | Instruction      | Format  | Function                         | Summary                    |
+  | :--------------: | :-----: | -------------------------------- | -------------------------- |
+  | `aexp2.approx`   | R2      | aD[i,j] = exp2_approx(aA[i,j])   | 逐元素计算 2 的幂.         |
+  | `arcp.approx`    | R2      | aD[i,j] = rcp_approx(aA[i,j])    | 逐元素计算倒数.            |
+  | `arsqrt.approx`  | R2      | aD[i,j] = rsqrt_approx(aA[i,j])  | 逐元素计算倒数平方根.      |
+  | `asilu.approx`   | R2      | aD[i,j] = silu_approx(aA[i,j])   | 逐元素 SwiGLU gate 激活.   |
+  | `vexp2.approx`   | R2      | vD[j] = exp2_approx(vA[j])       | 逐 lane 计算 2 的幂.       |
+  | `vrcp.approx`    | R2      | vD[j] = rcp_approx(vA[j])        | 逐 lane 计算倒数.          |
+  | `vrsqrt.approx`  | R2      | vD[j] = rsqrt_approx(vA[j])      | 逐 lane 计算倒数平方根.    |
+  | `vsilu.approx`   | R2      | vD[j] = silu_approx(vA[j])       | 逐 lane SwiGLU gate 激活.  |
 ]
 
 
