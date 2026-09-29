@@ -147,6 +147,7 @@ Operation 列使用的函数记号:
 `BM`/`VM` 主要提供：
 - `base_addr`：一维内存 view 原点的字节地址, 即逻辑元素 0 的地址.
 - `stride_bytes`：相邻逻辑元素之间的字节步长, 该步长可以描述连续或带间隔的一维内存布局.
+- `flags`：位标志. 位 `[0]` 为 `inc`: 置位时访存完成后 `base_addr` 增加 `len` × `stride_bytes`, 其余位保留; 自增语义见 @memory.
 
 对一维 BM/VM, 内存元素地址定义为:
 
@@ -157,6 +158,7 @@ $ op("addr")(j) = "base_addr" + j dot "stride_bytes" $
 - `row_stride_bytes`：沿内存行方向移动一个元素行的字节步长；
 - `col_stride_bytes`：沿内存列方向移动一个元素列的字节步长；
 - `transform`：是否使用转置等访存变换。
+- `flags`：位标志. 位 `[1:0]` 为 `inc_mode`: `00` 不递增, `01` 访存完成后 `base_addr` 沿行方向递增, `10` 沿列方向递增, `11` 保留; 其余位保留. 递增量与自增语义见 @memory.
 
 对二维 TM/AM, 内存元素地址定义为:
 
@@ -626,6 +628,25 @@ for 0 <= j < len(CS):
 
 内存 view 的有效长度即绑定的 `BC.len` 或 `VC.len`, 访存恰好覆盖有效长度的元素.
 
+== 访存后地址自增
+
+描述符 `flags` 中的自增位 (`TM`/`AM` 的 `inc_mode`, `BM`/`VM` 的 `inc`) 置位时, 访存指令完成后按本次访问的跨度更新 `base_addr`, 对后续使用该描述符的指令生效. 递增量为:
+
+#manual-table(
+  columns: (1.2fr, 1fr, 2fr),
+  caption: [访存后 base_addr 递增量],
+)[
+  | 访问形式             | 自增模式     | 递增量                           |
+  | -------------------- | ------------ | -------------------------------- |
+  | 矩阵整块 load/store  | 沿行 (`01`)  | `rows(CD)` × `row_stride_bytes`  |
+  | 矩阵整块 load/store  | 沿列 (`10`)  | `cols(CD)` × `col_stride_bytes`  |
+  | 矩阵行 load/store    | 沿行 (`01`)  | `row_stride_bytes`               |
+  | 矩阵行 load/store    | 沿列 (`10`)  | `cols(CD)` × `col_stride_bytes`  |
+  | 向量 load/store      | `inc` = 1    | `len(CD)` × `stride_bytes`       |
+]
+
+gather 不触发递增. 自增将连续的 tile 流 (权重块扫描, KV 追加等) 表达为对同一描述符的连续访存, 无需在循环中重写 `base_addr`.
+
 == 存储数据类型
 
 内存中的元素类型由绑定配置寄存器的 `dtype` 决定; load/store 均为原样搬运, 访存路径不执行类型转换. 转置加载通过 `TM`/`AM` 的 `transform` 字段选择, 仍使用 `tload` (见 @transpose-load).
@@ -648,16 +669,18 @@ vload.gather v2, v1        # vm2 指向 table_scale
 
 == KV Cache 追加示例
 
-Decode 的 KV 追加可直接用 `bstore` 写 `i8` 行片段, 用 `vstore` 写 scale; bits 和 scale 分别使用 Vec8 和 Vec32 访存; 追加位置的地址由 Scalar 代码计算后写入绑定描述符的 `base_addr`:
+Decode 的 KV 追加可直接用 `bstore` 写 `i8` 行片段, 用 `vstore` 写 scale; bits 和 scale 分别使用 Vec8 和 Vec32 访存. 起始追加位置的地址由 Scalar 代码计算后写入绑定描述符的 `base_addr`, 并置位自增标志; 此后每次写入自动前进到下一追加位置:
 
 ```asm
 cfg.setx bm0, base_addr, xAppendBitsAddr
+cfg.seti bm0, flags, 1
 cfg.setx vm0, base_addr, xAppendScaleAddr
-bstore  b0
-vstore  v0
+cfg.seti vm0, flags, 1
+bstore  b0     # 写入 token t 的 bits, 完成后 bm0.base_addr += len × stride_bytes
+vstore  v0     # 写入 token t 的 scale, 同理
 ```
 
-这些指令分别写入:
+下一个 token 追加时重复同样的 `bstore`/`vstore` 即可, 无需重写描述符. 这些指令分别写入:
 
 ```text
 i8 KV bits
