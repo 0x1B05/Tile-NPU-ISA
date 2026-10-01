@@ -286,7 +286,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `IS`      | 索引来源选择: `0` 选择 `index5` 中的立即数, `1` 选择由 `index5` 指定的 Scalar 寄存器  |
   | `EW`      | 元素位宽选择: `0` 选择 8-bit 寄存器组合, `1` 选择 32-bit 寄存器组合                   |
   | `TA`      | Tile/Acc 选择: `0` 选择 Tile, `1` 选择 Acc; `E_BCAST` 中同时选择对应的 Vec8/Vec32 源  |
-  | `LS`      | load/store 选择: `0` 表示 load, `1` 表示 store                                        |
+  | `LS`      | load/store 选择: `0` 表示 load, `1` 表示 store; 在 `M_BLK` 中占 `funct3` 最低位       |
   | `DIR`     | 广播方向: `0` 表示按行, `1` 表示按列                                                  |
   | `MV`      | 矩阵/向量配置选择: `0` 选择矩阵配置, `1` 选择向量配置                                 |
   | `G`       | 操作组; 与 `op3` 共同组成 `funct4`, 选择逐元素操作                                    |
@@ -492,7 +492,7 @@ cfg.get xD, C, field
   | `{b,v}store`        | R2      | memory[addr(j)] = S[j]       | 按有效长度写整个向量.                                     |
 ]
 
-整块与向量访存使用 R2 格式; `sel3 = {dom2, 0}` 选择数据域, `funct3 = {form2, LS}` 区分整块访问, gather 与 row 形式, 其最低位 `LS` 选择 load (`0`) 或 store (`1`):
+整块与向量访存使用 R2 格式; `sel3 = {dom2, 0}` 选择数据域, `funct3 = {form2, LS}` 区分整块访问, gather 与 row 形式, 其最低位 `LS` 选择 load (`0`) 或 store (`1`); gather 只定义 load 形式, `funct3 = 011` 保留:
 
 #rivet-fmt-figure(m-blk-schema, caption: [整块与向量访存格式 (M_BLK)])
 
@@ -569,7 +569,7 @@ bload.gather   bD, vS
 vload.gather   vD, vS
 ```
 
-gather 的索引向量为 `vS` (Vec32), 其有效 lane 数由绑定的 `VC.len` 给出, 索引值按 `i32` 解释; 超出 `vS` 有效长度的目的元素填零, 索引越界 (`vS` 中的索引超出内存 view) 时的行为待定义.
+gather 的索引向量为 `vS` (Vec32), 其有效 lane 数由绑定的 `VC.len` 给出, 索引值按 `i32` 解释; 超出 `vS` 有效长度的目的元素填零; 索引的合法性由软件保证, 越界访存的行为待定义.
 
 `tload.gather` 使用 `tD` 绑定的 `TC` 配置与 `TM` 描述符, 访存地址定义为:
 
@@ -2501,14 +2501,14 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `tload`         | R2      | tD[i,j] = memory[addr(i,j)]   | 按绑定的 TM 读取内存到 Tile 有效区域.           |
   | `tstore`        | R2      | memory[addr(i,j)] = tS[i,j]   | 将 Tile 有效区域按绑定的 TM 写入内存.           |
   | `tload.row`     | MR      | tD[rd,j] = memory[addr(0,j)]  | 按绑定的 TM 读取内存到 Tile 指定行.             |
-  | `tstore.row`    | MR      | memory[addr(0,j)] = S[rs,j]   | 将 Tile 指定行按绑定的 TM 写入内存.             |
+  | `tstore.row`    | MR      | memory[addr(0,j)] = tS[rs,j]  | 将 Tile 指定行按绑定的 TM 写入内存.             |
   | `tload.gather`  | R2      | tD[i,j] = memory[gaddr(i,j)]  | 以 Vec32 各 lane 为索引 gather 加载到 Tile 行.  |
   | `bload.gather`  | R2      | bD[j] = memory[gaddr(j)]      | 以 Vec32 各 lane 为索引 gather 加载到 Vec8.     |
   | `vload.gather`  | R2      | vD[j] = memory[gaddr(j)]      | 以 Vec32 各 lane 为索引 gather 加载到 Vec32.    |
   | `aload`         | R2      | aD[i,j] = memory[addr(i,j)]   | 按绑定的 AM 读取内存到 Acc 有效区域.            |
   | `astore`        | R2      | memory[addr(i,j)] = aS[i,j]   | 将 Acc 有效区域按绑定的 AM 写入内存.            |
   | `aload.row`     | MR      | aD[rd,j] = memory[addr(0,j)]  | 按绑定的 AM 读取内存到 Acc 指定行.              |
-  | `astore.row`    | MR      | memory[addr(0,j)] = S[rs,j]   | 将 Acc 指定行按绑定的 AM 写入内存.              |
+  | `astore.row`    | MR      | memory[addr(0,j)] = aS[rs,j]  | 将 Acc 指定行按绑定的 AM 写入内存.              |
   | `bload`         | R2      | bD[j] = memory[addr(j)]       | 按绑定的 BM 读取内存到 Vec8 向量.               |
   | `bstore`        | R2      | memory[addr(j)] = bS[j]       | 将 Vec8 向量按绑定的 BM 写入内存.               |
   | `vload`         | R2      | vD[j] = memory[addr(j)]       | 按绑定的 VM 读取内存到 Vec32 向量.              |

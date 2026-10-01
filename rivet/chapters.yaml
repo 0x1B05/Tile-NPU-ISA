@@ -400,7 +400,7 @@ structures:
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0001": "AREDUCE", "0010": "VREDUCE"}}
       27-25: {name: reserved3, description: must be 0}
-      24-22: {name: funct3, description: reduce op, values: {"000": "sum", "001": "max", "010": "min", "011": "sumsq", "100": "argmax", "101": "absmax (AREDUCE)"}}
+      24-22: {name: funct3, description: reduce op, values: {"000": "sum", "001": "max", "010": "min", "011": "sumsq", "100": "argmax (AREDUCE)", "101": "absmax (AREDUCE)"}}
       21-12: {name: reserved10, description: must be 0}
       11-7: {name: S5, description: "src (Acc/Vec32)"}
       6-2: {name: D5, description: "dst (Vec32/Scalar)"}
