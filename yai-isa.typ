@@ -742,6 +742,10 @@ KV scale
 
 `fill` 将立即数填入目标有效区域; `fillx` 用 Scalar 值填充. 目标数据域由指令前缀确定.
 
+立即数 `imm16` 先符号扩展到 64 bit, 然后与 `fillx` 的填充值一样按目的 `dtype` 截取元素位宽写入: `i8/u8` 取低 8 bit, `i32/u32/f32` 取低 32 bit 位模式.
+
+译码时 INIT_MOVE 的 R2 形式优先于 `fill` 的 I 形式: `imm16` 落在 `[0x8000, 0x801F]` 的编码被解释为 `fillx D, xS` (`imm16` 低 5 位即 `xS` 编号), 该立即数范围对 `fill` 保留.
+
 对于矩阵目标, 令$R & = op("rows")(D), C & = op("cols")(D)$, `fill`执行:
 
 ```text
@@ -910,6 +914,8 @@ $
    op("dtype")("tD") & = op("dtype")("tS") \
   op("layout")("tD") & = "canonical"
 $
+
+即 `ttranspose` 将目的绑定配置更新为 `tc[tD].rows ← C`, `tc[tD].cols ← R`; 源和目的的 `dtype` 必须相同, 二者的 `layout` 均须为 `canonical`, 否则为非法配置. 转置后的有效区域之外的物理位置保持原值.
 
 允许原地转置, 即:
 
