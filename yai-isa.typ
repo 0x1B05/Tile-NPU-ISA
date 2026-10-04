@@ -2440,7 +2440,23 @@ tdequant.rows.f32       aD, tS, vScale
 bdequant.f32            vD, bS, vScale[lane]
 ```
 
-矩阵行量化每行产生一个 scale; 向量量化产生一个 scale. bits 和 scale 是两个显式目的/源, 依赖与生命周期必须一起跟踪. `tquant.rows.scale.q8s32` 不重新计算 scale: 每行的 scale 由显式 Vec32 源 `vScale` 提供 (记作 `quant_q8s32(x, s)`), 适用于 scale 已由前序计算 (如运行最大值, 外部校准) 给出的场景, 此时只有 Tile bits 一个目的. 内部动态量化使用具名格式 q8s32, 外部权重保留原始 bits/scale; 舍入与特殊值规则待定义.
+矩阵行量化每行产生一个 scale; 向量量化产生一个 scale. bits 和 scale 是两个显式目的/源, 依赖与生命周期必须一起跟踪. `tquant.rows.scale.q8s32` 不重新计算 scale: 每行的 scale 由显式 Vec32 源 `vScale` 提供 (记作 `quant_q8s32(x, s)`), 适用于 scale 已由前序计算 (如运行最大值, 外部校准) 给出的场景, 此时只有 Tile bits 一个目的. 内部动态量化使用具名格式 q8s32, 外部权重保留原始 bits/scale.
+
+约束:
+
+1. 矩阵形式 (`tquant`/`tdequant`): Acc 与 Tile 有效 shape 相同, Tile 操作数 dtype 为 `i8`, Acc 操作数 dtype 为 `f32`; `vScale` dtype 为 `f32` 且 `len` 等于行数; `IS` 与 `index5` 为保留位, 必须为 0.
+2. 向量形式 (`vquant`/`bdequant`): 两个数据向量 `len` 相同, Vec8 操作数 dtype 为 `i8`, Vec32 数据操作数 dtype 为 `f32`; `vScale` dtype 为 `f32`, scale lane 号 (`IS` = 0 时为 `index5` 立即数, `IS` = 1 时为由 `index5` 指定的 Scalar 寄存器的值) 必须在 `vScale` 的有效范围内.
+
+`quant_q8s32(x)` 的动态量化定义如下 (`x` 为一行或一个向量的有效元素, 共 $N$ 个):
+
+```text
+amax   ← max_j |x_j|               # 与 areduce.rows.absmax 相同的 fold 规则
+scale  ← amax / 127                # f32 除法
+bits_j ← sat_rne(x_j / scale)      # RNE 舍入到整数, 饱和到 [-127, 127];
+                                   # x_j / scale 为 NaN 时 bits_j ← 0
+```
+
+外部 scale 形式 `quant_q8s32(x, s)` 以给定的 `s` 替换上式中的 `scale`, 不重新计算. `vquant` 的单一 scale 写入 `vScale[index]` 一个 lane; 反量化逐元素计算 `f32(bits_j) × scale` (f32 乘法).
 
 Q8 MMA 是以下基础指令的复合操作, 不隐藏临时 Acc:
 
