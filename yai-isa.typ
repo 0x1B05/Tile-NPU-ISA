@@ -2049,11 +2049,11 @@ vdiv       vOut, v2, vSum
   | `areduce.rows.sumsq`   | R2      | $"vD"[i] = sum_j "aS"[i,j]^2$                                                 | 源与目的为 f32; RMSNorm 示例中的行规约.         |
   | `areduce.rows.absmax`  | R2      | $"vD"[i] = max_j abs("aS"[i,j])$                                              | 源与目的为 f32; 量化 scale 的行规约.            |
   | `areduce.rows.argmax`  | R2      | $"vD"[i] = op("argmax")_j "aS"[i,j]$                                          | 源为 f32, 目的为 i32 局部列号; 并列取较小索引.  |
-  | `vreduce.sum`          | R2      | $"xD" = sum_j "vS"[j]$                                                        | 按对应 fold 规则规约; 空结果使用规定单位元.     |
-  | `vreduce.max`          | R2      | $"xD" = max_j "vS"[j]$                                                        | 按对应 fold 规则规约; 空结果使用规定单位元.     |
-  | `vreduce.min`          | R2      | $"xD" = min_j "vS"[j]$                                                        | 按对应 fold 规则规约; 空结果使用规定单位元.     |
-  | `vreduce.sumsq`        | R2      | $"xD" = sum_j "vS"[j]^2$                                                      | 按对应 fold 规则规约; 空结果使用规定单位元.     |
-  | `vreduce.argmax`       | R4      | $"xIndex" = op("argmax")_j "vS"[j]$ #linebreak() $"xValue" = "vS"["xIndex"]$  | 并列取较小索引; NaN 选择规则及空结果见正文.     |
+  | `vreduce.sum`          | R2      | $"xD" = sum_j "vS"[j]$                                                        | 按对应 fold 规则规约.     |
+  | `vreduce.max`          | R2      | $"xD" = max_j "vS"[j]$                                                        | 按对应 fold 规则规约.     |
+  | `vreduce.min`          | R2      | $"xD" = min_j "vS"[j]$                                                        | 按对应 fold 规则规约.     |
+  | `vreduce.sumsq`        | R2      | $"xD" = sum_j "vS"[j]^2$                                                      | 按对应 fold 规则规约.     |
+  | `vreduce.argmax`       | R4      | $"xIndex" = op("argmax")_j "vS"[j]$ #linebreak() $"xValue" = "vS"["xIndex"]$  | 并列取较小索引; NaN 选择规则见正文.     |
 ]
 
 普通单目的规约使用 R2 格式:
@@ -2151,25 +2151,22 @@ for 0 <= i < R:
     vD[i] ← value
 ```
 
-`areduce.rows.argmax` 每行取最大值, 目的 `vD` 的 dtype 为 `i32`, 值为该行最大值的有效局部列号; 并列取较小索引, NaN 选择规则与空结果与 `vreduce.argmax` 一致:
+`areduce.rows.argmax` 每行取最大值, 目的 `vD` 的 dtype 为 `i32`, 值为该行最大值的有效局部列号; 并列取较小索引, NaN 选择规则与 `vreduce.argmax` 一致:
 
 ```text
 for 0 <= i < R:
-    if C = 0:
-        vD[i] ← -1
-    else:
-        best_index ← 0
-        best_value ← aS[i,0]
-        for 1 <= j < C:
-            candidate ← aS[i,j]
-            if candidate is NaN:
-                if best_value is not NaN:
-                    best_index ← j
-                    best_value ← candidate
-            else if best_value is not NaN and candidate > best_value:
+    best_index ← 0
+    best_value ← aS[i,0]
+    for 1 <= j < C:
+        candidate ← aS[i,j]
+        if candidate is NaN:
+            if best_value is not NaN:
                 best_index ← j
                 best_value ← candidate
-        vD[i] ← best_index
+        else if best_value is not NaN and candidate > best_value:
+            best_index ← j
+            best_value ← candidate
+    vD[i] ← best_index
 ```
 
 == 向量到 Scalar 的规约
@@ -2187,7 +2184,7 @@ vreduce.sumsq xD, vS
 
 设$N = op("len")("vS")$
 
-源 `vS` 必须$op("dtype")("vS") = "f32"$
+源 `vS` 必须$op("dtype")("vS") = "f32"$. 结果的 f32 位模式写入 `xD` 的低 32 bit, 高 32 bit 清零.
 
 sum:
 
@@ -2240,38 +2237,34 @@ xValue: 最大值的 f32 位模式, 写入低 32 bit, 高 32 bit 清零
 操作:
 
 ```text
-if len(vS) = 0:
-    xIndex ← -1
-    xValue ← -inf
-else:
-    best_index ← 0
-    best_value ← vS[0]
-    for 1 <= j < len(vS):
-        candidate ← vS[j]
-        if candidate is NaN:
-            if best_value is not NaN:
-                best_index ← j
-                best_value ← candidate
-        else if best_value is not NaN and candidate > best_value:
+best_index ← 0
+best_value ← vS[0]
+for 1 <= j < len(vS):
+    candidate ← vS[j]
+    if candidate is NaN:
+        if best_value is not NaN:
             best_index ← j
             best_value ← candidate
-    xIndex ← best_index
-    xValue ← best_value
+    else if best_value is not NaN and candidate > best_value:
+        best_index ← j
+        best_value ← candidate
+xIndex ← best_index
+xValue ← best_value
 ```
 
 如果算子需要忽略显式 mask 的位置, 不能只依赖 `-inf` 填充. 因为真实输入也可能是 `-inf`, 而且填充位置仍属于当前有效 Vector shape.
 
 正确做法是缩短 `vS.len`; 或保留显式候选有效性; 或使用带有效性输入的专用 argmax 展开.
 
-== 空规约和单位元
+== 规约单位元
 
-空规约的结果由规约类型决定.
+各规约的 fold 以下列单位元初始化.
 
 #manual-table(
   columns: (1.1fr, 3.5fr),
-  caption: [空规约结果与单位元],
+  caption: [规约单位元],
 )[
-  | 规约        | 空结果                                 |
+  | 规约        | 单位元                                 |
   | ----------- | -------------------------------------- |
   | f32 sum     | $+0.0$                                 |
   | f32 sumsq   | $+0.0$                                 |
@@ -2281,7 +2274,7 @@ else:
   | f32 argmax  | $"index" = -1$, $"value" = -infinity$  |
 ]
 
-空规约可能由以下情况产生: 源的 $"rows" = 0$, $"cols" = 0$ 或 $"len" = 0$, 即有效区域不含任何元素.
+按照配置约束, `rows`/`cols`/`len` 的合法取值从 1 开始, 有效区域为空的源属于非法配置, 不会产生空规约; 单位元作为 fold 的初始值出现在伪代码中.
 
 == 类型转换指令
 
