@@ -744,6 +744,8 @@ KV scale
 
 立即数 `imm16` 先符号扩展到 64 bit, 然后与 `fillx` 的填充值一样按目的 `dtype` 截取元素位宽写入: `i8/u8` 取低 8 bit, `i32/u32/f32` 取低 32 bit 位模式.
 
+译码时 INIT_MOVE 的 R2 形式优先于 `fill` 的 I 形式: `imm16` 落在 `[0x8000, 0x801F]` 的编码被解释为 `fillx D, xS` (`imm16` 低 5 位即 `xS` 编号), 该立即数范围对 `fill` 保留.
+
 对于矩阵目标, 令$R & = op("rows")(D), C & = op("cols")(D)$, `fill`执行:
 
 ```text
