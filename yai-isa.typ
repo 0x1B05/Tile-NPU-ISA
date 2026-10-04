@@ -1640,6 +1640,8 @@ $ "silu_approx"(x) = x dot sigma(x) = x / (1 + e^(-x)) $
 
 == 向量广播
 
+矩阵目的 D 与矩阵源 A 遵循逐元素公共约束 (同域, 同 dtype, 同有效 shape); 向量源 S 的 dtype 与矩阵相同, 按行广播时 `len(S)` 等于 `rows(D)`, 按列广播时等于 `cols(D)`.
+
 === 按行广播
 
 Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 i 个元素广播到矩阵第 i 行.
