@@ -2300,6 +2300,8 @@ else:
 
 #rivet-fmt-figure(cvt-schema, caption: [类型转换与扩大格式 (CVT)])
 
+源与目的的寄存器配置必须合法且有效 shape 相同; `acvt`/`vcvt` 要求源与目的 dtype 均为 `i32`, 成功接收后目的 dtype 更新为 `f32`; `twiden` 要求源 Tile dtype 为 `i8`, 目的 Acc dtype 为 `i32`.
+
 本节的转换助记符采用源类型在前, 目的类型在后:
 
 ```text
