@@ -101,7 +101,7 @@ Operation 列使用的函数记号:
 
 以上构成五个不同的*数据域*. 标量域的指令集为 RV64IM (见 @scalar-sync); 其余数据域的指令由本手册定义.
 
-矩阵寄存器的物理尺寸为 32 行 $times$ 32 列, 向量寄存器为 32 lane; 配置寄存器中的 `rows`, `cols`, `len` 均不得超过对应的物理尺寸.
+矩阵寄存器的物理尺寸为 32 行 $times$ 32 列, 向量寄存器为 32 lane; 配置寄存器中的 `rows`, `cols`, `len` 的合法取值为 1 至对应的物理尺寸. `cfg.seti`/`cfg.setx` 写入范围外的值时校验失败 (产生 `CFG_ERROR`); 指令执行时绑定配置不满足该约束为非法配置.
 
 === 配置寄存器
 
@@ -544,7 +544,7 @@ aload.row   aD[rd]
 astore.row  aS[rs]
 ```
 
-`rd` 和 `rs` 是寄存器文件中的行号, 可以是立即数或 Scalar 寄存器提供的完整值. 目标内存行的坐标在建立描述符时已折算进 `base_addr`, 即行访存访问描述符 `base_addr` 处的一行.
+`rd` 和 `rs` 是寄存器文件中的行号, 可以是立即数或 Scalar 寄存器提供的完整值. 行号必须小于绑定配置的有效行数 (`rows(CD)` / `rows(CS)`), 否则为非法配置. 目标内存行的坐标在建立描述符时已折算进 `base_addr`, 即行访存访问描述符 `base_addr` 处的一行.
 
 对于 row load:
 
@@ -945,6 +945,8 @@ transpose-on-load:
 显式 ttranspose:
     先产生普通 Tile, 再调用 Tile 转置指令.
 ```
+
+转置访存变换只对 full `tload` 定义; 其余访存指令 (store, 行形式, `aload`/`astore` 与向量访存) 执行时绑定描述符的 `transform` 必须为 `normal`, 否则为非法配置.
 
 == KV Cache 中的行搬运
 
