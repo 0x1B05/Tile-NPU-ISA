@@ -76,7 +76,8 @@ Operation 列使用的函数记号:
   | $max_j abs(...)$           | 对下标 $j$ 取绝对值最大                                        |
   | $op("argmax")_j$           | 对下标 $j$ 取最大值索引                                        |
   | `unordered(A, B)`          | IEEE unordered 比较: 任一操作数为 NaN 时为真                   |
-  | `f32(A)`, `sign_ext(A)`    | 转换为 f32 / 符号扩展                                          |
+  | `f32(A)`                   | 转换为 f32                                                     |
+  | `sign_ext(A)`              | 符号扩展                                                       |
   | `extend(v, w)`             | 整数值扩展到位宽 `w`; 省略 `w` 时按目标字段位宽                |
   | `exp2_approx(A)`           | f32 近似 $2^x$; 规则见 "近似特殊函数" 小节                     |
   | `rcp_approx(A)`            | f32 近似 $1 / x$; 同上                                         |
@@ -96,18 +97,22 @@ Operation 列使用的函数记号:
   columns: (1fr, 1fr, 1.3fr, 2fr, 2fr),
   caption: [数据寄存器与数据域],
 )[
-  | 寄存器类型  | 汇编名称   | 单寄存器容量                                       | 基础数据解释                           | 主要用途                                |
-  | :---------: | :--------: | -------------------------------------------------- | -------------------------------------- | --------------------------------------- |
-  | Tile        | `t0..t15`  | $32 times 32 times 8$ bit #linebreak() $= 1$ KiB   | `i8`, `u8`                             | 矩阵输入, 低精度中间结果                |
-  | Acc         | `a0..a11`  | $32 times 32 times 32$ bit #linebreak() $= 4$ KiB  | `i32`, `u32`, `f32`                    | 矩阵宽累加结果, Attention score/output  |
-  | Vec8        | `b0..b31`  | $32 times 8$ bit #linebreak() $= 32$ B             | `i8`, `u8`                             | 低精度向量, decode 阶段单 batch query   |
-  | Vec32       | `v0..v31`  | $32 times 32$ bit #linebreak() $= 128$ B           | `i32`, `u32`, `f32`                    | 行状态, 规约结果, 向量计算输入输出      |
-  | Scalar      | `x0..x31`  | $64$ bit $= 8$ B                                   | 地址, 整数, 低 32 bit 的 `f32` 位模式  | 地址, 循环, 索引和控制值                |
+  | 寄存器类型  | 汇编名称   | 单寄存器容量                                       | 基础数据解释                         | 主要用途                                |
+  | :---------: | :--------: | -------------------------------------------------- | ------------------------------------ | --------------------------------------- |
+  | Tile        | `t0..t15`  | $32 times 32 times 8$ bit #linebreak() $= 1$ KiB   | `i8`, `u8`                           | 矩阵输入, 低精度中间结果                |
+  | Acc         | `a0..a11`  | $32 times 32 times 32$ bit #linebreak() $= 4$ KiB  | `i32`, `u32`, `f32`                  | 矩阵宽累加结果, Attention score/output  |
+  | Vec8        | `b0..b31`  | $32 times 8$ bit #linebreak() $= 32$ B             | `i8`, `u8`                           | 低精度向量, decode 阶段单 batch query   |
+  | Vec32       | `v0..v31`  | $32 times 32$ bit #linebreak() $= 128$ B           | `i32`, `u32`, `f32`                  | 行状态, 规约结果, 向量计算输入输出      |
+  | Scalar      | `x0..x31`  | $64$ bit $= 8$ B                                   | `i64`, `u64`; f32 位模式取低 32 bit  | 地址, 循环, 索引和控制值                |
 ]
 
 以上构成五个不同的*数据域*. 标量域的指令集为 RV64IM (见 @scalar-sync); 其余数据域的指令由本手册定义.
 
-矩阵寄存器的物理尺寸为 32 行 $times$ 32 列, 向量寄存器为 32 lane; 配置寄存器中的 `rows`, `cols`, `len` 的合法取值为 1 至对应的物理尺寸. `cfg.seti`/`cfg.setx` 写入范围外的值时校验失败 (产生 `CFG_ERROR`); 指令执行时绑定配置不满足该约束为非法配置.
+矩阵寄存器的物理尺寸为 32 行 $times$ 32 列, 向量寄存器为 32 lane; 配置寄存器中的 `rows`, `cols`, `len` 的合法取值为 $[1, 32]$.
+
+#note[
+  配置寄存器复位后全 0 表示未配置。通过 `cfg.seti`/`cfg.setx` 写入 $0$ 时，校验失败并产生 `CFG_ERROR`；若指令使用了全 0 配置（即复位后未配置），则按非法配置处理。
+]
 
 === 配置寄存器
 
@@ -210,7 +215,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | 规约            | `a` → `v` #linebreak() `v` → Scalar                                            | 行规约, 向量规约, 平方和和 argmax                  | `areduce` #linebreak() `vreduce`                                                                                                                |
   | 类型转换与扩大  | `a/v` 内部 #linebreak() `t` → `a`                                              | 数值类型转换和 `i8` → `i32` 扩大                   | `acvt`, `vcvt` #linebreak() `twiden`                                                                                                            |
   | 量化与反量化    | `a` ↔ `t` #linebreak() `v` ↔ `b`                                               | 低精度存储与 `f32` 计算之间的显式转换              | `tquant`, `tdequant` #linebreak() `vquant`, `bdequant`                                                                                          |
-  | 同步与结束      | 后端 → 完成边界 #linebreak() kernel → 完成                                     | 访存, SA, 全后端完成以及 kernel 生命周期           | `fence.mem`, `fence.sa`, `fence.all` #linebreak() `kernel.end`                                                                                  |
+  | 同步与结束      | 后端 → 完成边界 #linebreak() kernel → 完成                                     | 访存, 脉动阵列, 全后端完成以及 kernel 生命周期     | `fence.mem`, `fence.sa`, `fence.all` #linebreak() `kernel.end`                                                                                  |
 ]
 
 == 指令空间组织 <instruction-space>
@@ -347,12 +352,12 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 标量指令集采用 RV64IM: 标量算术, 逻辑, 比较, 分支, 跳转和标量访存均按 RISC-V 规范执行, 不在本手册定义. 本章只定义 NPU 特有的同步指令.
 
 #instruction-table(caption: [同步指令])[
-  | Instruction   | Format  | Operation                          | Notes                        |
-  | :-----------: | :-----: | ---------------------------------- | ---------------------------- |
-  | `fence.mem`   | Z       | 等待此前访存完成并达到约定可见点.  | 后续访存不得越过此边界.      |
-  | `fence.sa`    | Z       | 等待此前 SA 操作完成.              | 后续 SA 操作不得越过此边界.  |
-  | `fence.all`   | Z       | 等待此前全部后端工作完成.          | 后续后端操作不得越过此边界.  |
-  | `kernel.end`  | Z       | 报告 kernel 完成.                  | 隐含 `fence.all`.            |
+  | Instruction   | Format  | Operation                          | Notes                            |
+  | :-----------: | :-----: | ---------------------------------- | -------------------------------- |
+  | `fence.mem`   | Z       | 等待此前访存完成并达到约定可见点.  | 后续访存不得越过此边界.          |
+  | `fence.sa`    | Z       | 等待此前脉动阵列操作完成.          | 后续脉动阵列操作不得越过此边界.  |
+  | `fence.all`   | Z       | 等待此前全部后端工作完成.          | 后续后端操作不得越过此边界.      |
+  | `kernel.end`  | Z       | 报告 kernel 完成.                  | 隐含 `fence.all`.                |
 ]
 
 同步与 kernel 结束指令使用 Z 格式, 无显式操作数:
@@ -492,7 +497,7 @@ cfg.get xD, C, field
   | `{t,a}store`        | R2      | memory[addr(i,j)] = S[i,j]   | 将源的整个有效区域写入内存.                               |
   | `{t,a}load.row`     | MR      | D[rd,j] = memory[addr(0,j)]  | 仅处理目的行 `rd`, 其余行保持.                            |
   | `{t,a}store.row`    | MR      | memory[addr(0,j)] = S[rs,j]  | 仅写源行 `rs`.                                            |
-  | `tload.gather`      | R2      | D[i,j] = memory[gaddr(i,j)]  | 以 Vec32 各 lane 为索引, 按列跨步 gather 加载到 Tile 行.  |
+  | `tload.gather`      | R2      | D[i,j] = memory[gaddr(i,j)]  | 以 Vec32 各 lane 为索引, 按行跨步 gather 加载到 Tile 行.  |
   | `{b,v}load.gather`  | R2      | D[j] = memory[gaddr(j)]      | 以 Vec32 各 lane 为索引, 按步长 gather 加载向量.          |
   | `{b,v}load`         | R2      | D[j] = memory[addr(j)]       | 按有效长度加载整个向量.                                   |
   | `{b,v}store`        | R2      | memory[addr(j)] = S[j]       | 按有效长度写整个向量.                                     |
@@ -580,14 +585,10 @@ gather 的索引向量为 `vS` (Vec32), 其有效 lane 数由绑定的 `VC.len` 
 `tload.gather` 使用 `tD` 绑定的 `TC` 配置与 `TM` 描述符, 访存地址定义为:
 
 $
-  op("gaddr")(i,j) = "base_addr" + "vS"[i] dot "col_stride_bytes" + j dot "row_stride_bytes"
+  op("gaddr")(i,j) = "base_addr" + "vS"[i] dot "row_stride_bytes" + j dot "col_stride_bytes"
 $
 
-即目的第 `i` 行以 `vS[i]` 为元素索引, 按 `col_stride_bytes` 定位被索引的元素 (如 embedding 表中 token `vS[i]` 对应的数据), 再沿 `row_stride_bytes` 方向连续取一行元素填入:
-
-#note[
-  gather 中两个 stride 的角色与整块访存相反: 索引方向使用 `col_stride_bytes`, 行内方向使用 `row_stride_bytes`. 建立用于 gather 的描述符时应按此约定设置 stride.
-]
+目的第 `i` 行以 `vS[i]` 为内存行索引, 按 `row_stride_bytes` 定位该行 (如 embedding 表中 token `vS[i]` 对应的行), 再按 `col_stride_bytes` 逐列加载元素. 两个 stride 的含义与矩阵整块访存一致, 同一内存 view 可共用描述符:
 
 ```text
 for 0 <= i < rows(CD):
@@ -675,7 +676,7 @@ tload.gather t0, v1        # tm0 指向 embedding 表
 vload.gather v2, v1        # vm2 指向 table_scale
 ```
 
-`tm0` 的 `base_addr` 指向表原点, `col_stride_bytes` 为相邻 token 之间的字节跨步, `row_stride_bytes` 为 embedding 维方向的字节跨步; `vm2` 的 `stride_bytes` 为相邻 token scale 之间的字节跨步. token ID 的合法性 ($0 <= "id" < "vocab_size"$) 由软件保证, 索引越界行为见 gather 加载的定义.
+`tm0` 的 `base_addr` 指向表原点, `row_stride_bytes` 为相邻 token 之间的字节跨步, `col_stride_bytes` 为 embedding 维方向的字节跨步; `vm2` 的 `stride_bytes` 为相邻 token scale 之间的字节跨步. token ID 的合法性 ($0 <= "id" < "vocab_size"$) 由软件保证, 索引越界行为见 gather 加载的定义.
 
 == KV Cache 追加示例
 
@@ -2495,12 +2496,12 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 详细语义见 @scalar-sync.
 
 #instruction-listing(caption: [同步指令清单])[
-  | Instruction   | Format  | Function                           | Summary                      |
-  | :-----------: | :-----: | ---------------------------------- | ---------------------------- |
-  | `fence.mem`   | Z       | 等待此前访存完成并达到约定可见点.  | 后续访存不得越过此边界.      |
-  | `fence.sa`    | Z       | 等待此前 SA 操作完成.              | 后续 SA 操作不得越过此边界.  |
-  | `fence.all`   | Z       | 等待此前全部后端工作完成.          | 后续后端操作不得越过此边界.  |
-  | `kernel.end`  | Z       | 报告 kernel 完成.                  | 隐含 `fence.all`.            |
+  | Instruction   | Format  | Function                           | Summary                          |
+  | :-----------: | :-----: | ---------------------------------- | -------------------------------- |
+  | `fence.mem`   | Z       | 等待此前访存完成并达到约定可见点.  | 后续访存不得越过此边界.          |
+  | `fence.sa`    | Z       | 等待此前脉动阵列操作完成.          | 后续脉动阵列操作不得越过此边界.  |
+  | `fence.all`   | Z       | 等待此前全部后端工作完成.          | 后续后端操作不得越过此边界.      |
+  | `kernel.end`  | Z       | 报告 kernel 完成.                  | 隐含 `fence.all`.                |
 ]
 
 == 配置指令
