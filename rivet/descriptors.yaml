@@ -15,8 +15,8 @@ colors:
   vm:
     "63-0": "240,214,148"
     "95-64": "238,183,150"
-    "96": "163,200,177"
-    "127-97": "230,230,230"
+    "103-96": "163,200,177"
+    "127-104": "230,230,230"
   tm-0:
     "63-0": "240,214,148"
   tm-1:
@@ -24,24 +24,24 @@ colors:
     "127-96": "222,184,203"
   tm-2:
     "131-128": "192,200,210"
-    "133-132": "163,200,177"
-    "191-134": "230,230,230"
+    "139-132": "163,200,177"
+    "191-140": "230,230,230"
 
 structures:
   tc:
     bits: 32
     ranges:
       31-25: {name: reserved}
-      24-23: {name: am, description: arith mode, values: {"0": "wrap", "1": "sat", "10": "reserved", "11": "reserved"}}
-      22-20: {name: lo, description: layout, values: {"0": "canonical", "1-7": "reserved"}}
-      19-16: {name: dt, description: element type, values: {"0000": "i8", "0001": "u8", "0010": "i32", "0011": "u32", "0100": "f32", "5-15": "reserved"}}
+      24-23: {name: am, description: "arith mode (TC only; reserved in AC)", values: {"0": "wrap", "1": "sat", "10": "reserved", "11": "reserved"}}
+      22-20: {name: lo, description: layout, values: {"0": "row_major", "1-7": "reserved"}}
+      19-16: {name: dt, description: "element type (TC: i8/u8; AC: i32/u32/f32)", values: {"0000": "i8", "0001": "u8", "0010": "i32", "0011": "u32", "0100": "f32", "5-15": "reserved"}}
       15-8: {name: cols, description: valid cols}
       7-0: {name: rows, description: valid rows}
   bc:
     bits: 32
     ranges:
       31-12: {name: reserved}
-      11-8: {name: dt, description: element type, values: {"0000": "i8", "0001": "u8", "0010": "i32", "0011": "u32", "0100": "f32", "5-15": "reserved"}}
+      11-8: {name: dt, description: "element type (BC: i8/u8; VC: i32/u32/f32)", values: {"0000": "i8", "0001": "u8", "0010": "i32", "0011": "u32", "0100": "f32", "5-15": "reserved"}}
       7-0: {name: len, description: valid len}
   tm-0:
     bits: 64
@@ -57,13 +57,13 @@ structures:
     bits: 64
     start: 128
     ranges:
-      191-134: {name: reserved}
-      133-132: {name: im, description: "inc mode: post-access base_addr increment", values: {"00": "none", "01": "along rows (rows x row_stride)", "10": "along cols (cols x col_stride)", "11": "reserved"}}
+      191-140: {name: reserved}
+      139-132: {name: flags, description: "[1:0] = inc_mode: post-access base_addr increment", values: {"0": "inc: none", "1": "inc: rows (rows x row_stride)", "2": "inc: cols (cols x col_stride)", "3-255": "reserved"}}
       131-128: {name: tf, description: transform, values: {"0": "normal", "1": "transpose", "2-15": "reserved"}}
   vm:
     bits: 128
     ranges:
-      127-97: {name: reserved}
-      96: {name: inc, description: "post-access base_addr increment (len x stride)", values: {"0": "none", "1": "increment"}}
+      127-104: {name: reserved}
+      103-96: {name: flags, description: "[0] = inc: post-access base_addr increment (len x stride)", values: {"0": "inc: none", "1": "inc: on", "2-255": "reserved"}}
       95-64: {name: stride_bytes, description: "signed, in bytes"}
       63-0: {name: base_addr, description: "byte address of view origin"}

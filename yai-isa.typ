@@ -27,9 +27,9 @@
 
 记法约定:
 + 指令助记符, 寄存器名与字段名使用等宽字体 (如 `vadd`, `a0`, `rows`)
-+ `i8`, `u8`, `i32`, `u32`, `f32` 表示元素数据类型; 整数元素用作 mask 时取全 0 (假) 或全 1 (真)
++ `i8`, `u8`, `i32`, `u32`, `f32` 表示元素数据类型
 + 花括号表示该位置可取的一组文本, 并展开为所有对应的助记符. 例如 `{t,a}insert.row` 表示 `tinsert.row` 和 `ainsert.row`; `{t,a}{load,store}` 表示 `tload`, `tstore`, `aload` 和 `astore`.
-+ 指令表 Operation 列以显式元素索引给出赋值形式; 未约束的下标对目的有效区域全称量化 (如 `D[i,j] = A[i,j] + B[i,j]` 表示逐元素执行). `D`, `A`, `B`, `S` 是与数据域无关的操作数角色, 具体寄存器域由展开后的指令和对应指令定义确定. 例如 `{t,a}insert.row` 的 `D[rd,j] = S[j]` 分别表示 `tD[rd,j] = bS[j]` 和 `aD[rd,j] = vS[j]`.
++ 指令表的 Operation 列用赋值式描述每条指令的效果. 式子里的下标默认取遍目的寄存器的整个有效区域, 如 `D[i,j] = A[i,j] + B[i,j]` 表示对所有 `i`, `j` 逐元素相加. `D` 为目的操作数, `A`, `B`, `S` 为源操作数. 例如 `{t,a}insert.row` 的一条式子 `D[rd,j] = S[j]` 实际对应两条指令: `tD[rd,j] = bS[j]` 和 `aD[rd,j] = vS[j]`.
 
 指令表与伪代码中的通用操作数记号:
 
@@ -37,21 +37,21 @@
   columns: (1.2fr, 5fr),
   caption: [通用操作数记号],
 )[
-  | 记号              | 含义                                                          |
-  | ----------------- | ------------------------------------------------------------- |
-  | `D`               | 目的寄存器, 对应汇编操作数 `tD`, `aD`, `bD`, `vD`             |
-  | `A`, `B`          | 第一, 第二源寄存器, 对应 `tA`, `tB` 等                        |
-  | `S`               | 单源或广播向量源                                              |
-  | `M`               | mask 寄存器, 值为全 0 或全 1 的 `u8`/`u32` 元素               |
-  | `imm`             | 立即数                                                        |
-  | `xS`              | 来自 Scalar 寄存器的操作数                                    |
-  | `xBounds`         | 打包 Scalar 寄存器 (`[31:0]` = `nRows`, `[63:32]` = `nCols`)  |
-  | `xLen`, `xDelta`  | Scalar 长度 / 有符号偏移操作数                                |
-  | `[i,j]`           | 矩阵元素索引                                                  |
-  | `[j]`             | 向量 lane 索引                                                |
-  | `[p]`             | position, 元素坐标: 矩阵为 `[i,j]`, 向量为 `[j]`              |
-  | `[rd,j]`          | 行操作中目的的指定行; `ra`, `rb` 为两个源的指定行             |
-  | `sat`, `wrap`     | 饱和 / 回绕, 定义见 @integer-arithmetic                       |
+  | 记号                         | 含义                                                                                    |
+  | ---------------------------- | --------------------------------------------------------------------------------------- |
+  | `D`                          | 目的寄存器, 对应汇编操作数 `tD`, `aD`, `bD`, `vD`                                       |
+  | `A`, `B`                     | 第一, 第二源寄存器, 对应 `tA`, `tB`                                                     |
+  | `S`                          | 单源或广播向量源                                                                        |
+  | `M`                          | mask 操作数：以 mask 方式使用的数据寄存器                                               |
+  | `C`                          | 配置寄存器 (计算配置或访存描述符); `C[field]` 表示其字段                                |
+  | `imm`                        | 立即数                                                                                  |
+  | `xS`                         | Scalar 源操作数 (寄存器编号); 其值记为 `x[xS]`                                          |
+  | `x[r]`                       | Scalar 寄存器 `r` 的值                                                                  |
+  | `xBounds`, `xLen`, `xDelta`  | mask 边界操作数 (Scalar): 打包行列数 / 长度 / 有符号偏移, 见 @elementwise 的 mask 小节  |
+  | `[i,j]`                      | 矩阵元素索引                                                                            |
+  | `[j]`                        | 向量 lane 索引                                                                          |
+  | `[p]`                        | position, 元素坐标: 矩阵为 `[i,j]`, 向量为 `[j]`                                        |
+  | `[rd,j]`, `[rs,j]`           | 行操作选中的目的 / 源行号                                                               |
 ]
 
 Operation 列使用的函数记号:
@@ -60,24 +60,30 @@ Operation 列使用的函数记号:
   columns: (1.6fr, 5fr),
   caption: [Operation 函数记号],
 )[
-  | 记号                       | 含义                                                                                                         |
-  | -------------------------- | ------------------------------------------------------------------------------------------------------------ |
-  | `min(A, B)`, `max(A, B)`   | 逐元素取小/取大; 浮点按 IEEE 754 minNum/maxNum 语义, NaN 不传播                                              |
-  | `shl(A, B)`                | 逻辑左移; 移位量取 $B$ 的低 $log_2 w$ 位 ($w$ 为元素位宽)                                                    |
-  | `shr(A, B)`                | 逻辑右移 (零填充); 移位量同上                                                                                |
-  | `sra(A, B)`                | 算术右移 (符号填充); 移位量同上                                                                              |
-  | `abs(A)`                   | 逐元素绝对值                                                                                                 |
-  | `not A`                    | 逐元素按位取反                                                                                               |
-  | `and`, `or`, `xor`         | 逐元素按位与/或/异或                                                                                         |
-  | `quant_q8s32(...)` 等      | 量化与反量化函数, 定义见 @quantization                                                                       |
-  | `fma(A, B, C)`             | 融合乘加 $A × B + C$, 单次舍入; 仅 f32                                                                       |
-  | $sum_j$, $max_j$ 等        | 按下标归约: 求和/取大/取小/平方和 ($"sumsq"_j$)/绝对值最大 ($max_j abs(...)$)/最大值索引 ($op("argmax")_j$)  |
-  | `unordered(A, B)`          | IEEE unordered 比较: 任一操作数为 NaN 时为真                                                                 |
-  | `f32(A)`, `sign_ext(A)`    | 转换为 f32 / 符号扩展                                                                                        |
-  | `extend(v, w)`             | 整数值扩展到位宽 `w`; 省略 `w` 时按目标字段位宽                                                              |
-  | `exp2_approx(A)` 等        | `exp2_approx`/`rcp_approx`/`rsqrt_approx`/`silu_approx`: f32 近似函数, 规则见 "近似特殊函数" 小节            |
-  | `decode_scalar(xS, TYPE)`  | 将 Scalar 寄存器 `xS` 的值按 `TYPE` 解码为元素值                                                             |
-  | `fold_add` 等              | 规约折叠函数 `fold_add`/`fold_max`/`fold_min`: 累加/取大/取小                                                |
+  | 记号                       | 含义                                                           |
+  | -------------------------- | -------------------------------------------------------------- |
+  | `min(A, B)`, `max(A, B)`   | 逐元素取小/取大; 浮点按 IEEE 754 minNum/maxNum 语义            |
+  | `shl(A, B)`                | 逻辑左移; 移位量取 $B$ 的低 $log_2 w$ 位 ($w$ 为元素位宽)      |
+  | `shr(A, B)`                | 逻辑右移 (零填充); 移位量同上                                  |
+  | `sra(A, B)`                | 算术右移 (符号填充); 移位量同上                                |
+  | `abs(A)`                   | 逐元素绝对值                                                   |
+  | `not A`                    | 逐元素按位取反                                                 |
+  | `and`, `or`, `xor`         | 逐元素按位与/或/异或                                           |
+  | `quant_q8s32(...)` 等      | 量化与反量化函数, 定义见 @quantization                         |
+  | `fma(A, B, C)`             | 融合乘加 $A × B + C$, 单次舍入; 仅 f32                         |
+  | $sum_j$, $min_j$, $max_j$  | 对下标 $j$ 归约: 求和/取小/取大                                |
+  | $"sumsq"_j$                | 对下标 $j$ 求平方和                                            |
+  | $max_j abs(...)$           | 对下标 $j$ 取绝对值最大                                        |
+  | $op("argmax")_j$           | 对下标 $j$ 取最大值索引                                        |
+  | `unordered(A, B)`          | IEEE unordered 比较: 任一操作数为 NaN 时为真                   |
+  | `f32(A)`, `sign_ext(A)`    | 转换为 f32 / 符号扩展                                          |
+  | `extend(v, w)`             | 整数值扩展到位宽 `w`; 省略 `w` 时按目标字段位宽                |
+  | `exp2_approx(A)`           | f32 近似 $2^x$; 规则见 "近似特殊函数" 小节                     |
+  | `rcp_approx(A)`            | f32 近似 $1 / x$; 同上                                         |
+  | `rsqrt_approx(A)`          | f32 近似 $1 / sqrt(x)$; 同上                                   |
+  | `silu_approx(A)`           | f32 近似 $x dot sigma(x)$; 同上                                |
+  | `decode_scalar(xS)`        | 将 Scalar 寄存器 `xS` 的值截取元素位宽, 按目的 dtype 解释      |
+  | `fold_add` 等              | 规约折叠函数 `fold_add`/`fold_max`/`fold_min`: 累加/取大/取小  |
 ]
 
 = 指令集概览 <overview>
@@ -166,7 +172,7 @@ $
   op("addr")(i,j) = "base_addr" + i dot "row_stride_bytes" + j dot "col_stride_bytes"
 $
 
-其中 $i$, $j$ 为当前 Tile 或 Vector 内的局部坐标.
+其中 $i$, $j$ 为当前 Tile 或 Acc 内的局部坐标.
 
 计算配置寄存器 TC/AC 与 BC/VC 均为 32-bit; 矩阵访存描述符 TM/AM 为 192-bit (三个 64-bit word), 向量访存描述符 BM/VM 为 128-bit (两个 64-bit word). 位段分配如下.
 
@@ -369,7 +375,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `cfg.get`    | R4      | x[xD] = extend(C[field])  | 结果为字段的整数或枚举值.        |
 ]
 
-`cfg.seti` 使用 I 格式, `sel2` 选择配置寄存器类型, `field3` 直接编号字段:
+`cfg.seti` 使用 I 格式. `sel2` 选择配置寄存器对 (`00` = TC/BC, `01` = AC/VC, `10` = TM/BM, `11` = AM/VM), `major4` 选择矩阵侧 (`0101` = CFG_MAT_SETI) 或向量侧 (`0110` = CFG_VEC_SETI), `field3` 直接编号字段:
 
 #rivet-fmt-figure(cfg-seti-schema, caption: [cfg.seti 格式 (I)])
 
@@ -416,7 +422,7 @@ cfg.seti C, field, imm
 cfg.seti tc0, rows, 32
 ```
 
-对于`cfg.seti tc0, rows, 32`, 执行后的架构状态是`tc0.rows = 32`, 由于`tc0 <-> t0`, 它表示 `t0` 的有效行数为 32.
+对于`cfg.seti tc0, rows, 32`, 执行后的架构状态是`tc0.rows = 32`, 由于`tc0 ↔ t0`, 它表示 `t0` 的有效行数为 32.
 
 == `cfg.setx` — 写 Scalar 值到配置字段
 
@@ -579,6 +585,10 @@ $
 
 即目的第 `i` 行以 `vS[i]` 为元素索引, 按 `col_stride_bytes` 定位被索引的元素 (如 embedding 表中 token `vS[i]` 对应的数据), 再沿 `row_stride_bytes` 方向连续取一行元素填入:
 
+#note[
+  gather 中两个 stride 的角色与整块访存相反: 索引方向使用 `col_stride_bytes`, 行内方向使用 `row_stride_bytes`. 建立用于 gather 的描述符时应按此约定设置 stride.
+]
+
 ```text
 for 0 <= i < rows(CD):
     if i < len(vS):
@@ -636,16 +646,16 @@ for 0 <= j < len(CS):
   columns: (1.2fr, 1fr, 2fr),
   caption: [访存后 base_addr 递增量],
 )[
-  | 访问形式             | 自增模式     | 递增量                           |
-  | -------------------- | ------------ | -------------------------------- |
-  | 矩阵整块 load/store  | 沿行 (`01`)  | `rows(CD)` × `row_stride_bytes`  |
-  | 矩阵整块 load/store  | 沿列 (`10`)  | `cols(CD)` × `col_stride_bytes`  |
-  | 矩阵行 load/store    | 沿行 (`01`)  | `row_stride_bytes`               |
-  | 矩阵行 load/store    | 沿列 (`10`)  | `cols(CD)` × `col_stride_bytes`  |
-  | 向量 load/store      | `inc` = 1    | `len(CD)` × `stride_bytes`       |
+  | 访问形式             | 自增模式     | 递增量                              |
+  | -------------------- | ------------ | ----------------------------------- |
+  | 矩阵整块 load/store  | 沿行 (`01`)  | `rows(CD/CS)` × `row_stride_bytes`  |
+  | 矩阵整块 load/store  | 沿列 (`10`)  | `cols(CD/CS)` × `col_stride_bytes`  |
+  | 矩阵行 load/store    | 沿行 (`01`)  | `row_stride_bytes`                  |
+  | 矩阵行 load/store    | 沿列 (`10`)  | `cols(CD/CS)` × `col_stride_bytes`  |
+  | 向量 load/store      | `inc` = 1    | `len(CD/CS)` × `stride_bytes`       |
 ]
 
-gather 不触发递增. 自增将连续的 tile 流 (权重块扫描, KV 追加等) 表达为对同一描述符的连续访存, 无需在循环中重写 `base_addr`.
+gather 不触发递增. load 的递增量按目的 `CD` 的有效范围计算, store 按源 `CS` 计算. 自增将连续的 tile 流 (权重块扫描, KV 追加等) 表达为对同一描述符的连续访存, 无需在循环中重写 `base_addr`.
 
 == 存储数据类型
 
@@ -680,12 +690,7 @@ bstore  b0     # 写入 token t 的 bits, 完成后 bm0.base_addr += len × stri
 vstore  v0     # 写入 token t 的 scale, 同理
 ```
 
-下一个 token 追加时重复同样的 `bstore`/`vstore` 即可, 无需重写描述符. 这些指令分别写入:
-
-```text
-i8 KV bits
-KV scale
-```
+下一个 token 追加时重复同样的 `bstore`/`vstore` 即可, 无需重写描述符.
 
 = 初始化, 搬运与转置 <data-movement>
 
@@ -761,7 +766,7 @@ for 0 <= j < N:
     D[j] ← value
 ```
 
-`fillx` 操作: 从 Scalar 寄存器中读取填充值 `value ← x[xS]`, 然后按照 `TYPE` 写入目标有效区域.
+`fillx` 操作: 从 Scalar 寄存器中读取填充值 `value ← x[xS]`, 然后按目的 dtype 截取元素位宽, 写入目标有效区域.
 
 == Copy 指令
 
@@ -912,10 +917,10 @@ $
     op("rows")("tD") & = C \
     op("cols")("tD") & = R \
    op("dtype")("tD") & = op("dtype")("tS") \
-  op("layout")("tD") & = "canonical"
+  op("layout")("tD") & = "row_major"
 $
 
-即 `ttranspose` 将目的绑定配置更新为 `tc[tD].rows ← C`, `tc[tD].cols ← R`; 源和目的的 `dtype` 必须相同, 二者的 `layout` 均须为 `canonical`, 否则为非法配置. 转置后的有效区域之外的物理位置保持原值.
+即 `ttranspose` 将目的绑定配置更新为 `tc[tD].rows ← C`, `tc[tD].cols ← R`; 源和目的的 `dtype` 必须相同, 二者的 `layout` 均须为 `row_major`, 否则为非法配置. 转置后的有效区域之外的物理位置保持原值.
 
 允许原地转置, 即:
 
@@ -1386,7 +1391,7 @@ for 0 <= j < len(D):
 Scalar 形式的语义为:
 
 ```text
-value ← decode_scalar(xS, TYPE)
+value ← decode_scalar(xS)
 D[p] ← op(A[p], value)
 ```
 
@@ -1856,7 +1861,7 @@ for 0 <= j < len(D):
   | `{a,v}select`  | R4      | D[p] = M[p] ? A[p] : B[p]          | 两个数据源均被读取.  |
 ]
 
-select 按位选择, 与元素 dtype 无关: 根据 mask 在两个已经计算好的值之间选择 (t 数据使用 `u8` mask, a/v 数据使用 `u32` mask):
+select 按位选择, 与元素 dtype 无关: 根据 mask 在两个已经计算好的值之间选择 (t 数据使用 `u8` mask, a/v 数据使用 `u32` mask). mask 通常由 `cmp` 产生; Tile 域没有比较指令, 位置型 mask 可由 `tmask.*` 合成 (以零 Tile 为源, fill 取 $-1$ 即全一).
 
 ```asm
 tselect tD, tM, tA, tB
@@ -1877,7 +1882,7 @@ select 必须读取两个数据源: M 为 true 时选择 A; M 为 false 时选�
 
 == Mask 指令
 
-mask 使用寄存器配置中的 dtype; 它改写数据值, 保留区域之外写入显式 fill 值.
+mask 使用寄存器配置中的 dtype; 它在目的有效区域内改写数据值, 保留区域之外写入显式 fill 值; 有效区域之外的物理位置保持原值.
 
 mask 使用 R4 格式; `FS` 选择 fill 来源 (立即数 `fill5` 或 Scalar `xFill`), 边界 `xBound` 按操作解释为 `xBounds`, `xLen` 或 `xDelta`:
 
@@ -2009,7 +2014,7 @@ for 0 <= i < rows(D):
 === Attention score 的 causal mask
 
 ```asm
-amask.tril aScore, aScore, xDelta, neg_inf
+amask.tril aScore, aScore, xDelta, -inf
 ```
 
 其逻辑含义是:
@@ -2049,11 +2054,11 @@ vdiv       vOut, v2, vSum
   | `areduce.rows.sumsq`   | R2      | $"vD"[i] = sum_j "aS"[i,j]^2$                                                 | 源与目的为 f32; RMSNorm 示例中的行规约.         |
   | `areduce.rows.absmax`  | R2      | $"vD"[i] = max_j abs("aS"[i,j])$                                              | 源与目的为 f32; 量化 scale 的行规约.            |
   | `areduce.rows.argmax`  | R2      | $"vD"[i] = op("argmax")_j "aS"[i,j]$                                          | 源为 f32, 目的为 i32 局部列号; 并列取较小索引.  |
-  | `vreduce.sum`          | R2      | $"xD" = sum_j "vS"[j]$                                                        | 按对应 fold 规则规约.     |
-  | `vreduce.max`          | R2      | $"xD" = max_j "vS"[j]$                                                        | 按对应 fold 规则规约.     |
-  | `vreduce.min`          | R2      | $"xD" = min_j "vS"[j]$                                                        | 按对应 fold 规则规约.     |
-  | `vreduce.sumsq`        | R2      | $"xD" = sum_j "vS"[j]^2$                                                      | 按对应 fold 规则规约.     |
-  | `vreduce.argmax`       | R4      | $"xIndex" = op("argmax")_j "vS"[j]$ #linebreak() $"xValue" = "vS"["xIndex"]$  | 并列取较小索引; NaN 选择规则见正文.     |
+  | `vreduce.sum`          | R2      | $"xD" = sum_j "vS"[j]$                                                        | 按对应 fold 规则规约.                           |
+  | `vreduce.max`          | R2      | $"xD" = max_j "vS"[j]$                                                        | 按对应 fold 规则规约.                           |
+  | `vreduce.min`          | R2      | $"xD" = min_j "vS"[j]$                                                        | 按对应 fold 规则规约.                           |
+  | `vreduce.sumsq`        | R2      | $"xD" = sum_j "vS"[j]^2$                                                      | 按对应 fold 规则规约.                           |
+  | `vreduce.argmax`       | R4      | $"xIndex" = op("argmax")_j "vS"[j]$ #linebreak() $"xValue" = "vS"["xIndex"]$  | 并列取较小索引; NaN 选择规则见正文.             |
 ]
 
 普通单目的规约使用 R2 格式:
@@ -2264,14 +2269,13 @@ xValue ← best_value
   columns: (1.1fr, 3.5fr),
   caption: [规约单位元],
 )[
-  | 规约        | 单位元                                 |
-  | ----------- | -------------------------------------- |
-  | f32 sum     | $+0.0$                                 |
-  | f32 sumsq   | $+0.0$                                 |
-  | f32 max     | $-infinity$                            |
-  | f32 min     | $+infinity$                            |
-  | f32 absmax  | $+0.0$                                 |
-  | f32 argmax  | $"index" = -1$, $"value" = -infinity$  |
+  | 规约        | 单位元       |
+  | ----------- | ------------ |
+  | f32 sum     | $+0.0$       |
+  | f32 sumsq   | $+0.0$       |
+  | f32 max     | $-infinity$  |
+  | f32 min     | $+infinity$  |
+  | f32 absmax  | $+0.0$       |
 ]
 
 按照配置约束, `rows`/`cols`/`len` 的合法取值从 1 开始, 有效区域为空的源属于非法配置, 不会产生空规约; 单位元作为 fold 的初始值出现在伪代码中.
@@ -2790,24 +2794,24 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 ]
 
 #instruction-listing(caption: [Mask 指令清单])[
-  | Instruction    | Format  | Function                                             | Summary                                                   |
-  | :------------: | :-----: | ---------------------------------------------------- | --------------------------------------------------------- |
-  | `tmask.tail`   | R4      | tD[i,j] = (i < nRows && j < nCols) ? tS[i,j] : fill  | 保留行列坐标小于 `xBounds` 中 `nRows`, `nCols` 的源元素.  |
-  | `tmask.tril`   | R4      | tD[i,j] = (j - i <= xDelta) ? tS[i,j] : fill         | 保留满足 $j-i <= "xDelta"$ 的源元素.                      |
-  | `tmask.triu`   | R4      | tD[i,j] = (j - i >= xDelta) ? tS[i,j] : fill         | 保留满足 $j-i >= "xDelta"$ 的源元素.                      |
-  | `amask.tail`   | R4      | aD[i,j] = (i < nRows && j < nCols) ? aS[i,j] : fill  | 保留行列坐标小于 `xBounds` 中 `nRows`, `nCols` 的源元素.  |
-  | `amask.tril`   | R4      | aD[i,j] = (j - i <= xDelta) ? aS[i,j] : fill         | 保留满足 $j-i <= "xDelta"$ 的源元素.                      |
-  | `amask.triu`   | R4      | aD[i,j] = (j - i >= xDelta) ? aS[i,j] : fill         | 保留满足 $j-i >= "xDelta"$ 的源元素.                      |
-  | `bmask.tail`   | R4      | bD[j] = (j < xLen) ? bS[j] : fill                    | 保留 lane 索引小于 xLen 的源元素.                         |
-  | `vmask.tail`   | R4      | vD[j] = (j < xLen) ? vS[j] : fill                    | 保留 lane 索引小于 xLen 的源元素.                         |
-  | `tmaskx.tail`  | R4      | 同 `mask.tail`, fill 由 Scalar 提供                  | 同 `tmask.tail`, fill 由 Scalar 提供.                     |
-  | `tmaskx.tril`  | R4      | 同 `mask.tril`, fill 由 Scalar 提供                  | 同 `tmask.tril`, fill 由 Scalar 提供.                     |
-  | `tmaskx.triu`  | R4      | 同 `mask.triu`, fill 由 Scalar 提供                  | 同 `tmask.triu`, fill 由 Scalar 提供.                     |
-  | `amaskx.tail`  | R4      | 同 `mask.tail`, fill 由 Scalar 提供                  | 同 `amask.tail`, fill 由 Scalar 提供.                     |
-  | `amaskx.tril`  | R4      | 同 `mask.tril`, fill 由 Scalar 提供                  | 同 `amask.tril`, fill 由 Scalar 提供.                     |
-  | `amaskx.triu`  | R4      | 同 `mask.triu`, fill 由 Scalar 提供                  | 同 `amask.triu`, fill 由 Scalar 提供.                     |
-  | `bmaskx.tail`  | R4      | 同 `mask.tail`, fill 由 Scalar 提供                  | 同 `bmask.tail`, fill 由 Scalar 提供.                     |
-  | `vmaskx.tail`  | R4      | 同 `mask.tail`, fill 由 Scalar 提供                  | 同 `vmask.tail`, fill 由 Scalar 提供.                     |
+  | Instruction    | Format  | Function                                              | Summary                                                   |
+  | :------------: | :-----: | ----------------------------------------------------- | --------------------------------------------------------- |
+  | `tmask.tail`   | R4      | tD[i,j] = (i < nRows && j < nCols) ? tS[i,j] : fill   | 保留行列坐标小于 `xBounds` 中 `nRows`, `nCols` 的源元素.  |
+  | `tmask.tril`   | R4      | tD[i,j] = (j - i <= xDelta) ? tS[i,j] : fill          | 保留满足 $j-i <= "xDelta"$ 的源元素.                      |
+  | `tmask.triu`   | R4      | tD[i,j] = (j - i >= xDelta) ? tS[i,j] : fill          | 保留满足 $j-i >= "xDelta"$ 的源元素.                      |
+  | `amask.tail`   | R4      | aD[i,j] = (i < nRows && j < nCols) ? aS[i,j] : fill   | 保留行列坐标小于 `xBounds` 中 `nRows`, `nCols` 的源元素.  |
+  | `amask.tril`   | R4      | aD[i,j] = (j - i <= xDelta) ? aS[i,j] : fill          | 保留满足 $j-i <= "xDelta"$ 的源元素.                      |
+  | `amask.triu`   | R4      | aD[i,j] = (j - i >= xDelta) ? aS[i,j] : fill          | 保留满足 $j-i >= "xDelta"$ 的源元素.                      |
+  | `bmask.tail`   | R4      | bD[j] = (j < xLen) ? bS[j] : fill                     | 保留 lane 索引小于 xLen 的源元素.                         |
+  | `vmask.tail`   | R4      | vD[j] = (j < xLen) ? vS[j] : fill                     | 保留 lane 索引小于 xLen 的源元素.                         |
+  | `tmaskx.tail`  | R4      | tD[i,j] = (i < nRows && j < nCols) ? tS[i,j] : xFill  | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
+  | `tmaskx.tril`  | R4      | tD[i,j] = (j - i <= xDelta) ? tS[i,j] : xFill         | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
+  | `tmaskx.triu`  | R4      | tD[i,j] = (j - i >= xDelta) ? tS[i,j] : xFill         | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
+  | `amaskx.tail`  | R4      | aD[i,j] = (i < nRows && j < nCols) ? aS[i,j] : xFill  | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
+  | `amaskx.tril`  | R4      | aD[i,j] = (j - i <= xDelta) ? aS[i,j] : xFill         | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
+  | `amaskx.triu`  | R4      | aD[i,j] = (j - i >= xDelta) ? aS[i,j] : xFill         | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
+  | `bmaskx.tail`  | R4      | bD[j] = (j < xLen) ? bS[j] : xFill                    | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
+  | `vmaskx.tail`  | R4      | vD[j] = (j < xLen) ? vS[j] : xFill                    | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
 ]
 
 == 规约与类型转换
