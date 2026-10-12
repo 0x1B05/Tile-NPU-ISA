@@ -386,7 +386,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 #rivet-fmt-figure(cfg-reg-schema, caption: [cfg.setx/copy/get 格式 (R4)])
 
-`field3` 字段编号按配置类型解释. 表中 `-` 表示该配置类型下未定义的字段编号; `cfg.seti`、`cfg.setx`、`cfg.get` 使用这些编号时按非法指令处理. 对已定义字段写入非法值时, `cfg.seti`/`cfg.setx` 产生 `CFG_ERROR`. `cfg.copy`指令译码时, `field3`应为`000`.
+`field3` 字段编号按配置类型解释. 表中 `-` 表示该配置类型下未定义的字段编号; `cfg.seti`、`cfg.setx`、`cfg.get` 使用这些编号时按非法指令处理. 对已定义字段写入非法值时, `cfg.seti`/`cfg.setx` 产生 `CFG_ERROR`.
 
 #manual-table(
   columns: (1fr, 1.4fr, 1.4fr, 1.8fr, 1.2fr, 1.2fr, 1.6fr),
@@ -404,7 +404,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `111`     | -           | -       | -                 | -      | -      | -             |
 ]
 
-`base_addr` 为 64-bit 字段, 完整地址由 `cfg.setx` 写入; `cfg.seti` 写入时按 `extend(imm)` 规则扩展立即数.
+`base_addr` 为 64-bit 字段, 完整地址由 `cfg.setx` 写入; `cfg.seti` 写入时将 `imm16` 符号扩展到 64 bit.
 
 == `cfg.seti` — 写立即数配置字段
 
@@ -412,12 +412,16 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 cfg.seti C, field, imm
 ```
 
-将立即数写入指定配置字段:
+`imm16` 按 16-bit 二进制补码解释, 取值范围为 $[-32768, 32767]$. 将其符号扩展到 64 bit, 再按与 `cfg.setx` 相同的字段值规则校验并写入指定配置字段:
 
 ```
-    v ← extend(imm, type(field))
+    v ← sign_ext(imm16)
     C[field] ← v
 ```
+
+其中 `v` 为 64-bit 位模式. `row_stride_bytes`、`col_stride_bytes`、`stride_bytes` 按有符号 32-bit 值保存; `base_addr` 保存完整的 64-bit 位模式; 其他字段按各自的合法取值或枚举编码校验. 校验针对扩展后的完整值进行, 通过后按字段位宽写入; 失败时产生 `CFG_ERROR`, 目标字段保持原值.
+
+例如 `imm16 = 0xfffc` 表示 $-4$, 扩展后为 `0xfffffffffffffffc`: 写入步长字段时得到 $-4$, 写入 `base_addr` 时得到地址 `0xfffffffffffffffc`; 写入 `rows` 时因不满足 $[1, 32]$ 的范围要求而产生 `CFG_ERROR`.
 
 示例:
 
