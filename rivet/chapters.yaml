@@ -295,8 +295,8 @@ structures:
       25: {name: "0", description: must be 0}
       24-22: {name: funct3, description: "{form2, LS}", values: {"000": "block load", "001": "block store", "010": "gather load", "011": "reserved", "100": "row load (MR)", "101": "row store (MR)", "110-111": "reserved"}}
       21-12: {name: reserved10, description: must be 0}
-      11-7: {name: S5, description: "gather index vS; else 0"}
-      6-2: {name: D5, description: "D (load) / S (store); bound descriptor implied"}
+      11-7: {name: S5, description: "gather index vS"}
+      6-2: {name: D/S5, description: "D (load) / S (store)"}
       1-0: {name: q, description: "space tag (01)"}
   m-row:
     bits: 32
@@ -318,7 +318,7 @@ structures:
             description: Scalar index register
             structure: index-x
       11-7: {name: reserved5, description: must be 0}
-      6-2: {name: reg5, description: "Tile/Acc reg (bound TM/AM implied)"}
+      6-2: {name: reg5, description: "Tile/Acc reg"}
       1-0: {name: q, description: "space tag (01)"}
   init-fill:
     bits: 32

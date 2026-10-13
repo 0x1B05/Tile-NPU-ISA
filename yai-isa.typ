@@ -582,7 +582,7 @@ bload.gather   bD, vS
 vload.gather   vD, vS
 ```
 
-gather 的索引向量为 `vS` (Vec32), 其有效 lane 数由绑定的 `VC.len` 给出, 索引值按 `i32` 解释; 超出 `vS` 有效长度的目的元素填零; 索引的合法性由软件保证, 越界访存的行为待定义.
+gather 的索引向量为 `vS` (Vec32), `vS` 对应的 `VC.dtype` 须为 `i32`.
 
 `tload.gather` 使用 `tD` 绑定的 `TC` 配置与 `TM` 描述符, 访存地址定义为:
 
