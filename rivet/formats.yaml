@@ -60,7 +60,7 @@ structures:
       27-25: {name: sel3, description: "selector or 000"}
       24-22: {name: funct3, description: op select}
       21-17: {name: field5, description: per major4}
-      16-12: {name: field5, description: "usually B/xBound"}
+      16-12: {name: field5, description: "usually B/index/fill"}
       11-7: {name: field5, description: "usually A/S"}
       6-2: {name: field5, description: "usually D"}
       1-0:

@@ -56,8 +56,8 @@ colors:
     "27-26": "196,186,209"
     "25": "196,186,209"
     "24-22": "192,200,210"
-    "21-17": "240,214,148"
-    "16-12": "238,183,150"
+    "21-17": "238,183,150"
+    "16-12": "240,214,148"
     "11-7": "163,200,177"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
@@ -273,8 +273,9 @@ structures:
       27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "Vec8", "11": "Vec32"}}
       25: {name: FS}
       24-22: {name: funct3, description: op, values: {"000": "tail", "001": "tril", "010": "triu"}}
-      21-17:
-        name: arg5
+      21-17: {name: xBound5, description: "Scalar bound (xBounds/xLen/xDelta)"}
+      16-12:
+        name: fill5
         depends-on: 25
         values:
           0:
@@ -283,7 +284,6 @@ structures:
           1:
             description: Scalar xFill
             structure: fill-x
-      16-12: {name: xBound5, description: "Scalar bound (xBounds/xLen/xDelta)"}
       11-7: {name: S5, description: src reg}
       6-2: {name: D5, description: dst reg}
       1-0: {name: q, description: "space tag (00)"}
