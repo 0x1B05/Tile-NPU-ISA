@@ -171,6 +171,16 @@ colors:
     "22-7": "240,214,148"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
+  cfg-shape:
+    "31-28": "179,163,205"
+    "27-26": "196,186,209"
+    "25": "196,186,209"
+    "24-22": "192,200,210"
+    "21-17": "238,183,150"
+    "16-12": "240,214,148"
+    "11-7": "163,200,177"
+    "6-2": "167,199,200"
+    "1-0": "222,184,203"
   cfg-reg:
     "31-28": "179,163,205"
     "27-26": "196,186,209"
@@ -456,6 +466,18 @@ structures:
       25-23: {name: field3, description: "field number, see field table"}
       22-7: {name: imm16, description: field value}
       6-2: {name: C5, description: dst config reg}
+      1-0: {name: q, description: "space tag (10)"}
+  cfg-shape:
+    bits: 32
+    ranges:
+      31-28: {name: major4, description: major opcode, values: {"1001": "CFG_SHAPE"}}
+      27-26: {name: dom2, description: config type, values: {"00": "TC", "01": "AC", "10": "BC", "11": "VC"}}
+      25: {name: SAT, description: "arith_mode (TC only; else 0)", values: {"0": "wrap", "1": "sat"}}
+      24-22: {name: dtype3, description: "dtype code"}
+      21-17: {name: cols5, description: "cols - 1 (TC/AC; else 0)"}
+      16-12: {name: rows5, description: "rows - 1 / len - 1"}
+      11-7: {name: N5, description: "count - 1"}
+      6-2: {name: C5, description: first config reg}
       1-0: {name: q, description: "space tag (10)"}
   cfg-reg:
     bits: 32

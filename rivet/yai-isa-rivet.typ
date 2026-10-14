@@ -27,6 +27,7 @@
 #let fmt-z-schema = load-format(formats, "fmt-z")
 
 #let cfg-seti-schema = load-format(chapters, "cfg-seti")
+#let cfg-shape-schema = load-format(chapters, "cfg-shape")
 #let cfg-reg-schema = load-format(chapters, "cfg-reg")
 #let m-blk-schema = load-format(chapters, "m-blk")
 #let m-row-schema = load-format(chapters, "m-row", deps: ("index-imm", "index-x"))

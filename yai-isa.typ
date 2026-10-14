@@ -205,7 +205,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | 功能族          | 主要数据流                                                                     | 架构职责                                           | 助记符入口                                                                                                                                      |
   | --------------- | ------------------------------------------------------------------------------ | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
   | 标量与控制      | Scalar ↔ Scalar #linebreak() Scalar ↔ 内存                                     | 地址, 索引, 标量计算, 控制流                       | RV64IM (见 RISC-V 规范)                                                                                                                         |
-  | 配置            | Scalar → TC, AC, BC, VC, TM, AM, BM, VM                                        | 建立数据域的类型, shape, 布局和访存描述            | `cfg.seti`, `cfg.setx`, `cfg.copy`, `cfg.get`                                                                                                   |
+  | 配置            | Scalar → TC, AC, BC, VC, TM, AM, BM, VM                                        | 建立数据域的类型, shape, 布局和访存描述            | `cfg.seti`, `cfg.setx`, `cfg.copy`, `cfg.get` #linebreak() `cfg.shape`                                                                          |
   | 地址与访存      | 内存 ↔ `t/a/b/v`                                                               | 按绑定的 TM/AM/BM/VM 描述符执行整块, 行和向量访问  | `{t,a}{load,store}` #linebreak() `{t,a}{load,store}.row` #linebreak() `{b,v}{load,store}` #linebreak() `{t,b,v}load.gather`                     |
   | 初始化与搬运    | 域内 #linebreak() `t` ↔ `b` #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane  | 填充, 复制, 行搬运, lane 搬运, 广播和转置          | `{t,a,b,v}{fill,fillx,copy}` #linebreak() `{t,a}{insert,extract}.row` #linebreak() `{b,v}{insert,extract,broadcast}` #linebreak() `ttranspose`  |
   | 矩阵乘与点积    | `t` × `t` → `a` #linebreak() `b` × `t` → `v`                                   | `i8` 乘法, `i32` 累加或点积                        | `mma` #linebreak() `bdot`                                                                                                                       |
@@ -334,6 +334,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `10`    | `0110`    | `CFG_VEC_SETI`  | I      |
   | `10`    | `0111`    | `CFG_REG`       | R4     |
   | `10`    | `1000`    | `SYS`           | Z      |
+  | `10`    | `1001`    | `CFG_SHAPE`     | R4     |
 ]
 
 编码原则:
@@ -370,12 +371,13 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   columns: (1fr, 0.5fr, 2fr, 2fr),
   caption: [配置指令],
 )[
-  | Instruction  | Format  | Operation                 | Notes                            |
-  | :----------: | :-----: | ------------------------- | -------------------------------- |
-  | `cfg.seti`   | I       | C[field] = extend(imm)    | 校验失败时产生 `CFG_ERROR`.      |
-  | `cfg.setx`   | R4      | C[field] = x[xS]          | 失败时产生 `CFG_ERROR`.          |
-  | `cfg.copy`   | R4      | $C_D = C_S$               | 源和目的配置类型一致时执行复制.  |
-  | `cfg.get`    | R4      | x[xD] = extend(C[field])  | 结果为字段的整数或枚举值.        |
+  | Instruction  | Format  | Operation                         | Notes                            |
+  | :----------: | :-----: | --------------------------------- | -------------------------------- |
+  | `cfg.seti`   | I       | C[field] = extend(imm)            | 校验失败时产生 `CFG_ERROR`.      |
+  | `cfg.setx`   | R4      | C[field] = x[xS]                  | 失败时产生 `CFG_ERROR`.          |
+  | `cfg.copy`   | R4      | $C_D = C_S$                       | 源和目的配置类型一致时执行复制.  |
+  | `cfg.get`    | R4      | x[xD] = extend(C[field])          | 结果为字段的整数或枚举值.        |
+  | `cfg.shape`  | R4      | $C_(D+k) =$ shape, $0 <= k < n$  | 一次写入连续计算配置的全部字段.  |
 ]
 
 `cfg.seti` 使用 I 格式. `sel2` 选择配置寄存器对 (`00` = TC/BC, `01` = AC/VC, `10` = TM/BM, `11` = AM/VM), `major4` 选择矩阵侧 (`0101` = CFG_MAT_SETI) 或向量侧 (`0110` = CFG_VEC_SETI), `field3` 直接编号字段:
@@ -484,6 +486,52 @@ cfg.get xD, C, field
     v ← C[field]
     x[xD] ← extend(v, 64)
 ```
+
+== `cfg.shape` — 批量写入计算配置 <cfg-shape>
+
+```asm
+cfg.shape tcD, dtype, rows, cols[, sat], n
+cfg.shape acD, dtype, rows, cols, n
+cfg.shape bcD, dtype, len, n
+cfg.shape vcD, dtype, len, n
+```
+
+`cfg.shape` 用一条指令写入一个或多个相邻计算配置寄存器 (TC/AC/BC/VC) 的全部字段. 字段值全部由指令立即数提供, 它使用 R4 布局:
+
+#rivet-fmt-figure(
+  cfg-shape-schema,
+  caption: [cfg.shape 格式 (CFG_SHAPE, R4 布局)],
+)
+
+- `dom2[27:26]` 选择配置类型: `00/01/10/11` 分别为 TC/AC/BC/VC, 与数据域编码一致;
+- `dtype3[24:22]` 为 `dtype` 编码, 取值同配置寄存器的 `dtype` 字段;
+- `rows5[16:12]` 为 `rows - 1` (TC/AC) 或 `len - 1` (BC/VC); `cols5[21:17]` 为 `cols - 1`, 仅 TC/AC 使用;
+- `SAT[25]` 为 `arith_mode` (`0` = `wrap`, `1` = `sat`), 仅 TC 使用;
+- `C5[6:2]` 为第一个目的配置寄存器编号; 汇编操作数 `n` 为寄存器个数 ($1 <= n <= 32$), 编码为 `N5[11:7] = n - 1`.
+
+执行:
+
+```
+    for k = 0; k < n; k++
+        C[C5 + k].dtype ← dtype3
+        C[C5 + k].rows  ← rows5 + 1          # BC/VC: len ← rows5 + 1
+        C[C5 + k].cols  ← cols5 + 1          # TC/AC
+        C[C5 + k].layout ← row_major         # TC/AC
+        C[C5 + k].arith_mode ← SAT           # TC
+```
+
+BC/VC 要求 `cols5 = 0` 且 `SAT = 0`; AC 要求 `SAT = 0`.不满足时为保留编码, 按非法指令处理
+
+`dtype3` 不属于该配置类型的合法 `dtype` 时 (TC/BC 为 `i8/u8`, AC/VC 为 `i32/u32/f32`) 产生 `CFG_ERROR`, 所有目的配置寄存器保持原值. 编码保证 `rows`, `cols`, `len` 落在 $[1, 32]$ 内.
+
+示例:
+
+```asm
+cfg.shape tc2, i8, 32, 32, 3     # tc2..tc4 = {i8, 32 × 32, row_major, wrap}
+cfg.shape bc0, i8, 32, 32        # bc0..bc31 = {i8, len 32}
+```
+
+等价于对每个目的寄存器依次执行写入 `dtype`, `rows`, `cols`, `layout`, `arith_mode` (或 `dtype`, `len`) 的 `cfg.seti` 序列.
 
 = 地址与访存指令 <memory>
 
@@ -2511,12 +2559,13 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 详细语义见 @configuration.
 
 #instruction-listing(caption: [配置指令清单])[
-  | Instruction  | Format  | Function                  | Summary                                    |
-  | :----------: | :-----: | ------------------------- | ------------------------------------------ |
-  | `cfg.seti`   | I       | C[field] = extend(imm)    | 扩展立即数, 校验后写入指定配置字段.        |
-  | `cfg.setx`   | R4      | C[field] = x[xS]          | 从 Scalar 读取完整值, 校验后写入配置字段.  |
-  | `cfg.copy`   | R4      | $C_D = C_S$               | 复制同类型配置寄存器的全部字段.            |
-  | `cfg.get`    | R4      | x[xD] = extend(C[field])  | 读取配置字段, 扩展后写入 Scalar.           |
+  | Instruction  | Format  | Function                     | Summary                                    |
+  | :----------: | :-----: | ---------------------------- | ------------------------------------------ |
+  | `cfg.seti`   | I       | C[field] = extend(imm)       | 扩展立即数, 校验后写入指定配置字段.        |
+  | `cfg.setx`   | R4      | C[field] = x[xS]             | 从 Scalar 读取完整值, 校验后写入配置字段.  |
+  | `cfg.copy`   | R4      | $C_D = C_S$                  | 复制同类型配置寄存器的全部字段.            |
+  | `cfg.get`    | R4      | x[xD] = extend(C[field])     | 读取配置字段, 扩展后写入 Scalar.           |
+  | `cfg.shape`  | R4      | $C_(D+k) =$ shape, $k < n$  | 用立即数写入连续计算配置的全部字段.        |
 ]
 
 == 地址与访存指令
