@@ -371,12 +371,12 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   columns: (1fr, 0.5fr, 2fr, 2fr),
   caption: [配置指令],
 )[
-  | Instruction  | Format  | Operation                         | Notes                            |
-  | :----------: | :-----: | --------------------------------- | -------------------------------- |
-  | `cfg.seti`   | I       | C[field] = extend(imm)            | 校验失败时产生 `CFG_ERROR`.      |
-  | `cfg.setx`   | R4      | C[field] = x[xS]                  | 失败时产生 `CFG_ERROR`.          |
-  | `cfg.copy`   | R4      | $C_D = C_S$                       | 源和目的配置类型一致时执行复制.  |
-  | `cfg.get`    | R4      | x[xD] = extend(C[field])          | 结果为字段的整数或枚举值.        |
+  | Instruction  | Format  | Operation                        | Notes                            |
+  | :----------: | :-----: | -------------------------------- | -------------------------------- |
+  | `cfg.seti`   | I       | C[field] = extend(imm)           | 校验失败时产生 `CFG_ERROR`.      |
+  | `cfg.setx`   | R4      | C[field] = x[xS]                 | 失败时产生 `CFG_ERROR`.          |
+  | `cfg.copy`   | R4      | $C_D = C_S$                      | 源和目的配置类型一致时执行复制.  |
+  | `cfg.get`    | R4      | x[xD] = extend(C[field])         | 结果为字段的整数或枚举值.        |
   | `cfg.shape`  | R4      | $C_(D+k) =$ shape, $0 <= k < n$  | 一次写入连续计算配置的全部字段.  |
 ]
 
@@ -2582,12 +2582,12 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 详细语义见 @configuration.
 
 #instruction-listing(caption: [配置指令清单])[
-  | Instruction  | Format  | Function                     | Summary                                    |
-  | :----------: | :-----: | ---------------------------- | ------------------------------------------ |
-  | `cfg.seti`   | I       | C[field] = extend(imm)       | 扩展立即数, 校验后写入指定配置字段.        |
-  | `cfg.setx`   | R4      | C[field] = x[xS]             | 从 Scalar 读取完整值, 校验后写入配置字段.  |
-  | `cfg.copy`   | R4      | $C_D = C_S$                  | 复制同类型配置寄存器的全部字段.            |
-  | `cfg.get`    | R4      | x[xD] = extend(C[field])     | 读取配置字段, 扩展后写入 Scalar.           |
+  | Instruction  | Format  | Function                    | Summary                                    |
+  | :----------: | :-----: | --------------------------- | ------------------------------------------ |
+  | `cfg.seti`   | I       | C[field] = extend(imm)      | 扩展立即数, 校验后写入指定配置字段.        |
+  | `cfg.setx`   | R4      | C[field] = x[xS]            | 从 Scalar 读取完整值, 校验后写入配置字段.  |
+  | `cfg.copy`   | R4      | $C_D = C_S$                 | 复制同类型配置寄存器的全部字段.            |
+  | `cfg.get`    | R4      | x[xD] = extend(C[field])    | 读取配置字段, 扩展后写入 Scalar.           |
   | `cfg.shape`  | R4      | $C_(D+k) =$ shape, $k < n$  | 用立即数写入连续计算配置的全部字段.        |
 ]
 
