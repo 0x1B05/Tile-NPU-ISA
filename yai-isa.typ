@@ -322,7 +322,8 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `00`    | `0100`    | `E_MASK`        | R4     |
   | `00`    | `0101`    | `E_BCAST`       | R3     |
   | `01`    | `0000`    | `M_BLK`         | R2/MR  |
-  | `01`    | `0010`    | `INIT_MOVE`     | I/R2   |
+  | `01`    | `0001`    | `INIT_FILL`     | I      |
+  | `01`    | `0010`    | `INIT_MOVE`     | R2     |
   | `01`    | `0011`    | `ROW_MOVE`      | R4     |
   | `01`    | `0100`    | `LANE_MOVE`     | R4     |
   | `10`    | `0000`    | `MMA_BDOT`      | R4     |
@@ -766,11 +767,11 @@ vstore  v0     # 写入 token t 的 scale, 同理
   | `ttranspose`        | R2      | tD[i,j] = tS[j,i]  | 仅支持 8-bit Tile; 允许原地执行, 交换有效行列数.  |
 ]
 
-`fill` 使用 I 格式, 立即数 `imm16` 按目的 dtype 解释:
+`fill` 单独占用 `major4 = INIT_FILL`, 使用 I 格式, 立即数 `imm16` 按目的 dtype 解释:
 
-#rivet-fmt-figure(init-fill-schema, caption: [fill 格式 (INIT_MOVE, I)])
+#rivet-fmt-figure(init-fill-schema, caption: [fill 格式 (INIT_FILL, I)])
 
-`fillx`/`copy`/`ttranspose` 使用 R2 格式:
+`fillx`/`copy`/`ttranspose` 占用 `major4 = INIT_MOVE`, 使用 R2 格式:
 
 #rivet-fmt-figure(
   init-move-schema,
@@ -800,7 +801,7 @@ vstore  v0     # 写入 token t 的 scale, 同理
 
 立即数 `imm16` 按目的 `dtype` 解释. 整数目的 (`i8/u8/i32/u32`): `imm16` 先符号扩展到 64 bit, 然后与 `fillx` 的填充值一样截取元素位宽写入, `i8/u8` 取低 8 bit, `i32/u32` 取低 32 bit. `f32` 目的: `imm16` 按 BF16 位模式解释, 零扩展后置于 f32 位模式的高 16 位, 低 16 位置零, 即 `f32_bits = zext(imm16) << 16`; 常用浮点常数 (±0, ±1, ±0.5, ±inf 等) 均可由 BF16 精确表示.
 
-译码时 INIT_MOVE 的 R2 形式优先于 `fill` 的 I 形式: `imm16` 落在 `[0x8000, 0x801F]` 的编码被解释为 `fillx D, xS` (`imm16` 低 5 位即 `xS` 编号), 该立即数范围对 `fill` 保留.
+`fill` 与 `fillx` 使用不同的 `major4`, 因此 `imm16` 的全部 65536 个取值均可用于 `fill`.
 
 对于矩阵目标, 令$R & = op("rows")(D), C & = op("cols")(D)$, `fill`执行:
 
