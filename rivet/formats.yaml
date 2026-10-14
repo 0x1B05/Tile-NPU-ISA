@@ -98,8 +98,8 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: "major opcode (M_BLK)"}
-      27: {name: TA, description: matrix domain, values: {"0": "Tile", "1": "Acc"}}
-      26: {name: "0", description: must be 0}
+      27: {name: "0", description: must be 0}
+      26: {name: EW, description: element width, values: {"0": "8-bit (Tile)", "1": "32-bit (Acc)"}}
       25: {name: IS, description: row index src, values: {"0": "imm row", "1": "Scalar row"}}
       24-22: {name: funct3, description: "{form2, LS} (10x = row)"}
       21-17: {name: reserved5, description: must be 0}
