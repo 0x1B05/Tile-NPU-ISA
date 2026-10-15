@@ -2511,6 +2511,8 @@ vScore = vScore × scale
 
 #rivet-fmt-figure(qnt-schema, caption: [量化与反量化格式 (QNT)])
 
+汇编操作数先列目的, 再列源. 动态量化的 `vScale` 是第二目的; 外部 scale 量化与反量化的 `vScale` 是源, 位于数据源之后.
+
 ```asm
 tquant.rows.q8s32       tD, vScale, aS
 tquant.rows.scale.q8s32 tD, aS, vScale
