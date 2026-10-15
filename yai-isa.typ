@@ -371,14 +371,14 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   columns: (1fr, 0.5fr, 2fr, 2fr),
   caption: [配置指令],
 )[
-  | Instruction  | Format  | Operation                              | Notes                            |
-  | :----------: | :-----: | -------------------------------------- | -------------------------------- |
-  | `cfg.seti`   | I       | C[field] = extend(imm)                 | 校验失败时产生 `CFG_ERROR`.      |
-  | `cfg.setx`   | R4      | C[field] = x[xS]                       | 失败时产生 `CFG_ERROR`.          |
-  | `cfg.copy`   | R4      | $C_D = C_S$                            | 源和目的配置类型一致时执行复制.  |
-  | `cfg.get`    | R4      | x[xD] = extend(C[field])               | 结果为字段的整数或枚举值.        |
-  | `cfg.setw`   | R4      | $C_(D+k) =$ x[xS][31:0], $0 <= k < n$  | 整字写入连续计算配置的全部字段.  |
-  | `cfg.getw`   | R4      | x[xD] = zext(C)                        | 整字读出计算配置.                |
+  | Instruction  | Format  | Operation                               | Notes                            |
+  | :----------: | :-----: | --------------------------------------- | -------------------------------- |
+  | `cfg.seti`   | I       | C[field] = extend(imm)                  | 校验失败时产生 `CFG_ERROR`.      |
+  | `cfg.setx`   | R4      | $C_(D+k)$[field] = x[xS], $0 <= k < n$  | 失败时产生 `CFG_ERROR`.          |
+  | `cfg.copy`   | R4      | $C_(D+k) = C_S$, $0 <= k < n$           | 源和目的配置类型一致时执行复制.  |
+  | `cfg.get`    | R4      | x[xD] = extend(C[field])                | 结果为字段的整数或枚举值.        |
+  | `cfg.setw`   | R4      | $C_(D+k) =$ x[xS][31:0], $0 <= k < n$   | 整字写入连续计算配置的全部字段.  |
+  | `cfg.getw`   | R4      | x[xD] = zext(C)                         | 整字读出计算配置.                |
 ]
 
 `cfg.seti` 使用 I 格式. `sel2` 选择配置寄存器对 (`00` = TC/BC, `01` = AC/VC, `10` = TM/BM, `11` = AM/VM), `major4` 选择矩阵侧 (`0101` = CFG_MAT_SETI) 或向量侧 (`0110` = CFG_VEC_SETI), `field3` 直接编号字段:
@@ -388,6 +388,8 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 `cfg.setx`, `cfg.copy`, `cfg.get`, `cfg.setw`, `cfg.getw` 共用 R4 格式, `sel3 = {sel2, MV}` 选择配置类型与矩阵/向量侧, `funct3` 选择操作:
 
 #rivet-fmt-figure(cfg-reg-schema, caption: [cfg.setx/copy/get/setw/getw 格式 (R4)])
+
+`N5[16:12]` 统一编码目的配置个数: 写配置的 `cfg.setx`, `cfg.copy`, `cfg.setw` 写入从 `D5` 开始的 $n = "N5" + 1$ 个相邻同类型配置寄存器 ($1 <= n <= 32$), 汇编中省略 `n` 时为 1; `D5 + N5` 超出该配置类型的最后一个寄存器编号时为保留编码, 按非法指令处理. 读配置的 `cfg.get`, `cfg.getw` 只有一个 Scalar 目的, 要求 `N5 = 0`. 多目的写入要么全部完成, 要么在 `CFG_ERROR` 时全部保持原值.
 
 `field3` 字段编号按配置类型解释. 表中 `-` 表示该配置类型下未定义的字段编号; `cfg.seti`、`cfg.setx`、`cfg.get` 使用这些编号时按非法指令处理. 对已定义字段写入非法值时, `cfg.seti`/`cfg.setx` 产生 `CFG_ERROR`.
 
@@ -437,14 +439,16 @@ cfg.seti tc0, rows, 32
 == `cfg.setx` — 写 Scalar 值到配置字段
 
 ```asm
-cfg.setx C, field, xS
+cfg.setx C, field, xS[, n]
 ```
 
-将 Scalar 寄存器中的完整值写入指定配置字段:
+将 Scalar 寄存器中的完整值写入从 `C` 开始的 `n` 个配置寄存器的指定字段:
 
 ```
     v ← x[xS]
-    C[field] ← v
+    check(field, v)
+    for k = 0; k < n; k++
+        C[D + k][field] ← v
 ```
 
 示例:
@@ -464,16 +468,25 @@ $
 == `cfg.copy` — 复制配置寄存器
 
 ```asm
-cfg.copy C_D, C_S
+cfg.copy C_D, C_S[, n]
 ```
 
-复制源配置在执行时的全部字段:
+将源配置在执行前的全部字段广播到从 `C_D` 开始的 `n` 个配置寄存器:
 
 ```
-    C_D ← C_S
+    v ← C_S
+    for k = 0; k < n; k++
+        C[D + k] ← v
 ```
 
-`cfg.copy` 要求 `field5 = 00000`; 两个配置操作数共享 `sel3`, 因此只能同类型复制, 并复制该类型的全部字段.
+`cfg.copy` 要求 `field5 = 00000`; 两个配置操作数共享 `sel3`, 因此只能同类型复制, 并复制该类型的全部字段. 源值在任何写入之前读取, 因此源落在目的区间内时 (例如 `cfg.copy tm0, tm0, 3`) 所有目的都得到源的原值.
+
+典型用法是先完整配置一个访存描述符, 再广播给相邻描述符, 最后分别写入各自的 `base_addr`:
+
+```asm
+cfg.copy tm1, tm0, 3             # tm1..tm3 = tm0
+cfg.setx tm1, base_addr, x5
+```
 
 == `cfg.get` — 读配置字段到 Scalar
 
@@ -497,8 +510,7 @@ cfg.setw C, xS, n
 将 Scalar 寄存器 `xS` 的低 32 bit 按计算配置寄存器的整字位段 (见 @overview 的 TC/AC 与 BC/VC 位段图) 写入从 `C` 开始的 `n` 个相邻配置寄存器 ($1 <= n <= 32$), 一次设置这些寄存器的全部字段. `xS[63:32]` 被忽略.
 
 - `sel2` 只能为 `00` (TC/BC) 或 `01` (AC/VC); 访存描述符 (`sel2 = 1x`) 不是 32-bit 整字, 对应编码保留.
-- `D5[6:2]` 为首个目的配置寄存器编号, `S5[11:7]` 为 `xS`, `[16:12]` 编码 `n - 1`, `field5[21:17]` 必须为 0.
-- `D5 + n - 1` 超出该配置类型的最后一个寄存器编号时为保留编码, 按非法指令处理.
+- `D5[6:2]` 为首个目的配置寄存器编号, `S5[11:7]` 为 `xS`, `N5[16:12]` 编码 `n - 1`, `field5[21:17]` 必须为 0.
 
 执行:
 
@@ -2587,14 +2599,14 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 详细语义见 @configuration.
 
 #instruction-listing(caption: [配置指令清单])[
-  | Instruction  | Format  | Function                  | Summary                                    |
-  | :----------: | :-----: | ------------------------- | ------------------------------------------ |
-  | `cfg.seti`   | I       | C[field] = extend(imm)    | 扩展立即数, 校验后写入指定配置字段.        |
-  | `cfg.setx`   | R4      | C[field] = x[xS]          | 从 Scalar 读取完整值, 校验后写入配置字段.  |
-  | `cfg.copy`   | R4      | $C_D = C_S$               | 复制同类型配置寄存器的全部字段.            |
-  | `cfg.get`    | R4      | x[xD] = extend(C[field])  | 读取配置字段, 扩展后写入 Scalar.           |
-  | `cfg.setw`   | R4      | $C_(D+k) =$ x[xS][31:0]   | 整字写入连续 $n$ 个计算配置的全部字段.     |
-  | `cfg.getw`   | R4      | x[xD] = zext(C)           | 整字读出计算配置到 Scalar.                 |
+  | Instruction  | Format  | Function                  | Summary                                             |
+  | :----------: | :-----: | ------------------------- | --------------------------------------------------- |
+  | `cfg.seti`   | I       | C[field] = extend(imm)    | 扩展立即数, 校验后写入指定配置字段.                 |
+  | `cfg.setx`   | R4      | $C_(D+k)$[field] = x[xS]  | 从 Scalar 读取完整值, 校验后写入 $n$ 个配置的字段.  |
+  | `cfg.copy`   | R4      | $C_(D+k) = C_S$           | 将同类型配置的全部字段广播到 $n$ 个配置.            |
+  | `cfg.get`    | R4      | x[xD] = extend(C[field])  | 读取配置字段, 扩展后写入 Scalar.                    |
+  | `cfg.setw`   | R4      | $C_(D+k) =$ x[xS][31:0]   | 整字写入连续 $n$ 个计算配置的全部字段.              |
+  | `cfg.getw`   | R4      | x[xD] = zext(C)           | 整字读出计算配置到 Scalar.                          |
 ]
 
 == 地址与访存指令

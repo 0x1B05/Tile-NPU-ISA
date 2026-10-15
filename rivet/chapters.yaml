@@ -463,11 +463,11 @@ structures:
       31-28: {name: major4, description: major opcode, values: {"0111": "CFG_REG"}}
       27-26: {name: sel2, description: config type, values: {"00": "TC / BC", "01": "AC / VC", "10": "TM / BM", "11": "AM / VM"}}
       25: {name: MV, description: config side, values: {"0": "matrix config", "1": "vector config"}}
-      24-22: {name: funct3, description: op, values: {"000": "cfg.setx C, field, xS", "001": "cfg.copy CD, CS", "010": "cfg.get xD, C, field", "011": "cfg.setw C, xS, n", "100": "cfg.getw xD, C"}}
+      24-22: {name: funct3, description: op, values: {"000": "cfg.setx C, field, xS, n", "001": "cfg.copy CD, CS, n", "010": "cfg.get xD, C, field", "011": "cfg.setw C, xS, n", "100": "cfg.getw xD, C"}}
       21-17: {name: field5, description: "field no. (low 3 bits); 0 for copy/setw/getw"}
-      16-12: {name: N5, description: "setw: n - 1; else 0"}
+      16-12: {name: N5, description: "setx/copy/setw: n - 1; get/getw: 0"}
       11-7: {name: S5, description: "src xS / config CS"}
-      6-2: {name: D5, description: "dst config / Scalar xD"}
+      6-2: {name: D5, description: "first dst config / Scalar xD"}
       1-0: {name: q, description: "space tag (10)"}
   sys:
     bits: 32
