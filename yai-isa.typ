@@ -2486,21 +2486,27 @@ vScore = vScore × scale
 = 量化与反量化 <quantization>
 
 #instruction-table(
-  columns: (1.5fr, 0.5fr, 2.5fr, 2fr),
+  columns: (1.5fr, 0.5fr, 2.5fr, 1.8fr),
   caption: [量化与反量化指令],
 )[
-  | Instruction                | Format  | Operation                                                                                | Notes                                          |
-  | :------------------------: | :-----: | ---------------------------------------------------------------------------------------- | ---------------------------------------------- |
-  | `tquant.rows.q8s32`        | R4      | tD[i,:] = quant_q8s32(aS[i,:]).bits #linebreak() vScale[i] = quant_q8s32(aS[i,:]).scale  | Tile bits 与 Vec32 scale 是两个显式目的.       |
-  | `tquant.rows.scale.q8s32`  | R4      | tD[i,:] = quant_q8s32(aS[i,:], vScale[i]).bits                                           | scale 由 Vec32 源显式提供, 不产生 scale 目的.  |
-  | `vquant.q8s32`             | R4      | bD = quant_q8s32(vS).bits #linebreak() vScale[lane] = quant_q8s32(vS).scale              | Vec8 bits 与 Vec32 scale lane 是两个显式目的.  |
-  | `tdequant.rows.f32`        | R4      | aD[i,j] = f32(tS[i,j]) × vScale[i]                                                       | Tile bits 和 Vec32 scale 都是显式源.           |
-  | `bdequant.f32`             | R4      | vD[j] = f32(bS[j]) × vScale[lane]                                                        | Vec8 bits 和 Vec32 scale lane 都是显式源.      |
+  | Instruction                | Format  | Operation                                                                                | Notes                          |
+  | :------------------------: | :-----: | ---------------------------------------------------------------------------------------- | ------------------------------ |
+  | `tquant.rows.q8s32`        | R4      | tD[i,:] = quant_q8s32(aS[i,:]).bits #linebreak() vScale[i] = quant_q8s32(aS[i,:]).scale  | Tile 与 Vec32 是两个显式目的.  |
+  | `tquant.rows.scale.q8s32`  | R4      | tD[i,:] = quant_q8s32(aS[i,:], vScale[i]).bits                                           | scale 由 Vec32 源显式提供.     |
+  | `vquant.q8s32`             | R4      | bD = quant_q8s32(vS).bits #linebreak() vScale[lane] = quant_q8s32(vS).scale              | Vec8 与 Vec32 是两个显式目的.  |
+  | `tdequant.rows.f32`        | R4      | aD[i,j] = f32(tS[i,j]) × vScale[i]                                                       | Tile 和 Vec32 都是显式源.      |
+  | `bdequant.f32`             | R4      | vD[j] = f32(bS[j]) × vScale[lane]                                                        | Vec8 和 Vec32 都是显式源.      |
 ]
 
-量化与反量化使用 R4 双目的/双源格式; `vScale` 始终是 Vec32 scale 寄存器, `dom2` 选择主目的数据域, 量化方向随之确定; `funct3 = 001` 选择外部提供 scale 的行量化形式 (`tquant.rows.scale.q8s32`, 仅 Tile 目的):
+量化与反量化使用 R4 双目的/双源格式; `vScale` 始终是 Vec32 scale 寄存器, `dom2` 选择主目的数据域, 量化方向随之确定.
 
-#rivet-fmt-figure(qnt-schema, caption: [量化与反量化格式 (QNT)])
+矩阵形式的 `[25]` 与 `[16:12]` 为保留位, 必须为 0. `funct3 = 000` 选择动态量化或反量化, `001` 选择外部提供 scale 的行量化 (`tquant.rows.scale.q8s32`, 仅 Tile 目的):
+
+#rivet-fmt-figure(qnt-mat-schema, caption: [矩阵量化与反量化格式 (QNT)])
+
+向量形式使用 `IS[25]` 和 `index5[16:12]` 指定 scale lane, `funct3 = 000`:
+
+#rivet-fmt-figure(qnt-vec-schema, caption: [向量量化与反量化格式 (QNT)])
 
 汇编操作数先列目的, 再列源. 动态量化的 `vScale` 是第二目的; 外部 scale 量化与反量化的 `vScale` 是源, 位于数据源之后.
 
@@ -2516,7 +2522,7 @@ bdequant.f32            vD, bS, vScale[lane]
 
 约束:
 
-1. 矩阵形式 (`tquant`/`tdequant`): Acc 与 Tile 有效 shape 相同, Tile 操作数 dtype 为 `i8`, Acc 操作数 dtype 为 `f32`; `vScale` dtype 为 `f32` 且 `len` 等于行数; `IS` 与 `index5` 为保留位, 必须为 0.
+1. 矩阵形式 (`tquant`/`tdequant`): Acc 与 Tile 有效 shape 相同, Tile 操作数 dtype 为 `i8`, Acc 操作数 dtype 为 `f32`; `vScale` dtype 为 `f32` 且 `len` 等于行数.
 2. 向量形式 (`vquant`/`bdequant`): 两个数据向量 `len` 相同, Vec8 操作数 dtype 为 `i8`, Vec32 数据操作数 dtype 为 `f32`; `vScale` dtype 为 `f32`, scale lane 号 (`IS` = 0 时为 `index5` 立即数, `IS` = 1 时为由 `index5` 指定的 Scalar 寄存器的值) 必须在 `vScale` 的有效范围内.
 
 `quant_q8s32(x)` 的动态量化定义如下 (`x` 为一行或一个向量的有效元素, 共 $N$ 个):

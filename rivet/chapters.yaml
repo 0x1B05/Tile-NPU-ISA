@@ -1,5 +1,4 @@
-# Chapter-specific encoding figures: per-family field interpretations of the
-# seven formats, with major4 values and selector-bit values filled in.
+# Per-family field interpretations with major4 and selector values.
 colors:
   e-bin:
     "31-28": "179,163,205"
@@ -163,7 +162,17 @@ colors:
     "11-7": "163,200,177"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
-  qnt:
+  qnt-mat:
+    "31-28": "179,163,205"
+    "27-26": "196,186,209"
+    "25": "230,230,230"
+    "24-22": "192,200,210"
+    "21-17": "240,214,148"
+    "16-12": "230,230,230"
+    "11-7": "163,200,177"
+    "6-2": "167,199,200"
+    "1-0": "222,184,203"
+  qnt-vec:
     "31-28": "179,163,205"
     "27-26": "196,186,209"
     "25": "196,186,209"
@@ -478,14 +487,26 @@ structures:
       11-7: {name: S5, description: src reg}
       6-2: {name: D5, description: dst reg}
       1-0: {name: q, description: "space tag (10)"}
-  qnt:
+  qnt-mat:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0100": "QNT"}}
-      27-26: {name: dom2, description: dst domain, values: {"00": "Tile", "01": "Acc", "10": "Vec8", "11": "Vec32"}}
+      27-26: {name: dom2, description: dst domain, values: {"00": "Tile", "01": "Acc"}}
+      25: {name: "0", description: must be 0}
+      24-22: {name: funct3, description: "op (others reserved)", values: {"000": "quant/dequant", "001": "quant w/ ext scale (Tile dst)"}}
+      21-17: {name: vScale5, description: "scale reg"}
+      16-12: {name: reserved5, description: must be 0}
+      11-7: {name: S5, description: main src}
+      6-2: {name: D5, description: main dst}
+      1-0: {name: q, description: "space tag (10)"}
+  qnt-vec:
+    bits: 32
+    ranges:
+      31-28: {name: major4, description: major opcode, values: {"0100": "QNT"}}
+      27-26: {name: dom2, description: dst domain, values: {"10": "Vec8", "11": "Vec32"}}
       25: {name: IS}
-      24-22: {name: funct3, description: op, values: {"000": "quant/dequant", "001": "quant w/ ext scale (Tile dst)", "010-111": "reserved"}}
-      21-17: {name: vScale5, description: "scale reg (dst/src by op)"}
+      24-22: {name: funct3, description: "op (others reserved)", values: {"000": "quant/dequant"}}
+      21-17: {name: vScale5, description: "scale reg"}
       16-12:
         name: index5
         depends-on: 25

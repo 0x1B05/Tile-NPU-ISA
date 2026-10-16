@@ -44,7 +44,8 @@
 #let red-schema = load-format(chapters, "red")
 #let vreduce-argmax-schema = load-format(chapters, "vreduce-argmax")
 #let cvt-schema = load-format(chapters, "cvt")
-#let qnt-schema = load-format(chapters, "qnt", deps: ("index-imm", "index-x"))
+#let qnt-mat-schema = load-format(chapters, "qnt-mat")
+#let qnt-vec-schema = load-format(chapters, "qnt-vec", deps: ("index-imm", "index-x"))
 #let sys-schema = load-format(chapters, "sys")
 #let e-bin-schema = load-format(chapters, "e-bin", deps: ("reg-b", "reg-x"))
 #let e-bcast-schema = load-format(chapters, "e-bcast")
@@ -53,7 +54,6 @@
 #let e-r4-schema = load-format(chapters, "e-r4")
 #let e-mask-schema = load-format(chapters, "e-mask", deps: ("fill-imm", "fill-x"))
 
-// Light background instead of the rivet blueprint preset's dark blue.
 #let rivet-c-config = config.config(
   default-font-family: ("Tex Gyre Termes", "Noto Serif CJK SC"),
   italic-font-family: ("Tex Gyre Termes", "Noto Serif CJK SC"),
@@ -166,8 +166,7 @@
   kind: "bits",
 )
 
-// Encoding plates: full 32-bit instruction word on a portrait page.
-// Square bits, matching the proportions of the rivet RISC-V example.
+// Generic instruction format diagrams.
 #let rivet-plate-config = config.config(
   default-font-family: ("Tex Gyre Termes", "Noto Serif CJK SC"),
   italic-font-family: ("Tex Gyre Termes", "Noto Serif CJK SC"),

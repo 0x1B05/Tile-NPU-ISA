@@ -18,7 +18,6 @@
   )
   set par(justify: true, leading: 0.72em)
   set heading(numbering: "1.1")
-  // Every top-level chapter starts on a fresh page, as in the reference ISA manuals.
   show heading.where(level: 1): it => {
     pagebreak()
     block(above: 1.2em, below: 0.9em)[#it]
@@ -102,7 +101,6 @@
 )
 
 // Markdown columns: Instruction | Format | Function | Summary.
-// Write one instruction per row; names/functions are no longer expanded from arrays.
 #let instruction-listing = manual-table.with(
   columns: (1.6fr, 0.6fr, 2.7fr, 2.5fr),
   inset: 3.5pt,
