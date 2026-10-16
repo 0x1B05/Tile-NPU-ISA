@@ -387,12 +387,19 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 `cfg.setx`, `cfg.copy`, `cfg.get`, `cfg.setw`, `cfg.getw` 共用 R4 格式, `sel3 = {sel2, MV}` 选择配置类型与矩阵/向量侧, `funct3` 选择操作:
 
-#rivet-fmt-figure(
-  cfg-reg-schema,
-  caption: [cfg.setx/copy/get/setw/getw 格式 (R4)],
+#rivet-fmt-rows-figure(
+  (cfg-setx-schema, cfg-get-schema),
+  caption: [配置字段访问格式 (R4): cfg.setx / cfg.get],
 )
 
-`N5[16:12]` 统一编码目的配置个数: 写配置的 `cfg.setx`, `cfg.copy`, `cfg.setw` 写入从 `D5` 开始的 $n = "N5" + 1$ 个相邻同类型配置寄存器 ($1 <= n <= 32$), 汇编中省略 `n` 时为 1; `D5 + N5` 超出该配置类型的最后一个寄存器编号时为保留编码, 按非法指令处理. 读配置的 `cfg.get`, `cfg.getw` 只有一个 Scalar 目的, 要求 `N5 = 0`. 多目的写入要么全部完成, 要么在 `CFG_ERROR` 时全部保持原值.
+#rivet-fmt-rows-figure(
+  (cfg-copy-setw-schema, cfg-getw-schema),
+  caption: [整配置访问格式 (R4): cfg.copy、cfg.setw / cfg.getw],
+)
+
+`cfg.setx` 和 `cfg.get` 的 `field3[19:17]` 选择字段, `[21:20]` 为保留位. `cfg.copy` 和 `cfg.setw` 的 `[21:17]`、`cfg.get` 的 `[16:12]`、`cfg.getw` 的 `[21:12]` 均为保留位, 必须为 0.
+
+写配置的 `cfg.setx`, `cfg.copy`, `cfg.setw` 使用 `N5[16:12]` 编码目的配置个数, 写入从 `D5` 开始的 $n = "N5" + 1$ 个相邻同类型配置寄存器 ($1 <= n <= 32$), 汇编中省略 `n` 时为 1; `D5 + N5` 超出该配置类型的最后一个寄存器编号时为保留编码, 按非法指令处理. 多目的写入要么全部完成, 要么在 `CFG_ERROR` 时全部保持原值.
 
 `field3` 字段编号按配置类型解释. 表中 `-` 表示该配置类型下未定义的字段编号; `cfg.seti`、`cfg.setx`、`cfg.get` 使用这些编号时按非法指令处理. 对已定义字段写入非法值时, `cfg.seti`/`cfg.setx` 产生 `CFG_ERROR`.
 
@@ -482,7 +489,7 @@ cfg.copy C_D, C_S[, n]
         C[D + k] ← v
 ```
 
-`cfg.copy` 要求 `field5 = 00000`; 两个配置操作数共享 `sel3`, 因此只能同类型复制, 并复制该类型的全部字段. 源值在任何写入之前读取, 因此源落在目的区间内时 (例如 `cfg.copy tm0, tm0, 3`) 所有目的都得到源的原值.
+两个配置操作数共享 `sel3`, 因此 `cfg.copy` 只能同类型复制, 并复制该类型的全部字段. 源值在任何写入之前读取, 因此源落在目的区间内时 (例如 `cfg.copy tm0, tm0, 3`) 所有目的都得到源的原值.
 
 典型用法是先完整配置一个访存描述符, 再广播给相邻描述符, 最后分别写入各自的 `base_addr`:
 
@@ -513,7 +520,7 @@ cfg.setw C, xS, n
 将 Scalar 寄存器 `xS` 的低 32 bit 按计算配置寄存器的整字位段 (见 @overview 的 TC/AC 与 BC/VC 位段图) 写入从 `C` 开始的 `n` 个相邻配置寄存器 ($1 <= n <= 32$), 一次设置这些寄存器的全部字段. `xS[63:32]` 被忽略.
 
 - `sel2` 只能为 `00` (TC/BC) 或 `01` (AC/VC); 访存描述符 (`sel2 = 1x`) 不是 32-bit 整字, 对应编码保留.
-- `D5[6:2]` 为首个目的配置寄存器编号, `S5[11:7]` 为 `xS`, `N5[16:12]` 编码 `n - 1`, `field5[21:17]` 必须为 0.
+- `D5[6:2]` 为首个目的配置寄存器编号, `S5[11:7]` 为 `xS`, `N5[16:12]` 编码 `n - 1`, `[21:17]` 为保留位.
 
 执行:
 
@@ -545,7 +552,7 @@ cfg.setw vc0, t0, 32         # vc0..vc31
 cfg.getw xD, C
 ```
 
-将计算配置寄存器 `C` (TC/AC/BC/VC) 的 32-bit 整字零扩展后写入 Scalar 寄存器 `xD`; 保留位读出为 0. `field5` 与 `[16:12]` 必须为 0. 与 `cfg.setw` 配合可用于保存和恢复配置:
+将计算配置寄存器 `C` (TC/AC/BC/VC) 的 32-bit 整字零扩展后写入 Scalar 寄存器 `xD`; 保留位读出为 0. 指令的 `[21:12]` 为保留位. 与 `cfg.setw` 配合可用于保存和恢复配置:
 
 ```
     x[xD] ← zext(C, 64)

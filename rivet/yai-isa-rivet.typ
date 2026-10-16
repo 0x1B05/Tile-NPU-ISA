@@ -27,7 +27,10 @@
 #let fmt-z-schema = load-format(formats, "fmt-z")
 
 #let cfg-seti-schema = load-format(chapters, "cfg-seti")
-#let cfg-reg-schema = load-format(chapters, "cfg-reg")
+#let cfg-setx-schema = load-format(chapters, "cfg-setx")
+#let cfg-get-schema = load-format(chapters, "cfg-get")
+#let cfg-copy-setw-schema = load-format(chapters, "cfg-copy-setw")
+#let cfg-getw-schema = load-format(chapters, "cfg-getw")
 #let m-blk-schema = load-format(chapters, "m-blk")
 #let m-row-schema = load-format(chapters, "m-row", deps: ("index-imm", "index-x"))
 
@@ -144,6 +147,18 @@
 
 #let rivet-fmt-figure(doc, caption: none) = figure(
   align(center, schema.render(doc, width: 100%, config: rivet-fmt-config)),
+  caption: caption,
+  supplement: [图],
+  kind: "bits",
+)
+
+#let rivet-fmt-rows-figure(rows, caption: none) = figure(
+  block(width: 100%)[
+    #for doc in rows [
+      #align(center, schema.render(doc, width: 100%, config: rivet-fmt-config))
+      #v(-8pt)
+    ]
+  ],
   caption: caption,
   supplement: [图],
   kind: "bits",

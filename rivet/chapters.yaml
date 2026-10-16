@@ -171,13 +171,44 @@ colors:
     "22-7": "240,214,148"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
-  cfg-reg:
+  cfg-setx:
     "31-28": "179,163,205"
     "27-26": "196,186,209"
     "25": "196,186,209"
     "24-22": "192,200,210"
-    "21-17": "240,214,148"
+    "21-20": "230,230,230"
+    "19-17": "240,214,148"
+    "16-12": "240,214,148"
+    "11-7": "163,200,177"
+    "6-2": "167,199,200"
+    "1-0": "222,184,203"
+  cfg-get:
+    "31-28": "179,163,205"
+    "27-26": "196,186,209"
+    "25": "196,186,209"
+    "24-22": "192,200,210"
+    "21-20": "230,230,230"
+    "19-17": "240,214,148"
     "16-12": "230,230,230"
+    "11-7": "163,200,177"
+    "6-2": "167,199,200"
+    "1-0": "222,184,203"
+  cfg-copy-setw:
+    "31-28": "179,163,205"
+    "27-26": "196,186,209"
+    "25": "196,186,209"
+    "24-22": "192,200,210"
+    "21-17": "230,230,230"
+    "16-12": "240,214,148"
+    "11-7": "163,200,177"
+    "6-2": "167,199,200"
+    "1-0": "222,184,203"
+  cfg-getw:
+    "31-28": "179,163,205"
+    "27-26": "196,186,209"
+    "25": "196,186,209"
+    "24-22": "192,200,210"
+    "21-12": "230,230,230"
     "11-7": "163,200,177"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
@@ -457,17 +488,54 @@ structures:
       22-7: {name: imm16, description: field value}
       6-2: {name: C5, description: dst config reg}
       1-0: {name: q, description: "space tag (10)"}
-  cfg-reg:
+  cfg-setx:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0111": "CFG_REG"}}
       27-26: {name: sel2, description: config type, values: {"00": "TC / BC", "01": "AC / VC", "10": "TM / BM", "11": "AM / VM"}}
       25: {name: MV, description: config side, values: {"0": "matrix config", "1": "vector config"}}
-      24-22: {name: funct3, description: op, values: {"000": "cfg.setx C, field, xS, n", "001": "cfg.copy CD, CS, n", "010": "cfg.get xD, C, field", "011": "cfg.setw C, xS, n", "100": "cfg.getw xD, C"}}
-      21-17: {name: field5, description: "field no. (low 3 bits); 0 for copy/setw/getw"}
-      16-12: {name: N5, description: "setx/copy/setw: n - 1; get/getw: 0"}
+      24-22: {name: funct3, description: op, values: {"000": "cfg.setx C, field, xS, n"}}
+      21-20: {name: rsv2, description: must be 0}
+      19-17: {name: field3, description: field number}
+      16-12: {name: N5, description: "n - 1"}
+      11-7: {name: S5, description: Scalar src xS}
+      6-2: {name: D5, description: first dst config}
+      1-0: {name: q, description: "space tag (10)"}
+  cfg-get:
+    bits: 32
+    ranges:
+      31-28: {name: major4, description: major opcode, values: {"0111": "CFG_REG"}}
+      27-26: {name: sel2, description: config type, values: {"00": "TC / BC", "01": "AC / VC", "10": "TM / BM", "11": "AM / VM"}}
+      25: {name: MV, description: config side, values: {"0": "matrix config", "1": "vector config"}}
+      24-22: {name: funct3, description: op, values: {"010": "cfg.get xD, C, field"}}
+      21-20: {name: rsv2, description: must be 0}
+      19-17: {name: field3, description: field number}
+      16-12: {name: reserved5, description: must be 0}
+      11-7: {name: S5, description: src config}
+      6-2: {name: D5, description: Scalar dst xD}
+      1-0: {name: q, description: "space tag (10)"}
+  cfg-copy-setw:
+    bits: 32
+    ranges:
+      31-28: {name: major4, description: major opcode, values: {"0111": "CFG_REG"}}
+      27-26: {name: sel2, description: "config type; setw: 00/01 only", values: {"00": "TC / BC", "01": "AC / VC", "10": "TM / BM", "11": "AM / VM"}}
+      25: {name: MV, description: config side, values: {"0": "matrix config", "1": "vector config"}}
+      24-22: {name: funct3, description: op, values: {"001": "cfg.copy CD, CS, n", "011": "cfg.setw C, xS, n"}}
+      21-17: {name: reserved5, description: must be 0}
+      16-12: {name: N5, description: "n - 1"}
       11-7: {name: S5, description: "src xS / config CS"}
-      6-2: {name: D5, description: "first dst config / Scalar xD"}
+      6-2: {name: D5, description: first dst config}
+      1-0: {name: q, description: "space tag (10)"}
+  cfg-getw:
+    bits: 32
+    ranges:
+      31-28: {name: major4, description: major opcode, values: {"0111": "CFG_REG"}}
+      27-26: {name: sel2, description: compute config type, values: {"00": "TC / BC", "01": "AC / VC", "1x": "reserved"}}
+      25: {name: MV, description: config side, values: {"0": "matrix config", "1": "vector config"}}
+      24-22: {name: funct3, description: op, values: {"100": "cfg.getw xD, C"}}
+      21-12: {name: reserved10, description: must be 0}
+      11-7: {name: S5, description: src config}
+      6-2: {name: D5, description: Scalar dst xD}
       1-0: {name: q, description: "space tag (10)"}
   sys:
     bits: 32
