@@ -387,7 +387,10 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 `cfg.setx`, `cfg.copy`, `cfg.get`, `cfg.setw`, `cfg.getw` 共用 R4 格式, `sel3 = {sel2, MV}` 选择配置类型与矩阵/向量侧, `funct3` 选择操作:
 
-#rivet-fmt-figure(cfg-reg-schema, caption: [cfg.setx/copy/get/setw/getw 格式 (R4)])
+#rivet-fmt-figure(
+  cfg-reg-schema,
+  caption: [cfg.setx/copy/get/setw/getw 格式 (R4)],
+)
 
 `N5[16:12]` 统一编码目的配置个数: 写配置的 `cfg.setx`, `cfg.copy`, `cfg.setw` 写入从 `D5` 开始的 $n = "N5" + 1$ 个相邻同类型配置寄存器 ($1 <= n <= 32$), 汇编中省略 `n` 时为 1; `D5 + N5` 超出该配置类型的最后一个寄存器编号时为保留编码, 按非法指令处理. 读配置的 `cfg.get`, `cfg.getw` 只有一个 Scalar 目的, 要求 `N5 = 0`. 多目的写入要么全部完成, 要么在 `CFG_ERROR` 时全部保持原值.
 
@@ -1057,13 +1060,11 @@ tinsert.row tK[rowK], b0
   | `mma.nn.acc.i8.i32`   | R4      | $"aD"[m,n] += sum_k "tA"[m,k] times "tB"[k,n]$  | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
   | `bdot.nn.i8.i32`      | R4      | $"vD"[n] = sum_k "bA"[k] times "tB"[k,n]$       | `i8` 输入, `i32` 输出.                             |
   | `bdot.nn.acc.i8.i32`  | R4      | $"vD"[n] += sum_k "bA"[k] times "tB"[k,n]$      | `i8` 输入, 累加到旧 `i32` Vec32.                   |
-  | `mma.nt.zero.i8.i32`  | R4      | $"aD"[m,n] = sum_k "tA"[m,k] times "tB"[n,k]$   | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
-  | `mma.nt.acc.i8.i32`   | R4      | $"aD"[m,n] += sum_k "tA"[m,k] times "tB"[n,k]$  | 输入为 `i8` Tile; 乘法前符号扩展, shape 必须匹配.  |
   | `bdot.nt.i8.i32`      | R4      | $"vD"[n] = sum_k "bA"[k] times "tB"[n,k]$       | `i8` 输入, `i32` 输出.                             |
   | `bdot.nt.acc.i8.i32`  | R4      | $"vD"[n] += sum_k "bA"[k] times "tB"[n,k]$      | `i8` 输入, 累加到旧 `i32` Vec32.                   |
 ]
 
-矩阵乘与点积使用 R4 格式; `funct3` 的三个 bit 依次区分 MMA/BDOT, nn/nt 和 zero/acc:
+矩阵乘与点积使用 R4 格式; `funct3` 的三个 bit 依次区分 MMA/BDOT, nn/nt 和 zero/acc. `nt` 只对 `bdot` 定义, `funct3 = 010/011` 保留:
 
 #rivet-fmt-figure(mma-bdot-schema, caption: [矩阵乘与点积格式 (MMA_BDOT)])
 
@@ -1072,9 +1073,6 @@ tinsert.row tK[rowK], b0
 ```asm
 mma.nn.zero.i8.i32 aD, tA, tB
 mma.nn.acc.i8.i32  aD, tA, tB
-
-mma.nt.zero.i8.i32 aD, tA, tB
-mma.nt.acc.i8.i32  aD, tA, tB
 
 bdot.nn.i8.i32     vD, bA, tB
 bdot.nn.acc.i8.i32 vD, bA, tB
@@ -1104,17 +1102,18 @@ bdot.nt.acc.i8.i32 vD, bA, tB
   columns: (1fr, 4fr),
   caption: [矩阵乘与点积的数学形式],
 )[
-  | 形式       | 运算                                                      |
-  | ---------- | --------------------------------------------------------- |
-  | `mma.nn`   | $A_(M times K) B_(K times N) -> D_(M times N)$            |
-  | `mma.nt`   | $A_(M times K) (B_(N times K))^sans(T) -> D_(M times N)$  |
-  | `bdot.nn`  | $"out"_j = sum_(k=0)^(K-1) b_k B_(k,j)$                   |
-  | `bdot.nt`  | $"out"_j = sum_(k=0)^(K-1) b_k B_(j,k)$                   |
+  | 形式       | 运算                                            |
+  | ---------- | ----------------------------------------------- |
+  | `mma.nn`   | $A_(M times K) B_(K times N) -> D_(M times N)$  |
+  | `bdot.nn`  | $"out"_j = sum_(k=0)^(K-1) b_k B_(k,j)$         |
+  | `bdot.nt`  | $"out"_j = sum_(k=0)^(K-1) b_k B_(j,k)$         |
 ]
 
 == `nn` 和 `nt` 的矩阵布局
 
-`nn` 和 `nt` 表示右操作数的逻辑方向.
+`nn` 和 `nt` 表示右操作数的逻辑方向. `mma` 只有 `nn` 形式: 右操作数 `tB` 总是按 $K times N$ 存放, `tB` 的第 $k$ 行对应矩阵乘阵列的第 $k$ 行, 阵列只需一个方向的右操作数装载路径. 需要 $B^sans(T)$ 时, 由数据准备阶段把转置形式存入 Tile, 例如使用 `transform = transpose` 的 `tload` (见 @transpose-load) 或 `ttranspose`.
+
+`bdot` 的两种形式都只按行读取 Tile, 区别在运算结构: `bdot.nn` 逐行读取 `tB[k, :]`, 将 `bA[k]` 广播到整行后逐 lane 乘加, 跨行保留 $N$ 个 `i32` 部分和; `bdot.nt` 逐行读取 `tB[j, :]`, 与 `bA` 做一次完整点积, 得到 `vD[j]`.
 
 === `nn`
 
@@ -1132,21 +1131,9 @@ $ D_(i,j) = sum_(k=0)^(K-1) A_(i,k) B_(k,j) $
 
 === `nt`
 
-`nt` 的含义是矩阵运算的逻辑布局, `mma.nt` 的数学形式为:
+`bdot.nt` 把 Tile 的每一行当作一个与 `bA` 做点积的向量, Tile `tB` 的物理有效 shape 为 $N times K$:
 
-$ A_(M times K) (B_(N times K))^sans(T) -> D_(M times N) $
-
-Tile `tB` 的物理有效 shape 是:
-
-$ op("shape")("tB") = N times K $
-
-逻辑转置后的 shape 为:
-
-$ op("shape")(("tB")^sans(T)) = K times N $
-
-因此:
-
-$ D_(i,j) = sum_(k=0)^(K-1) A_(i,k) "tB"_(j,k) $
+$ "vD"_j = sum_(k=0)^(K-1) "bA"_k "tB"_(j,k) $
 
 == `mma.nn.zero.i8.i32`
 
@@ -1213,43 +1200,6 @@ mma.nn.acc.i8.i32  a0, tA3, tB3
 
 $ "a0" = A_0 B_0 + A_1 B_1 + A_2 B_2 + A_3 B_3 $
 
-== `mma.nt.zero.i8.i32` 和 `mma.nt.acc.i8.i32`
-
-```asm
-mma.nt.zero.i8.i32 aD, tA, tB
-mma.nt.acc.i8.i32  aD, tA, tB
-```
-
-将右 Tile 逻辑转置后执行矩阵乘; `zero` 形式写入目的 Acc, `acc` 形式累加到目的 Acc 的旧值.
-
-约束: 与 `mma.nn` 形式相同, 但右操作数 `tB` 按逻辑转置解释, 其物理有效 shape 为 $N times K$.
-
-`zero` 操作:
-
-```text
-for 0 <= i < M:
-    for 0 <= j < N:
-        sum ← 0
-        for 0 <= k < K:
-            lhs ← sign_ext(tA[i,k])
-            rhs ← sign_ext(tB[j,k])
-            sum ← sum + lhs × rhs
-        aD[i,j] ← sum
-```
-
-`acc` 操作:
-
-```text
-for 0 <= i < M:
-    for 0 <= j < N:
-        partial ← 0
-        for 0 <= k < K:
-            lhs ← sign_ext(tA[i,k])
-            rhs ← sign_ext(tB[j,k])
-            partial ← partial + lhs × rhs
-        aD[i,j] ← wrap32(aD[i,j] + partial)
-```
-
 == `bdot.nn.i8.i32`
 
 ```asm
@@ -1271,13 +1221,15 @@ $
 
 ```text
 for 0 <= j < N:
-    sum ← 0
-    for 0 <= k < K:
-        lhs ← sign_ext(bA[k])
+    vD[j] ← 0
+for 0 <= k < K:
+    lhs ← sign_ext(bA[k])
+    for 0 <= j < N:
         rhs ← sign_ext(tB[k,j])
-        sum ← sum + lhs × rhs
-    vD[j] ← sum
+        vD[j] ← wrap32(vD[j] + lhs × rhs)
 ```
+
+该形式逐行读取 `tB`, 与逐列做点积的写法结果相同: `i32` 回绕加法满足结合律, 累加顺序不影响结果.
 
 数学形式为:
 
@@ -1325,14 +1277,24 @@ bdot.nt.acc.i8.i32 vD, bA, tB
 
 约束: 与对应的非累加形式相同; `vD` 同时是累加输入, 其 `dtype` 为 `i32`, `len` 为 $N$.
 
-操作 (`nn` 形式; `nt` 形式将 `tB[k,j]` 换为 `tB[j,k]`):
+`nn` 形式与 `bdot.nn` 同样逐行累加, 只是部分和从 `vD` 的旧值开始:
+
+```text
+for 0 <= k < K:
+    lhs ← sign_ext(bA[k])
+    for 0 <= j < N:
+        rhs ← sign_ext(tB[k,j])
+        vD[j] ← wrap32(vD[j] + lhs × rhs)
+```
+
+`nt` 形式逐行做点积, 再加到旧值上:
 
 ```text
 for 0 <= j < N:
     partial ← 0
     for 0 <= k < K:
         lhs ← sign_ext(bA[k])
-        rhs ← sign_ext(tB[k,j])
+        rhs ← sign_ext(tB[j,k])
         partial ← partial + lhs × rhs
     vD[j] ← wrap32(vD[j] + partial)
 ```
@@ -2670,16 +2632,14 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 详细语义见 @matrix.
 
 #instruction-listing(caption: [矩阵乘与点积指令清单])[
-  | Instruction           | Format  | Function                                        | Summary                                              |
-  | :-------------------: | :-----: | ----------------------------------------------- | ---------------------------------------------------- |
-  | `mma.nn.zero.i8.i32`  | R4      | $"aD"[m,n] = sum_k "tA"[m,k] times "tB"[k,n]$   | 按普通右矩阵执行矩阵乘, 写入 `i32` Acc.              |
-  | `mma.nn.acc.i8.i32`   | R4      | $"aD"[m,n] += sum_k "tA"[m,k] times "tB"[k,n]$  | 按普通右矩阵执行矩阵乘, 累加到旧 `i32` Acc.          |
-  | `bdot.nn.i8.i32`      | R4      | $"vD"[n] = sum_k "bA"[k] times "tB"[k,n]$       | Vec8 与 Tile 各列执行点积, 结果写入 Vec32.           |
-  | `bdot.nn.acc.i8.i32`  | R4      | $"vD"[n] += sum_k "bA"[k] times "tB"[k,n]$      | Vec8 与 Tile 各列执行点积, 累加到旧 `i32` Vec32.     |
-  | `mma.nt.zero.i8.i32`  | R4      | $"aD"[m,n] = sum_k "tA"[m,k] times "tB"[n,k]$   | 将右 Tile 逻辑转置后执行矩阵乘, 写入 `i32` Acc.      |
-  | `mma.nt.acc.i8.i32`   | R4      | $"aD"[m,n] += sum_k "tA"[m,k] times "tB"[n,k]$  | 将右 Tile 逻辑转置后执行矩阵乘, 累加到旧 `i32` Acc.  |
-  | `bdot.nt.i8.i32`      | R4      | $"vD"[n] = sum_k "bA"[k] times "tB"[n,k]$       | Vec8 与 Tile 各行执行点积, 结果写入 Vec32.           |
-  | `bdot.nt.acc.i8.i32`  | R4      | $"vD"[n] += sum_k "bA"[k] times "tB"[n,k]$      | Vec8 与 Tile 各行执行点积, 累加到旧 `i32` Vec32.     |
+  | Instruction           | Format  | Function                                        | Summary                                           |
+  | :-------------------: | :-----: | ----------------------------------------------- | ------------------------------------------------- |
+  | `mma.nn.zero.i8.i32`  | R4      | $"aD"[m,n] = sum_k "tA"[m,k] times "tB"[k,n]$   | 按普通右矩阵执行矩阵乘, 写入 `i32` Acc.           |
+  | `mma.nn.acc.i8.i32`   | R4      | $"aD"[m,n] += sum_k "tA"[m,k] times "tB"[k,n]$  | 按普通右矩阵执行矩阵乘, 累加到旧 `i32` Acc.       |
+  | `bdot.nn.i8.i32`      | R4      | $"vD"[n] = sum_k "bA"[k] times "tB"[k,n]$       | Vec8 与 Tile 各列执行点积, 结果写入 Vec32.        |
+  | `bdot.nn.acc.i8.i32`  | R4      | $"vD"[n] += sum_k "bA"[k] times "tB"[k,n]$      | Vec8 与 Tile 各列执行点积, 累加到旧 `i32` Vec32.  |
+  | `bdot.nt.i8.i32`      | R4      | $"vD"[n] = sum_k "bA"[k] times "tB"[n,k]$       | Vec8 与 Tile 各行执行点积, 结果写入 Vec32.        |
+  | `bdot.nt.acc.i8.i32`  | R4      | $"vD"[n] += sum_k "bA"[k] times "tB"[n,k]$      | Vec8 与 Tile 各行执行点积, 累加到旧 `i32` Vec32.  |
 ]
 
 == 逐元素, 广播和 mask
