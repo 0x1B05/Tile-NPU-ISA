@@ -32,6 +32,7 @@
 #let cfg-copy-setw-schema = load-format(chapters, "cfg-copy-setw")
 #let cfg-getw-schema = load-format(chapters, "cfg-getw")
 #let m-blk-schema = load-format(chapters, "m-blk")
+#let m-gather-schema = load-format(chapters, "m-gather")
 #let m-row-schema = load-format(chapters, "m-row", deps: ("index-imm", "index-x"))
 
 #let fill-imm-schema = load-format(chapters, "fill-imm-instr")

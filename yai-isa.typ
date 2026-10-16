@@ -578,9 +578,18 @@ cfg.getw xD, C
   | `{b,v}store`        | R2      | memory[addr(j)] = S[j]       | 按有效长度写整个向量.                                     |
 ]
 
-整块与向量访存使用 R2 格式; `sel3 = {dom2, 0}` 选择数据域, `funct3 = {form2, LS}` 区分整块访问, gather 与 row 形式, 其最低位 `LS` 选择 load (`0`) 或 store (`1`); gather 只定义 load 形式, `funct3 = 011` 保留:
+`M_BLK` 的 `funct3 = {form2, LS}` 区分整块访问, gather 与 row 形式, 其最低位 `LS` 选择 load (`0`) 或 store (`1`).
+
+普通整块与向量访存使用 R2 格式, `sel3 = {dom2, 0}` 选择数据域. load/store 的 `funct3` 分别为 `000`/`001`, `[11:7]` 为保留位, 必须为 0:
 
 #rivet-fmt-figure(m-blk-schema, caption: [整块与向量访存格式 (M_BLK)])
+
+gather 同样使用 R2 格式和 `sel3 = {dom2, 0}`, 但 `S5[11:7]` 为 Vec32 索引向量寄存器编号. 目的域只允许 Tile、Vec8、Vec32. gather 只定义 load 形式 (`funct3 = 010`), `funct3 = 011` 保留:
+
+#rivet-fmt-figure(
+  m-gather-schema,
+  caption: [Gather 访存格式 (M_BLK gather 形式)],
+)
 
 行访存是 `M_BLK` 的 row 形式 (`funct3 = 10x`), 使用 MR 格式; 目标行号 `rd`/`rs` 为独立的 `index5` 字段, 与行搬运和 lane 操作的索引字段位置对齐:
 

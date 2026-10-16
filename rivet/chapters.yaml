@@ -67,8 +67,17 @@ colors:
     "25": "230,230,230"
     "24-22": "192,200,210"
     "21-12": "230,230,230"
-    "11-7": "163,200,177"
+    "11-7": "230,230,230"
     "6-2": "191,177,211"
+    "1-0": "222,184,203"
+  m-gather:
+    "31-28": "179,163,205"
+    "27-26": "196,186,209"
+    "25": "230,230,230"
+    "24-22": "192,200,210"
+    "21-12": "230,230,230"
+    "11-7": "163,200,177"
+    "6-2": "167,199,200"
     "1-0": "222,184,203"
   m-row:
     "31-28": "179,163,205"
@@ -324,10 +333,21 @@ structures:
       31-28: {name: major4, description: major opcode, values: {"0000": "M_BLK"}}
       27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "Vec8", "11": "Vec32"}}
       25: {name: "0", description: must be 0}
-      24-22: {name: funct3, description: "{form2, LS}", values: {"000": "block load", "001": "block store", "010": "gather load", "011": "reserved", "100": "row load (MR)", "101": "row store (MR)", "110-111": "reserved"}}
+      24-22: {name: funct3, description: "{form2, LS}", values: {"000": "block load", "001": "block store"}}
       21-12: {name: reserved10, description: must be 0}
-      11-7: {name: S5, description: "gather index vS"}
+      11-7: {name: reserved5, description: must be 0}
       6-2: {name: D/S5, description: "D (load) / S (store)"}
+      1-0: {name: q, description: "space tag (01)"}
+  m-gather:
+    bits: 32
+    ranges:
+      31-28: {name: major4, description: major opcode, values: {"0000": "M_BLK"}}
+      27-26: {name: dom2, description: dst domain, values: {"00": "Tile", "01": "reserved", "10": "Vec8", "11": "Vec32"}}
+      25: {name: "0", description: must be 0}
+      24-22: {name: funct3, description: "{form2, LS}", values: {"010": "gather load"}}
+      21-12: {name: reserved10, description: must be 0}
+      11-7: {name: S5, description: "index vector vS (Vec32)"}
+      6-2: {name: D5, description: dst reg}
       1-0: {name: q, description: "space tag (01)"}
   m-row:
     bits: 32
