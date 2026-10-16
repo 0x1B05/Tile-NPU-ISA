@@ -81,14 +81,14 @@ colors:
     "11-7": "230,230,230"
     "6-2": "238,183,150"
     "1-0": "222,184,203"
-  init-fill:
+  fill-imm-instr:
     "31-28": "179,163,205"
     "27-26": "196,186,209"
     "25-23": "192,200,210"
     "22-7": "240,214,148"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
-  init-move:
+  reg-move:
     "31-28": "179,163,205"
     "27-26": "196,186,209"
     "25": "230,230,230"
@@ -320,19 +320,19 @@ structures:
       11-7: {name: reserved5, description: must be 0}
       6-2: {name: reg5, description: "Tile/Acc reg"}
       1-0: {name: q, description: "space tag (01)"}
-  init-fill:
+  fill-imm-instr:
     bits: 32
     ranges:
-      31-28: {name: major4, description: major opcode, values: {"0001": "INIT_FILL"}}
+      31-28: {name: major4, description: major opcode, values: {"0001": "FILL_IMM"}}
       27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "Vec8", "11": "Vec32"}}
       25-23: {name: funct3, description: "000 = fill; others reserved"}
       22-7: {name: imm16, description: "fill imm (per dtype)"}
       6-2: {name: D5, description: dst reg}
       1-0: {name: q, description: "space tag (01)"}
-  init-move:
+  reg-move:
     bits: 32
     ranges:
-      31-28: {name: major4, description: major opcode, values: {"0010": "INIT_MOVE"}}
+      31-28: {name: major4, description: major opcode, values: {"0010": "REG_MOVE"}}
       27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "Vec8", "11": "Vec32"}}
       25: {name: "0", description: must be 0}
       24-22: {name: funct3, description: op, values: {"001": "fillx", "010": "copy", "011": "ttranspose"}}

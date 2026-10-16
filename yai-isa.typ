@@ -29,7 +29,7 @@
 + 指令助记符, 寄存器名与字段名使用等宽字体 (如 `vadd`, `a0`, `rows`)
 + `i8`, `u8`, `i32`, `u32`, `f32` 表示元素数据类型
 + 花括号表示该位置可取的一组文本, 并展开为所有对应的助记符. 例如 `{t,a}insert.row` 表示 `tinsert.row` 和 `ainsert.row`; `{t,a}{load,store}` 表示 `tload`, `tstore`, `aload` 和 `astore`.
-+ 指令表的 Operation 列用赋值式描述每条指令的效果. 式子里的下标默认取遍目的寄存器的整个有效区域, 如 `D[i,j] = A[i,j] + B[i,j]` 表示对所有 `i`, `j` 逐元素相加. `D` 为目的操作数, `A`, `B`, `S` 为源操作数. 例如 `{t,a}insert.row` 的一条式子 `D[rd,j] = S[j]` 实际对应两条指令: `tD[rd,j] = bS[j]` 和 `aD[rd,j] = vS[j]`.
++ 指令表的 Operation 列用赋值式描述每条指令的效果. 式子里的下标默认取遍目的寄存器的整个有效区域, 如 `D[i,j] = A[i,j] + B[i,j]` 表示对所有 `i`, `j` 逐元素相加. 矩阵使用 `[i,j]`, 向量使用 `[j]`; 仅在同一表达式兼写矩阵与向量形式时使用 `[p]`. `D` 为目的操作数, `A`, `B`, `S` 为源操作数. 例如 `{t,a}insert.row` 的一条式子 `D[rd,j] = S[j]` 实际对应两条指令: `tD[rd,j] = bS[j]` 和 `aD[rd,j] = vS[j]`.
 
 指令表与伪代码中的通用操作数记号:
 
@@ -50,7 +50,7 @@
   | `xBounds`, `xLen`, `xDelta`  | mask 边界操作数 (Scalar): 打包行列数 / 长度 / 有符号偏移, 见 @elementwise 的 mask 小节  |
   | `[i,j]`                      | 矩阵元素索引                                                                            |
   | `[j]`                        | 向量 lane 索引                                                                          |
-  | `[p]`                        | position, 元素坐标: 矩阵为 `[i,j]`, 向量为 `[j]`                                        |
+  | `[p]`                        | position, 矩阵与向量共用表达式的元素坐标: 矩阵为 `[i,j]`, 向量为 `[j]`                  |
   | `[rd,j]`, `[rs,j]`           | 行操作选中的目的 / 源行号                                                               |
 ]
 
@@ -322,8 +322,8 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `00`    | `0100`    | `E_MASK`        | R4     |
   | `00`    | `0101`    | `E_BCAST`       | R3     |
   | `01`    | `0000`    | `M_BLK`         | R2/MR  |
-  | `01`    | `0001`    | `INIT_FILL`     | I      |
-  | `01`    | `0010`    | `INIT_MOVE`     | R2     |
+  | `01`    | `0001`    | `FILL_IMM`      | I      |
+  | `01`    | `0010`    | `REG_MOVE`      | R2     |
   | `01`    | `0011`    | `ROW_MOVE`      | R4     |
   | `01`    | `0100`    | `LANE_MOVE`     | R4     |
   | `10`    | `0000`    | `MMA_BDOT`      | R4     |
@@ -761,21 +761,18 @@ vstore  v0     # 写入 token t 的 scale, 同理
 
 下一个 token 追加时重复同样的 `bstore`/`vstore` 即可, 无需重写描述符.
 
-= 初始化, 搬运与转置 <data-movement>
+= 填充, 搬运与转置 <data-movement>
 
-本节定义数据寄存器之间的初始化, 复制, 行搬运, lane 搬运, 广播和 Tile 转置操作.
+本节定义数据寄存器的填充, 复制, 行搬运, lane 搬运, 广播和 Tile 转置操作.
 
 元素类型使用寄存器配置中的 dtype: Tile/Vec8 为 `i8/u8`, Acc/Vec32 为 `i32/u32/f32`.
 
-#instruction-table(caption: [初始化, 搬运与转置指令])[
+#instruction-table(caption: [填充, 搬运与转置指令])[
   | Instruction         | Format  | Operation          | Notes                                             |
   | :-----------------: | :-----: | ------------------ | ------------------------------------------------- |
-  | `{t,a}fill`         | I       | D[i,j] = imm       | 无效物理位置保持原值.                             |
-  | `{t,a}fillx`        | R2      | D[i,j] = xS        | 无效物理位置保持原值.                             |
-  | `{t,a}copy`         | R2      | D[i,j] = S[i,j]    | 源与目的 layout 与有效 shape 一致.                |
-  | `{b,v}fill`         | I       | D[j] = imm         | 无效物理位置保持原值.                             |
-  | `{b,v}fillx`        | R2      | D[j] = xS          | 无效物理位置保持原值.                             |
-  | `{b,v}copy`         | R2      | D[j] = S[j]        | 源与目的有效长度一致.                             |
+  | `{t,a,b,v}fill`     | I       | D[p] = imm         | 无效物理位置保持原值.                             |
+  | `{t,a,b,v}fillx`    | R2      | D[p] = xS          | 无效物理位置保持原值.                             |
+  | `{t,a,b,v}copy`     | R2      | D[p] = S[p]        | 源与目的有效 shape 一致; 矩阵 layout 一致.        |
   | `{t,a}insert.row`   | R4      | D[rd,j] = S[j]     | 向量长度等于列数; 其他行保持.                     |
   | `{t,a}extract.row`  | R4      | D[j] = S[rs,j]     | 目的长度等于源列数.                               |
   | `{b,v}extract`      | R4      | xD = S[lane]       | 按源 dtype 扩展或写入浮点位模式.                  |
@@ -784,15 +781,15 @@ vstore  v0     # 写入 token t 的 scale, 同理
   | `ttranspose`        | R2      | tD[i,j] = tS[j,i]  | 仅支持 8-bit Tile; 允许原地执行, 交换有效行列数.  |
 ]
 
-`fill` 单独占用 `major4 = INIT_FILL`, 使用 I 格式, 立即数 `imm16` 按目的 dtype 解释:
+`fill` 单独占用 `major4 = FILL_IMM`, 使用 I 格式, 立即数 `imm16` 按目的 dtype 解释:
 
-#rivet-fmt-figure(init-fill-schema, caption: [fill 格式 (INIT_FILL, I)])
+#rivet-fmt-figure(fill-imm-schema, caption: [fill 格式 (FILL_IMM, I)])
 
-`fillx`/`copy`/`ttranspose` 占用 `major4 = INIT_MOVE`, 使用 R2 格式:
+`fillx`/`copy`/`ttranspose` 占用 `major4 = REG_MOVE`, 使用 R2 格式:
 
 #rivet-fmt-figure(
-  init-move-schema,
-  caption: [fillx/copy/ttranspose 格式 (INIT_MOVE, R2)],
+  reg-move-schema,
+  caption: [fillx/copy/ttranspose 格式 (REG_MOVE, R2)],
 )
 
 行搬运与 lane 操作共用 R4 格式; `EW` 选择 8-bit/32-bit 寄存器组合, `IS` 选择索引来源:
@@ -2595,11 +2592,11 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `vstore`        | R2      | memory[addr(j)] = vS[j]       | 将 Vec32 向量按绑定的 VM 写入内存.              |
 ]
 
-== 初始化, 搬运与转置
+== 填充, 搬运与转置
 
 详细语义见 @data-movement.
 
-#instruction-listing(caption: [初始化, 搬运与转置指令清单])[
+#instruction-listing(caption: [填充, 搬运与转置指令清单])[
   | Instruction     | Format  | Function           | Summary                                     |
   | :-------------: | :-----: | ------------------ | ------------------------------------------- |
   | `tfill`         | I       | tD[i,j] = imm      | 将立即数填入 Tile 的有效区域.               |

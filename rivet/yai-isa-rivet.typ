@@ -31,8 +31,8 @@
 #let m-blk-schema = load-format(chapters, "m-blk")
 #let m-row-schema = load-format(chapters, "m-row", deps: ("index-imm", "index-x"))
 
-#let init-fill-schema = load-format(chapters, "init-fill")
-#let init-move-schema = load-format(chapters, "init-move")
+#let fill-imm-schema = load-format(chapters, "fill-imm-instr")
+#let reg-move-schema = load-format(chapters, "reg-move")
 #let row-move-schema = load-format(chapters, "row-move", deps: ("index-imm", "index-x"))
 #let lane-move-schema = load-format(chapters, "lane-move", deps: ("index-imm", "index-x"))
 #let mma-bdot-schema = load-format(chapters, "mma-bdot")

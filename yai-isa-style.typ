@@ -57,7 +57,7 @@
   body
 } else {
   yai-table-counter.step()
-  block(width: 100%, above: 0.9em, below: 0.4em)[
+  block(width: 100%, above: 0.9em, below: 0.4em, sticky: true)[
     #context align(center)[#text(
       size: 9pt,
     )[表 #yai-table-counter.display()　#caption]]
