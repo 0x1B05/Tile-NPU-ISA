@@ -13,6 +13,7 @@
 ))
 
 #let tc-schema = load-format(descriptors, "tc")
+#let ac-schema = load-format(descriptors, "ac")
 #let bc-schema = load-format(descriptors, "bc")
 #let tm-0-schema = load-format(descriptors, "tm-0")
 #let tm-1-schema = load-format(descriptors, "tm-1")

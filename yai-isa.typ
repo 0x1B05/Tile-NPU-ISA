@@ -179,7 +179,9 @@ $
 
 计算配置寄存器 TC/AC 与 BC/VC 均为 32-bit; 矩阵访存描述符 TM/AM 为 192-bit (三个 64-bit word), 向量访存描述符 BM/VM 为 128-bit (两个 64-bit word). 位段分配如下.
 
-#rivet-c-figure(tc-schema, caption: [TC/AC 计算配置寄存器位段])
+#rivet-c-figure(tc-schema, caption: [TC 计算配置寄存器位段])
+
+#rivet-c-figure(ac-schema, caption: [AC 计算配置寄存器位段])
 
 #rivet-c-figure(bc-schema, caption: [BC/VC 计算配置寄存器位段])
 
