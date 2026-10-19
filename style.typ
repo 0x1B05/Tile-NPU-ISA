@@ -51,15 +51,15 @@
   radius: 2pt,
 )
 
-#let yai-table-counter = counter("yai-table")
+#let tile-npu-table-counter = counter("tile-npu-table")
 #let captioned-table(body, caption: none) = if caption == none {
   body
 } else {
-  yai-table-counter.step()
+  tile-npu-table-counter.step()
   block(width: 100%, above: 0.9em, below: 0.4em, sticky: true)[
     #context align(center)[#text(
       size: 9pt,
-    )[表 #yai-table-counter.display()　#caption]]
+    )[表 #tile-npu-table-counter.display()　#caption]]
   ]
   body
 }
@@ -93,16 +93,16 @@
   )
 }
 
-// Markdown columns: Instruction | Format | Operation | Notes.
+// Markdown columns: Instruction | Format | Operation | Summary.
 #let instruction-table = manual-table.with(
   columns: (2.1fr, 0.5fr, 2.5fr, 2.1fr),
   inset: 4pt,
   stroke: 0.35pt + luma(195),
 )
 
-// Markdown columns: Instruction | Format | Function | Summary.
+// Markdown columns: Instruction | Format | Section.
 #let instruction-listing = manual-table.with(
-  columns: (1.6fr, 0.6fr, 2.7fr, 2.5fr),
+  columns: (2.4fr, 0.6fr, 2fr),
   inset: 3.5pt,
   stroke: 0.35pt + luma(195),
 )
