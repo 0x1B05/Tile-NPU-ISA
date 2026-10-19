@@ -196,7 +196,7 @@ colors:
     "24-22": "192,200,210"
     "21-20": "230,230,230"
     "19-17": "240,214,148"
-    "16-12": "240,214,148"
+    "16-12": "238,183,150"
     "11-7": "163,200,177"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
@@ -217,7 +217,7 @@ colors:
     "25": "196,186,209"
     "24-22": "192,200,210"
     "21-17": "230,230,230"
-    "16-12": "240,214,148"
+    "16-12": "238,183,150"
     "11-7": "163,200,177"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
@@ -310,7 +310,7 @@ structures:
       27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "11": "Vec32", "10": "reserved"}}
       25: {name: "0", description: must be 0}
       24-22: {name: funct3, description: op, values: {"000": "select", "001": "fmadd"}}
-      21-17: {name: arg5, description: "4th operand: mask M (select) / addend C (fmadd)"}
+      21-17: {name: M5/C5, description: "4th operand: mask M (select) / addend C (fmadd)"}
       16-12: {name: B5, description: src2 B}
       11-7: {name: A5, description: src1 A}
       6-2: {name: D5, description: dst D}

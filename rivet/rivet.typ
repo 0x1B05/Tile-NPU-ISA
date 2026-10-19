@@ -4,7 +4,7 @@
 #let formats = yaml("formats.yaml")
 #let chapters = yaml("chapters.yaml")
 
-#let load-format(file, name, deps: ()) = (schema.load)((
+#let load-schema(file, name, deps: ()) = (schema.load)((
   colors: (main: file.colors.at(name)),
   structures: (
     main: file.structures.at(name),
@@ -12,103 +12,83 @@
   ),
 ))
 
-#let tc-schema = load-format(descriptors, "tc")
-#let ac-schema = load-format(descriptors, "ac")
-#let bc-schema = load-format(descriptors, "bc")
-#let tm-0-schema = load-format(descriptors, "tm-0")
-#let tm-1-schema = load-format(descriptors, "tm-1")
-#let tm-2-schema = load-format(descriptors, "tm-2")
-#let vm-schema = load-format(descriptors, "vm")
+#let tc-schema = load-schema(descriptors, "tc")
+#let ac-schema = load-schema(descriptors, "ac")
+#let bc-schema = load-schema(descriptors, "bc")
+#let tm-0-schema = load-schema(descriptors, "tm-0")
+#let tm-1-schema = load-schema(descriptors, "tm-1")
+#let tm-2-schema = load-schema(descriptors, "tm-2")
+#let vm-schema = load-schema(descriptors, "vm")
 
-#let fmt-r4-schema = load-format(formats, "fmt-r4")
-#let fmt-r3-schema = load-format(formats, "fmt-r3")
-#let fmt-r2-schema = load-format(formats, "fmt-r2")
-#let fmt-mr-schema = load-format(formats, "fmt-mr")
-#let fmt-i-schema = load-format(formats, "fmt-i")
-#let fmt-z-schema = load-format(formats, "fmt-z")
+#let fmt-r4-schema = load-schema(formats, "fmt-r4")
+#let fmt-r3-schema = load-schema(formats, "fmt-r3")
+#let fmt-r2-schema = load-schema(formats, "fmt-r2")
+#let fmt-mr-schema = load-schema(formats, "fmt-mr")
+#let fmt-i-schema = load-schema(formats, "fmt-i")
+#let fmt-z-schema = load-schema(formats, "fmt-z")
 
-#let cfg-seti-schema = load-format(chapters, "cfg-seti")
-#let cfg-setx-schema = load-format(chapters, "cfg-setx")
-#let cfg-get-schema = load-format(chapters, "cfg-get")
-#let cfg-copy-setw-schema = load-format(chapters, "cfg-copy-setw")
-#let cfg-getw-schema = load-format(chapters, "cfg-getw")
-#let m-blk-schema = load-format(chapters, "m-blk")
-#let m-gather-schema = load-format(chapters, "m-gather")
-#let m-row-schema = load-format(chapters, "m-row", deps: ("index-imm", "index-x"))
+#let cfg-seti-schema = load-schema(chapters, "cfg-seti")
+#let cfg-setx-schema = load-schema(chapters, "cfg-setx")
+#let cfg-get-schema = load-schema(chapters, "cfg-get")
+#let cfg-copy-setw-schema = load-schema(chapters, "cfg-copy-setw")
+#let cfg-getw-schema = load-schema(chapters, "cfg-getw")
+#let m-blk-schema = load-schema(chapters, "m-blk")
+#let m-gather-schema = load-schema(chapters, "m-gather")
+#let m-row-schema = load-schema(chapters, "m-row", deps: ("index-imm", "index-x"))
 
-#let fill-imm-schema = load-format(chapters, "fill-imm-instr")
-#let reg-move-schema = load-format(chapters, "reg-move")
-#let row-move-schema = load-format(chapters, "row-move", deps: ("index-imm", "index-x"))
-#let lane-move-schema = load-format(chapters, "lane-move", deps: ("index-imm", "index-x"))
-#let mma-bdot-schema = load-format(chapters, "mma-bdot")
-#let red-schema = load-format(chapters, "red")
-#let vreduce-argmax-schema = load-format(chapters, "vreduce-argmax")
-#let cvt-schema = load-format(chapters, "cvt")
-#let qnt-mat-schema = load-format(chapters, "qnt-mat")
-#let qnt-vec-schema = load-format(chapters, "qnt-vec", deps: ("index-imm", "index-x"))
-#let sys-schema = load-format(chapters, "sys")
-#let e-bin-schema = load-format(chapters, "e-bin", deps: ("reg-b", "reg-x"))
-#let e-bcast-schema = load-format(chapters, "e-bcast")
-#let e-unary-schema = load-format(chapters, "e-unary")
-#let e-cmp-schema = load-format(chapters, "e-cmp", deps: ("reg-b", "reg-x"))
-#let e-r4-schema = load-format(chapters, "e-r4")
-#let e-mask-schema = load-format(chapters, "e-mask", deps: ("fill-imm", "fill-x"))
+#let fill-imm-schema = load-schema(chapters, "fill-imm-instr")
+#let reg-move-schema = load-schema(chapters, "reg-move")
+#let row-move-schema = load-schema(chapters, "row-move", deps: ("index-imm", "index-x"))
+#let lane-move-schema = load-schema(chapters, "lane-move", deps: ("index-imm", "index-x"))
+#let mma-bdot-schema = load-schema(chapters, "mma-bdot")
+#let red-schema = load-schema(chapters, "red")
+#let vreduce-argmax-schema = load-schema(chapters, "vreduce-argmax")
+#let cvt-schema = load-schema(chapters, "cvt")
+#let qnt-mat-schema = load-schema(chapters, "qnt-mat")
+#let qnt-vec-schema = load-schema(chapters, "qnt-vec", deps: ("index-imm", "index-x"))
+#let sys-schema = load-schema(chapters, "sys")
+#let e-bin-schema = load-schema(chapters, "e-bin", deps: ("reg-b", "reg-x"))
+#let e-bcast-schema = load-schema(chapters, "e-bcast")
+#let e-unary-schema = load-schema(chapters, "e-unary")
+#let e-cmp-schema = load-schema(chapters, "e-cmp", deps: ("reg-b", "reg-x"))
+#let e-r4-schema = load-schema(chapters, "e-r4")
+#let e-mask-schema = load-schema(chapters, "e-mask", deps: ("fill-imm", "fill-x"))
 
-#let rivet-c-config = config.config(
-  default-font-family: ("Tex Gyre Termes", "Noto Serif CJK SC"),
-  italic-font-family: ("Tex Gyre Termes", "Noto Serif CJK SC"),
+#let rivet-font = ("Tex Gyre Termes", "Noto Serif CJK SC")
+
+#let make-rivet-config(bit-width, bit-height, margins: (24, 24, 24, 24)) = config.config(
+  default-font-family: rivet-font,
+  italic-font-family: rivet-font,
   background: white,
   text-color: black,
   link-color: luma(60),
   bit-i-color: luma(60),
   border-color: luma(80),
-  bit-width: 15,
-  bit-height: 25,
-  margins: (24, 24, 24, 24),
+  bit-width: bit-width,
+  bit-height: bit-height,
+  margins: margins,
   left-labels: true,
   force-descs-on-side: true,
   all-bit-i: false,
   full-page: false,
 )
 
-#let rivet-tm-config = config.config(
-  default-font-family: ("Tex Gyre Termes", "Noto Serif CJK SC"),
-  italic-font-family: ("Tex Gyre Termes", "Noto Serif CJK SC"),
-  background: white,
-  text-color: black,
-  link-color: luma(60),
-  bit-i-color: luma(60),
-  border-color: luma(80),
-  bit-width: 8,
-  bit-height: 28,
-  margins: (24, 24, 24, 24),
-  left-labels: true,
-  force-descs-on-side: true,
-  all-bit-i: false,
-  full-page: false,
+#let rivet-compute-config = make-rivet-config(15, 25)
+#let rivet-desc-config = make-rivet-config(10, 28)
+#let rivet-encoding-config = make-rivet-config(26, 32)
+#let rivet-format-config = make-rivet-config(30, 30, margins: (28, 28, 28, 28))
+
+#let schema-figure(rivet-config, doc, caption: none) = figure(
+  align(center, schema.render(doc, width: 100%, config: rivet-config)),
+  caption: caption,
+  supplement: [图],
+  kind: "bits",
 )
 
-#let rivet-128-config = config.config(
-  default-font-family: ("Tex Gyre Termes", "Noto Serif CJK SC"),
-  italic-font-family: ("Tex Gyre Termes", "Noto Serif CJK SC"),
-  background: white,
-  text-color: black,
-  link-color: luma(60),
-  bit-i-color: luma(60),
-  border-color: luma(80),
-  bit-width: 10,
-  bit-height: 28,
-  margins: (24, 24, 24, 24),
-  left-labels: true,
-  force-descs-on-side: true,
-  all-bit-i: false,
-  full-page: false,
-)
-
-#let rivet-tm-figure(rows, caption: none) = figure(
+#let schema-rows-figure(rivet-config, rows, caption: none) = figure(
   block(width: 100%)[
     #for doc in rows [
-      #align(center, schema.render(doc, width: 100%, config: rivet-128-config))
+      #align(center, schema.render(doc, width: 100%, config: rivet-config))
       #v(-8pt)
     ]
   ],
@@ -116,77 +96,20 @@
   supplement: [图],
   kind: "bits",
 )
-#let rivet-vm-figure(doc, caption: none) = figure(
-  align(center, schema.render(doc, width: 100%, config: rivet-128-config)),
-  caption: caption,
-  supplement: [图],
-  kind: "bits",
-)
-#let rivet-c-figure(doc, caption: none) = figure(
-  align(center, schema.render(doc, width: 100%, config: rivet-c-config)),
-  caption: caption,
-  supplement: [图],
-  kind: "bits",
-)
 
-// Per-family encoding plates in body chapters: roomier than the config-register figures.
-#let rivet-fmt-config = config.config(
-  default-font-family: ("Tex Gyre Termes", "Noto Serif CJK SC"),
-  italic-font-family: ("Tex Gyre Termes", "Noto Serif CJK SC"),
-  background: white,
-  text-color: black,
-  link-color: luma(60),
-  bit-i-color: luma(60),
-  border-color: luma(80),
-  bit-width: 26,
-  bit-height: 32,
-  margins: (24, 24, 24, 24),
-  left-labels: true,
-  force-descs-on-side: true,
-  all-bit-i: false,
-  full-page: false,
-)
+// Matrix descriptor figures: TM/AM split across three words.
+#let rivet-tm-figure(rows, caption: none) = schema-rows-figure(rivet-desc-config, rows, caption: caption)
 
-#let rivet-fmt-figure(doc, caption: none) = figure(
-  align(center, schema.render(doc, width: 100%, config: rivet-fmt-config)),
-  caption: caption,
-  supplement: [图],
-  kind: "bits",
-)
+// BM/VM descriptor figure.
+#let rivet-vm-figure(doc, caption: none) = schema-figure(rivet-desc-config, doc, caption: caption)
 
-#let rivet-fmt-rows-figure(rows, caption: none) = figure(
-  block(width: 100%)[
-    #for doc in rows [
-      #align(center, schema.render(doc, width: 100%, config: rivet-fmt-config))
-      #v(-8pt)
-    ]
-  ],
-  caption: caption,
-  supplement: [图],
-  kind: "bits",
-)
+// Compute config register figures.
+#let rivet-c-figure(doc, caption: none) = schema-figure(rivet-compute-config, doc, caption: caption)
+
+// Per-family encoding figures in body chapters.
+#let rivet-encoding-figure(doc, caption: none) = schema-figure(rivet-encoding-config, doc, caption: caption)
+
+#let rivet-encoding-rows-figure(rows, caption: none) = schema-rows-figure(rivet-encoding-config, rows, caption: caption)
 
 // Generic instruction format diagrams.
-#let rivet-plate-config = config.config(
-  default-font-family: ("Tex Gyre Termes", "Noto Serif CJK SC"),
-  italic-font-family: ("Tex Gyre Termes", "Noto Serif CJK SC"),
-  background: white,
-  text-color: black,
-  link-color: luma(60),
-  bit-i-color: luma(60),
-  border-color: luma(80),
-  bit-width: 30,
-  bit-height: 30,
-  margins: (28, 28, 28, 28),
-  left-labels: true,
-  force-descs-on-side: true,
-  all-bit-i: false,
-  full-page: false,
-)
-
-#let rivet-plate-figure(doc, caption: none) = figure(
-  align(center, schema.render(doc, width: 100%, config: rivet-plate-config)),
-  caption: caption,
-  supplement: [图],
-  kind: "bits",
-)
+#let rivet-format-figure(doc, caption: none) = schema-figure(rivet-format-config, doc, caption: caption)

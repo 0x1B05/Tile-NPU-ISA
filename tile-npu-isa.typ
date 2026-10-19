@@ -268,17 +268,17 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 === 位段布局
 
-#rivet-plate-figure(fmt-r4-schema, caption: [R4 格式: 四个 5-bit 字段])
+#rivet-format-figure(fmt-r4-schema, caption: [R4 格式: 四个 5-bit 字段])
 
-#rivet-plate-figure(fmt-r3-schema, caption: [R3 格式: 三个 5-bit 字段])
+#rivet-format-figure(fmt-r3-schema, caption: [R3 格式: 三个 5-bit 字段])
 
-#rivet-plate-figure(fmt-r2-schema, caption: [R2 格式: 两个 5-bit 字段])
+#rivet-format-figure(fmt-r2-schema, caption: [R2 格式: 两个 5-bit 字段])
 
-#rivet-plate-figure(fmt-mr-schema, caption: [MR 格式: 行访存])
+#rivet-format-figure(fmt-mr-schema, caption: [MR 格式: 行访存])
 
-#rivet-plate-figure(fmt-i-schema, caption: [I 格式: 16-bit 立即数])
+#rivet-format-figure(fmt-i-schema, caption: [I 格式: 16-bit 立即数])
 
-#rivet-plate-figure(fmt-z-schema, caption: [Z 格式: 无显式操作数])
+#rivet-format-figure(fmt-z-schema, caption: [Z 格式: 无显式操作数])
 
 === 选择子与简写
 
@@ -361,7 +361,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 同步与 kernel 结束指令使用 Z 格式, 无显式操作数:
 
-#rivet-fmt-figure(sys-schema, caption: [同步与结束格式 (SYS)])
+#rivet-encoding-figure(sys-schema, caption: [同步与结束格式 (SYS)])
 
 = 配置指令 <configuration>
 
@@ -383,16 +383,16 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 `cfg.seti` 使用 I 格式. `sel2` 选择配置寄存器对 (`00` = TC/BC, `01` = AC/VC, `10` = TM/BM, `11` = AM/VM), `major4` 选择矩阵侧 (`0101` = CFG_MAT_SETI) 或向量侧 (`0110` = CFG_VEC_SETI), `field3` 直接编号字段:
 
-#rivet-fmt-figure(cfg-seti-schema, caption: [cfg.seti 格式 (I)])
+#rivet-encoding-figure(cfg-seti-schema, caption: [cfg.seti 格式 (I)])
 
 `cfg.setx`, `cfg.copy`, `cfg.get`, `cfg.setw`, `cfg.getw` 共用 R4 格式, `sel3 = {sel2, MV}` 选择配置类型与矩阵/向量侧, `funct3` 选择操作:
 
-#rivet-fmt-rows-figure(
+#rivet-encoding-rows-figure(
   (cfg-setx-schema, cfg-get-schema),
   caption: [配置字段访问格式 (R4): cfg.setx / cfg.get],
 )
 
-#rivet-fmt-rows-figure(
+#rivet-encoding-rows-figure(
   (cfg-copy-setw-schema, cfg-getw-schema),
   caption: [整配置访问格式 (R4): cfg.copy、cfg.setw / cfg.getw],
 )
@@ -581,18 +581,18 @@ cfg.getw xD, C
 
 普通整块与向量访存使用 R2 格式, `sel3 = {dom2, 0}` 选择数据域. load/store 的 `funct3` 分别为 `000`/`001`, `[11:7]` 为保留位, 必须为 0:
 
-#rivet-fmt-figure(m-blk-schema, caption: [整块与向量访存格式 (M_BLK)])
+#rivet-encoding-figure(m-blk-schema, caption: [整块与向量访存格式 (M_BLK)])
 
 gather 同样使用 R2 格式和 `sel3 = {dom2, 0}`, 但 `S5[11:7]` 为 Vec32 索引向量寄存器编号. 目的域只允许 Tile、Vec8、Vec32. gather 只定义 load 形式 (`funct3 = 010`), `funct3 = 011` 保留:
 
-#rivet-fmt-figure(
+#rivet-encoding-figure(
   m-gather-schema,
   caption: [Gather 访存格式 (M_BLK gather 形式)],
 )
 
 行访存是 `M_BLK` 的 row 形式 (`funct3 = 10x`), 使用 MR 格式; 目标行号 `rd`/`rs` 为独立的 `index5` 字段, 与行搬运和 lane 操作的索引字段位置对齐:
 
-#rivet-fmt-figure(m-row-schema, caption: [行访存格式 (M_BLK row 形式)])
+#rivet-encoding-figure(m-row-schema, caption: [行访存格式 (M_BLK row 形式)])
 
 == 基础访存指令
 
@@ -798,23 +798,23 @@ vstore  v0     # 写入 token t 的 scale, 同理
 
 `fill` 单独占用 `major4 = FILL_IMM`, 使用 I 格式, 立即数 `imm16` 按目的 dtype 解释:
 
-#rivet-fmt-figure(fill-imm-schema, caption: [fill 格式 (FILL_IMM, I)])
+#rivet-encoding-figure(fill-imm-schema, caption: [fill 格式 (FILL_IMM, I)])
 
 `fillx`/`copy`/`ttranspose` 占用 `major4 = REG_MOVE`, 使用 R2 格式:
 
-#rivet-fmt-figure(
+#rivet-encoding-figure(
   reg-move-schema,
   caption: [fillx/copy/ttranspose 格式 (REG_MOVE, R2)],
 )
 
 行搬运与 lane 操作共用 R4 格式; `EW` 选择 8-bit/32-bit 寄存器组合, `IS` 选择索引来源:
 
-#rivet-fmt-figure(
+#rivet-encoding-figure(
   row-move-schema,
   caption: [行搬运格式 (ROW_MOVE)],
 )
 
-#rivet-fmt-figure(
+#rivet-encoding-figure(
   lane-move-schema,
   caption: [lane 操作格式 (LANE_MOVE)],
 )
@@ -1078,7 +1078,7 @@ tinsert.row tK[rowK], b0
 
 矩阵乘与点积使用 R4 格式; `funct3` 的三个 bit 依次区分 MMA/BDOT, nn/nt 和 zero/acc. `nt` 只对 `bdot` 定义, `funct3 = 010/011` 保留:
 
-#rivet-fmt-figure(mma-bdot-schema, caption: [矩阵乘与点积格式 (MMA_BDOT)])
+#rivet-encoding-figure(mma-bdot-schema, caption: [矩阵乘与点积格式 (MMA_BDOT)])
 
 == 指令格式
 
@@ -1432,7 +1432,7 @@ D[p] ← op(A[p], value)
 
 普通二元操作使用 R3 格式; `BX` 选择第二源为同域寄存器或 Scalar:
 
-#rivet-fmt-figure(e-bin-schema, caption: [普通二元操作格式 (E_BIN)])
+#rivet-encoding-figure(e-bin-schema, caption: [普通二元操作格式 (E_BIN)])
 
 == 基础操作集合 <elementwise-ops>
 
@@ -1576,9 +1576,9 @@ $ op("sat")_("u8")(x) = min(max(x, 0), 255) $
   | `{a,v}fmadd`  | R4      | D[p] = fma(A[p], B[p], C[p])  | Acc/Vec32 融合乘加, 单次 f32 舍入.  |
 ]
 
-`fmadd` 与 `select` 共用 R4 四寄存器格式, `arg5` 槽位为第四操作数 (`fmadd` 的加数 `C`, `select` 的 mask `M`):
+`fmadd` 与 `select` 共用 R4 四寄存器格式, `M5/C5` 为第四操作数 (`select` 的 mask `M`, `fmadd` 的加数 `C`):
 
-#rivet-fmt-figure(e-r4-schema, caption: [select/fmadd 格式 (E_R4)])
+#rivet-encoding-figure(e-r4-schema, caption: [select/fmadd 格式 (E_R4)])
 
 f32 逐元素运算包括:
 
@@ -1608,7 +1608,7 @@ $ D_i = op("round")_("f32")(A_i B_i + C_i) $
 
 `not`/`abs`/`neg` 与近似特殊函数同属一元操作族 (E_UNARY), 使用 R2 格式:
 
-#rivet-fmt-figure(e-unary-schema, caption: [一元操作与特殊函数格式 (E_UNARY)])
+#rivet-encoding-figure(e-unary-schema, caption: [一元操作与特殊函数格式 (E_UNARY)])
 
 #instruction-table(
   columns: (1.2fr, 0.5fr, 2fr, 2fr),
@@ -1688,7 +1688,7 @@ Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 i 个元素广播到矩阵第 i
 
 向量广播使用 R3 格式; `EW` 选择 8-bit/32-bit 寄存器组合, `DIR` 选择按行/按列:
 
-#rivet-fmt-figure(e-bcast-schema, caption: [向量广播格式 (E_BCAST)])
+#rivet-encoding-figure(e-bcast-schema, caption: [向量广播格式 (E_BCAST)])
 
 #instruction-table(
   columns: (1.2fr, 0.5fr, 2fr, 2fr),
@@ -1822,7 +1822,7 @@ $ "a0"_(i,j) = "a1"_(i,j) "v0"_j $
 
 比较使用 R4 格式, `BX` 选择第二源为同域寄存器或 Scalar; mask 目的为 `M5` 槽位:
 
-#rivet-fmt-figure(e-cmp-schema, caption: [比较格式 (E_CMP)])
+#rivet-encoding-figure(e-cmp-schema, caption: [比较格式 (E_CMP)])
 
 #instruction-table(
   columns: (1.3fr, 0.5fr, 2fr, 2fr),
@@ -1921,7 +1921,7 @@ mask 使用寄存器配置中的 dtype; 它在目的有效区域内改写数据�
 
 mask 使用 R4 格式; `[16:12]` 为 fill, `FS` 选择其来源 (立即数 `fill5` 或 Scalar `xFill`); `[21:17]` 为 Scalar 边界 `xBound`, 按操作解释为 `xBounds`, `xLen` 或 `xDelta`:
 
-#rivet-fmt-figure(e-mask-schema, caption: [mask 格式 (E_MASK)])
+#rivet-encoding-figure(e-mask-schema, caption: [mask 格式 (E_MASK)])
 
 #instruction-table(
   columns: (1fr, 0.5fr, 2fr, 2fr),
@@ -2063,11 +2063,11 @@ vdiv       vOut, v2, vSum
 
 普通单目的规约使用 R2 格式:
 
-#rivet-fmt-figure(red-schema, caption: [规约格式 (AREDUCE/VREDUCE)])
+#rivet-encoding-figure(red-schema, caption: [规约格式 (AREDUCE/VREDUCE)])
 
 `vreduce.argmax` 使用 R4 双目的变体, 写两个 Scalar 目的寄存器:
 
-#rivet-fmt-figure(
+#rivet-encoding-figure(
   vreduce-argmax-schema,
   caption: [argmax 格式 (VREDUCE, R4 双目的变体)],
 )
@@ -2254,7 +2254,7 @@ xValue ← best_value
 
 类型转换与扩大使用 R2 格式; `dom2` 选择目的数据域:
 
-#rivet-fmt-figure(cvt-schema, caption: [类型转换与扩大格式 (CVT)])
+#rivet-encoding-figure(cvt-schema, caption: [类型转换与扩大格式 (CVT)])
 
 源与目的的寄存器配置必须合法且有效 shape 相同; `acvt`/`vcvt` 要求源与目的 dtype 均为 `i32`, 成功接收后目的 dtype 更新为 `f32`; `twiden` 要求源 Tile dtype 为 `i8`, 目的 Acc dtype 为 `i32`.
 
@@ -2395,11 +2395,11 @@ vScore = vScore × scale
 
 矩阵形式的 `[25]` 与 `[16:12]` 为保留位, 必须为 0. `funct3 = 000` 选择动态量化或反量化, `001` 选择外部提供 scale 的行量化 (`tquant.rows.scale.q8s32`, 仅 Tile 目的):
 
-#rivet-fmt-figure(qnt-mat-schema, caption: [矩阵量化与反量化格式 (QNT)])
+#rivet-encoding-figure(qnt-mat-schema, caption: [矩阵量化与反量化格式 (QNT)])
 
 向量形式使用 `IS[25]` 和 `index5[16:12]` 指定 scale lane, `funct3 = 000`:
 
-#rivet-fmt-figure(qnt-vec-schema, caption: [向量量化与反量化格式 (QNT)])
+#rivet-encoding-figure(qnt-vec-schema, caption: [向量量化与反量化格式 (QNT)])
 
 汇编操作数先列目的, 再列源. 动态量化的 `vScale` 是第二目的; 外部 scale 量化与反量化的 `vScale` 是源, 位于数据源之后.
 
@@ -2461,7 +2461,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 详细语义见 @scalar-sync.
 
-#instruction-listing(caption: [同步指令清单])[
+#instruction-index(caption: [同步指令清单])[
   | Instruction   | Format  | Section       |
   | :-----------: | :-----: | :------------ |
   | `fence.mem`   | Z       | @scalar-sync  |
@@ -2474,7 +2474,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 详细语义见 @configuration.
 
-#instruction-listing(caption: [配置指令清单])[
+#instruction-index(caption: [配置指令清单])[
   | Instruction  | Format  | Section    |
   | :----------: | :-----: | :--------- |
   | `cfg.seti`   | I       | @cfg-seti  |
@@ -2489,7 +2489,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 详细语义见 @memory.
 
-#instruction-listing(caption: [地址与访存指令清单])[
+#instruction-index(caption: [地址与访存指令清单])[
   | Instruction     | Format  | Section      |
   | :-------------: | :-----: | :----------- |
   | `tload`         | R2      | @mem-block   |
@@ -2513,7 +2513,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 详细语义见 @data-movement.
 
-#instruction-listing(caption: [填充, 搬运与转置指令清单])[
+#instruction-index(caption: [填充, 搬运与转置指令清单])[
   | Instruction     | Format  | Section         |
   | :-------------: | :-----: | :-------------- |
   | `tfill`         | I       | @fill-instr     |
@@ -2545,7 +2545,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 详细语义见 @matrix.
 
-#instruction-listing(caption: [矩阵乘与点积指令清单])[
+#instruction-index(caption: [矩阵乘与点积指令清单])[
   | Instruction           | Format  | Section          |
   | :-------------------: | :-----: | :--------------- |
   | `mma.nn.zero.i8.i32`  | R4      | @matrix-mma      |
@@ -2560,7 +2560,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 详细语义见 @elementwise.
 
-#instruction-listing(caption: [Tile 基础逐元素指令清单])[
+#instruction-index(caption: [Tile 基础逐元素指令清单])[
   | Instruction  | Format  | Section           |
   | :----------: | :-----: | :---------------- |
   | `tadd`       | R3      | @elementwise-ops  |
@@ -2586,7 +2586,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `tnot`       | R2      | @elementwise-ops  |
 ]
 
-#instruction-listing(caption: [Acc 基础逐元素指令清单])[
+#instruction-index(caption: [Acc 基础逐元素指令清单])[
   | Instruction  | Format  | Section           |
   | :----------: | :-----: | :---------------- |
   | `aadd`       | R3      | @elementwise-ops  |
@@ -2618,7 +2618,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `aneg`       | R2      | @elementwise-ops  |
 ]
 
-#instruction-listing(caption: [Vec32 基础逐元素指令清单])[
+#instruction-index(caption: [Vec32 基础逐元素指令清单])[
   | Instruction  | Format  | Section           |
   | :----------: | :-----: | :---------------- |
   | `vadd`       | R3      | @elementwise-ops  |
@@ -2650,14 +2650,14 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `vneg`       | R2      | @elementwise-ops  |
 ]
 
-#instruction-listing(caption: [融合乘加指令清单])[
+#instruction-index(caption: [融合乘加指令清单])[
   | Instruction  | Format  | Section           |
   | :----------: | :-----: | :---------------- |
   | `afmadd`     | R4      | @elementwise-fma  |
   | `vfmadd`     | R4      | @elementwise-fma  |
 ]
 
-#instruction-listing(caption: [近似特殊函数指令清单])[
+#instruction-index(caption: [近似特殊函数指令清单])[
   | Instruction      | Format  | Section              |
   | :--------------: | :-----: | :------------------- |
   | `aexp2.approx`   | R2      | @elementwise-approx  |
@@ -2671,7 +2671,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 ]
 
 
-#instruction-listing(caption: [向量按行广播指令清单])[
+#instruction-index(caption: [向量按行广播指令清单])[
   | Instruction    | Format  | Section             |
   | :------------: | :-----: | :------------------ |
   | `taddb.byrow`  | R3      | @elementwise-bcast  |
@@ -2698,7 +2698,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `asrav.byrow`  | R3      | @elementwise-bcast  |
 ]
 
-#instruction-listing(caption: [向量按列广播指令清单])[
+#instruction-index(caption: [向量按列广播指令清单])[
   | Instruction    | Format  | Section             |
   | :------------: | :-----: | :------------------ |
   | `taddb.bycol`  | R3      | @elementwise-bcast  |
@@ -2725,7 +2725,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `asrav.bycol`  | R3      | @elementwise-bcast  |
 ]
 
-#instruction-listing(caption: [比较指令清单])[
+#instruction-index(caption: [比较指令清单])[
   | Instruction    | Format  | Section           |
   | :------------: | :-----: | :---------------- |
   | `acmp.eq`      | R4      | @elementwise-cmp  |
@@ -2754,7 +2754,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `vcmpx.unord`  | R4      | @elementwise-cmp  |
 ]
 
-#instruction-listing(caption: [选择指令清单])[
+#instruction-index(caption: [选择指令清单])[
   | Instruction  | Format  | Section              |
   | :----------: | :-----: | :------------------- |
   | `tselect`    | R4      | @elementwise-select  |
@@ -2762,7 +2762,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `vselect`    | R4      | @elementwise-select  |
 ]
 
-#instruction-listing(caption: [Mask 指令清单])[
+#instruction-index(caption: [Mask 指令清单])[
   | Instruction    | Format  | Section            |
   | :------------: | :-----: | :----------------- |
   | `tmask.tail`   | R4      | @elementwise-mask  |
@@ -2787,7 +2787,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 详细语义见 @reduction-conversion.
 
-#instruction-listing(caption: [规约指令清单])[
+#instruction-index(caption: [规约指令清单])[
   | Instruction            | Format  | Section          |
   | :--------------------: | :-----: | :--------------- |
   | `areduce.rows.sum`     | R2      | @reduce-areduce  |
@@ -2803,7 +2803,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `vreduce.argmax`       | R4      | @reduce-argmax   |
 ]
 
-#instruction-listing(caption: [类型转换与扩大指令清单])[
+#instruction-index(caption: [类型转换与扩大指令清单])[
   | Instruction      | Format  | Section        |
   | :--------------: | :-----: | :------------- |
   | `acvt.i32.f32`   | R2      | @reduce-cvt    |
@@ -2815,7 +2815,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 详细语义见 @quantization.
 
-#instruction-listing(caption: [量化与反量化指令清单])[
+#instruction-index(caption: [量化与反量化指令清单])[
   | Instruction                | Format  | Section        |
   | :------------------------: | :-----: | :------------- |
   | `tquant.rows.q8s32`        | R4      | @quantization  |

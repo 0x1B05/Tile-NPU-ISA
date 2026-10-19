@@ -1,5 +1,7 @@
 #import "@preview/tablem:0.3.0": tablem
 
+#let manual-font = ("Tex Gyre Termes", "Noto Serif CJK SC")
+
 #let setup(body) = {
   set document(
     title: "Tile NPU 指令集手册",
@@ -12,7 +14,7 @@
     numbering: "1",
   )
   set text(
-    font: ("Tex Gyre Termes", "Noto Serif CJK SC"),
+    font: manual-font,
     size: 10.5pt,
     lang: "zh",
   )
@@ -26,40 +28,28 @@
   body
 }
 
-#let important = block.with(
-  fill: rgb("f3f6fa"),
-  stroke: (left: 3pt + rgb("446e9b")),
+#let callout(fill, accent, body) = block(
+  fill: fill,
+  stroke: (left: 3pt + accent),
   inset: 9pt,
   radius: 2pt,
-)
-#let warning = block.with(
-  fill: rgb("fff8e8"),
-  stroke: (left: 3pt + rgb("b27a18")),
-  inset: 9pt,
-  radius: 2pt,
-)
-#let note = block.with(
-  fill: rgb("f0f7f2"),
-  stroke: (left: 3pt + rgb("3d8a4f")),
-  inset: 9pt,
-  radius: 2pt,
-)
-#let example = block.with(
-  fill: rgb("f7f7f7"),
-  stroke: (left: 3pt + luma(160)),
-  inset: 9pt,
-  radius: 2pt,
+  body,
 )
 
-#let tile-npu-table-counter = counter("tile-npu-table")
+#let important = callout.with(rgb("f3f6fa"), rgb("446e9b"))
+#let warning = callout.with(rgb("fff8e8"), rgb("b27a18"))
+#let note = callout.with(rgb("f0f7f2"), rgb("3d8a4f"))
+#let example = callout.with(rgb("f7f7f7"), luma(160))
+
+#let table-counter = counter("tile-npu-table")
 #let captioned-table(body, caption: none) = if caption == none {
   body
 } else {
-  tile-npu-table-counter.step()
+  table-counter.step()
   block(width: 100%, above: 0.9em, below: 0.4em, sticky: true)[
     #context align(center)[#text(
       size: 9pt,
-    )[表 #tile-npu-table-counter.display()　#caption]]
+    )[表 #table-counter.display()　#caption]]
   ]
   body
 }
@@ -101,7 +91,7 @@
 )
 
 // Markdown columns: Instruction | Format | Section.
-#let instruction-listing = manual-table.with(
+#let instruction-index = manual-table.with(
   columns: (2.4fr, 0.6fr, 2fr),
   inset: 3.5pt,
   stroke: 0.35pt + luma(195),
