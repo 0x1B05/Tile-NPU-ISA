@@ -59,29 +59,32 @@ Operation 列使用的函数记号:
   columns: (1.6fr, 5fr),
   caption: [Operation 函数记号],
 )[
-  | 记号                       | 含义                                                           |
-  | -------------------------- | -------------------------------------------------------------- |
-  | `min(A, B)`, `max(A, B)`   | 逐元素取小/取大; 浮点按 IEEE 754 minNum/maxNum 语义            |
-  | `shl(A, B)`, `shr(A, B)`   | 逻辑左/右移; 移位量取 $B$ 的低 $log_2 w$ 位 ($w$ 为元素位宽)   |
-  | `sra(A, B)`                | 算术右移 (符号填充); 移位量同上                                |
-  | `abs(A)`                   | 逐元素绝对值                                                   |
-  | `not`,`and`, `or`, `xor`   | 逐元素按位取反/与/或/异或                                      |
-  | `quant_q8s32(...)` 等      | 量化与反量化函数, 定义见 @quantization                         |
-  | `fma(A, B, C)`             | 融合乘加 $A × B + C$, 单次舍入; 仅 f32                         |
-  | $sum_j$, $min_j$, $max_j$  | 对下标 $j$ 归约: 求和/取小/取大                                |
-  | $"sumsq"_j$                | 对下标 $j$ 求平方和                                            |
-  | $max_j abs(...)$           | 对下标 $j$ 取绝对值最大                                        |
-  | $op("argmax")_j$           | 对下标 $j$ 取最大值索引                                        |
-  | `unordered(A, B)`          | IEEE unordered 比较: 任一操作数为 NaN 时为真                   |
-  | `f32(A)`                   | 转换为 f32                                                     |
-  | `sign_ext(A)`              | 符号扩展                                                       |
-  | `extend(v, w)`             | 整数值扩展到位宽 `w`; 省略 `w` 时按目标字段位宽                |
-  | `exp2_approx(A)`           | f32 近似 $2^x$; 规则见 "近似特殊函数" 小节                     |
-  | `rcp_approx(A)`            | f32 近似 $1 / x$; 同上                                         |
-  | `rsqrt_approx(A)`          | f32 近似 $1 / sqrt(x)$; 同上                                   |
-  | `silu_approx(A)`           | f32 近似 $x dot sigma(x)$; 同上                                |
-  | `decode_scalar(xS)`        | 将 Scalar 寄存器 `xS` 的值截取元素位宽, 按目的 dtype 解释      |
-  | `fold_add` 等              | 规约折叠函数 `fold_add`/`fold_max`/`fold_min`: 累加/取大/取小  |
+  | 记号                       | 含义                                                          |
+  | -------------------------- | ------------------------------------------------------------- |
+  | `min(A, B)`, `max(A, B)`   | 逐元素取小/取大; 浮点按 IEEE 754 minNum/maxNum 语义           |
+  | `shl(A, B)`, `shr(A, B)`   | 逻辑左/右移; 移位量取 $B$ 的低 $log_2 w$ 位 ($w$ 为元素位宽)  |
+  | `sra(A, B)`                | 算术右移 (符号填充); 移位量同上                               |
+  | `abs(A)`                   | 逐元素绝对值                                                  |
+  | `not`,`and`, `or`, `xor`   | 逐元素按位取反/与/或/异或                                     |
+  | `quant_q8s32(...)` 等      | 量化与反量化函数, 定义见 @quantization                        |
+  | `fma(A, B, C)`             | 融合乘加 $A × B + C$, 单次舍入; 仅 f32                        |
+  | $sum_j$, $min_j$, $max_j$  | 对下标 $j$ 归约: 求和/取小/取大                               |
+  | $"sumsq"_j$                | 对下标 $j$ 求平方和                                           |
+  | $max_j abs(...)$           | 对下标 $j$ 取绝对值最大                                       |
+  | $op("argmax")_j$           | 对下标 $j$ 取最大值索引                                       |
+  | `unordered(A, B)`          | IEEE unordered 比较: 任一操作数为 NaN 时为真                  |
+  | `f32(A)`                   | 转换为 f32                                                    |
+  | `sign_ext(A)`              | 符号扩展                                                      |
+  | `extend(v, w)`             | 整数值扩展到位宽 `w`; 省略 `w` 时按目标字段位宽               |
+  | `exp2_approx(A)`           | f32 近似 $2^x$; 规则见 "近似特殊函数" 小节                    |
+  | `rcp_approx(A)`            | f32 近似 $1 / x$; 同上                                        |
+  | `rsqrt_approx(A)`          | f32 近似 $1 / sqrt(x)$; 同上                                  |
+  | `silu_approx(A)`           | f32 近似 $x dot sigma(x)$; 同上                               |
+  | `decode_scalar(xS)`        | 将 Scalar 寄存器 `xS` 的值截取元素位宽, 按目的 dtype 解释     |
+  | `tree_reduce(...)`         | 相邻两两归约树, 定义见 @reduce-areduce                        |
+  | `add_f32_rne(a, b)`        | f32 加法, 单次 RNE 舍入, 定义见 @reduce-areduce               |
+  | `pair_max`/`pair_min`      | 规约取大/取小, 定义见 @reduce-areduce                         |
+  | `absmax_leaf(x)`           | NaN 视为 +0, 否则取绝对值, 定义见 @reduce-areduce             |
 ]
 
 = 指令集概览 <overview>
@@ -1608,7 +1611,10 @@ $ D_i = op("round")_("f32")(A_i B_i + C_i) $
 
 `not`/`abs`/`neg` 与近似特殊函数同属一元操作族 (E_UNARY), 使用 R2 格式:
 
-#rivet-encoding-figure(e-unary-schema, caption: [一元操作与特殊函数格式 (E_UNARY)])
+#rivet-encoding-figure(
+  e-unary-schema,
+  caption: [一元操作与特殊函数格式 (E_UNARY)],
+)
 
 #instruction-table(
   columns: (1.2fr, 0.5fr, 2fr, 2fr),
@@ -2116,49 +2122,52 @@ $
   op("len")("vD") & = R
 $
 
-除 `argmax` 外, 行规约按统一循环执行:
+除 `argmax` 外, 行规约对每一行的有效元素执行固定的相邻二叉树规约. `sum` 与 `sumsq` 的每个加法节点都执行一次 binary32 round-to-nearest, ties-to-even (RNE) 舍入. 树的定义如下:
 
 ```text
-for 0 <= i < R:
-    value ← identity(op)
-    for 0 <= j < C:
-        value ← fold(op, value, aS[i,j])
-    vD[i] ← value
+tree_reduce(nodes, pair_op):
+    level ← nodes
+    while length(level) > 1:
+        next ← []
+        for 0 <= k and 2*k+1 < length(level):
+            next.append(pair_op(level[2*k], level[2*k+1]))
+        if length(level) is odd:
+            next.append(level[length(level)-1])
+        level ← next
+    return level[0]
 ```
 
+每一层从左到右合并相邻节点; 奇数个节点时, 最右节点不参与本层运算, 原样直通到下一层. 有效 shape 非空, 因此 `tree_reduce` 总能返回一个元素.
+
+`sum`, `max`, `min` 和 `sumsq` 对应的规约表达式如下表所示.
+
 #manual-table(
-  columns: (1.2fr, 1fr, 3fr),
+  columns: (1.2fr, 3fr),
   inset: 3.5pt,
   caption: [行规约操作],
 )[
-  | 指令                   | 单位元       | fold                       |
-  | ---------------------- | ------------ | -------------------------- |
-  | `areduce.rows.sum`     | $+0.0$       | `fold_add(value, x)`       |
-  | `areduce.rows.max`     | $-infinity$  | `fold_max(value, x)`       |
-  | `areduce.rows.min`     | $+infinity$  | `fold_min(value, x)`       |
-  | `areduce.rows.sumsq`   | $+0.0$       | `fold_add(value, x × x)`   |
-  | `areduce.rows.absmax`  | $+0.0$       | `fold_max(value, abs(x))`  |
+  | 指令                   | 规约表达式                                        |
+  | ---------------------- | ------------------------------------------------- |
+  | `areduce.rows.sum`     | `tree_reduce(row, add_f32_rne)`                   |
+  | `areduce.rows.max`     | `tree_reduce(row, pair_max)`                      |
+  | `areduce.rows.min`     | `tree_reduce(row, pair_min)`                      |
+  | `areduce.rows.sumsq`   | `tree_reduce([round_f32(x_j^2)]_j, add_f32_rne)`  |
+  | `areduce.rows.absmax`  | `tree_reduce([absmax_leaf(x_j)]_j, pair_max)`     |
 ]
 
-`sumsq` 的乘积按 f32 乘法舍入后再执行 `fold_add`; 其余操作直接使用表中的 fold.
+`pair_max` 和 `pair_min` 的比较规则为: 一方为 NaN 时返回另一方, 两方均为 NaN 时返回左操作数; 两方均为数值且比较结果相等时, `max` 在 `+0` 与 `-0` 中返回 `+0`, `min` 返回 `-0`, 其他相等值返回左操作数.
+
+`absmax` 的每个叶先经过 `absmax_leaf(x)` 映射: NaN 视为 `+0`, 其他值取绝对值; 然后对有效叶执行 `pair_max`. 因此单元素、`-0` 和全 NaN 的 `absmax` 都得到非负结果.
 
 `areduce.rows.argmax` 每行取最大值, 目的 `vD` 的 dtype 为 `i32`, 值为该行最大值的有效局部列号; 并列取较小索引, NaN 选择规则与 `vreduce.argmax` 一致:
 
 ```text
 for 0 <= i < R:
-    best_index ← 0
-    best_value ← aS[i,0]
-    for 1 <= j < C:
-        candidate ← aS[i,j]
-        if candidate is NaN:
-            if best_value is not NaN:
-                best_index ← j
-                best_value ← candidate
-        else if best_value is not NaN and candidate > best_value:
-            best_index ← j
-            best_value ← candidate
+    (best_index, best_value) ← argmax_tree((j, aS[i,j]) for 0 <= j < C)
     vD[i] ← best_index
 ```
+
+`argmax_tree` 使用与上文相同的相邻二叉树和奇数节点直通规则. 两个候选比较时, NaN 胜过非 NaN, 两个 NaN 取左操作数; 两个数值中较大者胜出, 数值相等时取较小的逻辑索引.
 
 == 向量到 Scalar 的规约 <reduce-vreduce>
 
@@ -2177,28 +2186,20 @@ vreduce.sumsq xD, vS
 
 源 `vS` 必须$op("dtype")("vS") = "f32"$. 结果的 f32 位模式写入 `xD` 的低 32 bit, 高 32 bit 清零.
 
-统一循环为:
-
-```text
-value ← identity(op)
-for 0 <= j < N:
-    value ← fold(op, value, vS[j])
-```
+`vreduce` 对 `vS[0..N-1]` 使用上文定义的相邻二叉树. `sum`, `max`, `min` 和 `sumsq` 对应的规约表达式如下表所示.
 
 #manual-table(
-  columns: (1fr, 1fr, 3fr),
+  columns: (1fr, 3fr),
   inset: 3.5pt,
   caption: [向量规约操作],
 )[
-  | 指令             | 单位元       | fold                      |
-  | ---------------- | ------------ | ------------------------- |
-  | `vreduce.sum`    | $+0.0$       | `fold_add(value, x)`      |
-  | `vreduce.max`    | $-infinity$  | `fold_max(value, x)`      |
-  | `vreduce.min`    | $+infinity$  | `fold_min(value, x)`      |
-  | `vreduce.sumsq`  | $+0.0$       | `fold_add(value, x × x)`  |
+  | 指令             | 规约表达式                                              |
+  | ---------------- | ------------------------------------------------------- |
+  | `vreduce.sum`    | `tree_reduce(vS, add_f32_rne)`                          |
+  | `vreduce.max`    | `tree_reduce(vS, pair_max)`                             |
+  | `vreduce.min`    | `tree_reduce(vS, pair_min)`                             |
+  | `vreduce.sumsq`  | `tree_reduce([round_f32(vS[j]^2)], add_f32_rne)`  |
 ]
-
-`sumsq` 的乘积按 f32 乘法舍入后再执行 `fold_add`.
 
 == Argmax <reduce-argmax>
 
@@ -2218,26 +2219,14 @@ xValue: 最大值的 f32 位模式, 写入低 32 bit, 高 32 bit 清零
 操作:
 
 ```text
-best_index ← 0
-best_value ← vS[0]
-for 1 <= j < len(vS):
-    candidate ← vS[j]
-    if candidate is NaN:
-        if best_value is not NaN:
-            best_index ← j
-            best_value ← candidate
-    else if best_value is not NaN and candidate > best_value:
-        best_index ← j
-        best_value ← candidate
-xIndex ← best_index
-xValue ← best_value
+(xIndex, xValue) ← argmax_tree((j, vS[j]) for 0 <= j < len(vS))
 ```
+
+`argmax_tree` 的 NaN, 相等值, `+0`/`-0`, 奇数节点直通和树拓扑规则与行规约中的定义完全相同. 因而 NaN 候选胜过非 NaN, 两个 NaN 取较小逻辑索引, 数值相等时也取较小逻辑索引.
 
 如果算子需要忽略显式 mask 的位置, 不能只依赖 `-inf` 填充. 因为真实输入也可能是 `-inf`, 而且填充位置仍属于当前有效 Vector shape.
 
 正确做法是缩短 `vS.len`; 或保留显式候选有效性; 或使用带有效性输入的专用 argmax 展开.
-
-按照配置约束, `rows`/`cols`/`len` 的合法取值从 1 开始, 有效区域为空的源属于非法配置, 不会产生空规约; 各规约表中的单位元作为 fold 的初始值.
 
 == 类型转换指令 <reduce-cvt>
 
@@ -2421,7 +2410,7 @@ bdequant.f32            vD, bS, vScale[lane]
 `quant_q8s32(x)` 的动态量化定义如下 (`x` 为一行或一个向量的有效元素, 共 $N$ 个):
 
 ```text
-amax   ← max_j |x_j|               # 与 areduce.rows.absmax 相同的 fold 规则
+amax   ← max_j |x_j|               # 与 areduce.rows.absmax 相同的 absmax 树规则
 scale  ← amax / 127                # f32 除法
 bits_j ← sat_rne(x_j / scale)      # RNE 舍入到整数, 饱和到 [-127, 127];
                                    # x_j / scale 为 NaN 时 bits_j ← 0
