@@ -79,7 +79,6 @@ Operation 列使用的函数记号:
   | `exp2_approx(A)`           | f32 近似 $2^x$; 规则见 "近似特殊函数" 小节                    |
   | `rcp_approx(A)`            | f32 近似 $1 / x$; 同上                                        |
   | `rsqrt_approx(A)`          | f32 近似 $1 / sqrt(x)$; 同上                                  |
-  | `silu_approx(A)`           | f32 近似 $x dot sigma(x)$; 同上                               |
   | `decode_scalar(xS)`        | 将 Scalar 寄存器 `xS` 的值截取元素位宽, 按目的 dtype 解释     |
   | `tree_reduce(...)`         | 相邻两两归约树, 定义见 @reduce-areduce                        |
   | `add_f32_rne(a, b)`        | f32 加法, 单次 RNE 舍入, 定义见 @reduce-areduce               |
@@ -1473,7 +1472,7 @@ D[p] ← op(A[p], value)
   | `i32/u32`       | `add`, `sub`, `mul`, `min`, `max`, bitwise, shift, `cmp`, `select`                    |
   | `i32`           | 另外支持 `abs`, `neg`                                                                 |
   | `f32`           | `add`, `sub`, `mul`, `div`, `min`, `max`, `abs`, `neg`, `fma`, `cmp`, `select`        |
-  | `f32` 近似函数  | `exp2.approx`, `rcp.approx`, `rsqrt.approx`, `silu.approx`                            |
+  | `f32` 近似函数  | `exp2.approx`, `rcp.approx`, `rsqrt.approx`                                           |
 ]
 
 以下分 8-bit 域 (Tile) 与 32-bit 域 (Acc/Vec32) 两表列出基础操作. 8-bit 域的元素类型为 `i8/u8`, 32-bit 域为 `i32/u32/f32`, 由目的寄存器配置决定; 标注 "仅 f32" 或 "仅整数" 的行为例外. 二元操作展开为寄存器和 Scalar (`x`) 两种来源; 8-bit 域加法和减法的溢出模式由配置 `arith_mode` 决定 (见 @integer-arithmetic). 一元操作仅列单源形式, 融合乘加, 特殊函数, 比较和 select 在各自小节列出.
@@ -1620,13 +1619,14 @@ $ D_i = op("round")_("f32")(A_i B_i + C_i) $
   columns: (1.2fr, 0.5fr, 2fr, 2fr),
   caption: [近似特殊函数指令],
 )[
-  | Instruction          | Format  | Operation                  | Summary                   |
-  | :------------------: | :-----: | -------------------------- | ------------------------- |
-  | `{a,v}exp2.approx`   | R2      | D[p] = exp2_approx(A[p])   | 逐元素计算 2 的幂.        |
-  | `{a,v}rcp.approx`    | R2      | D[p] = rcp_approx(A[p])    | 逐元素计算倒数.           |
-  | `{a,v}rsqrt.approx`  | R2      | D[p] = rsqrt_approx(A[p])  | 逐元素计算倒数平方根.     |
-  | `{a,v}silu.approx`   | R2      | D[p] = silu_approx(A[p])   | 逐元素 SwiGLU gate 激活.  |
+  | Instruction          | Format  | Operation                  | Summary                |
+  | :------------------: | :-----: | -------------------------- | ---------------------- |
+  | `{a,v}exp2.approx`   | R2      | D[p] = exp2_approx(A[p])   | 逐元素计算 2 的幂.     |
+  | `{a,v}rcp.approx`    | R2      | D[p] = rcp_approx(A[p])    | 逐元素计算倒数.        |
+  | `{a,v}rsqrt.approx`  | R2      | D[p] = rsqrt_approx(A[p])  | 逐元素计算倒数平方根.  |
 ]
+
+E_UNARY 的 funct3 = 110/111 编码保留.
 
 基础 f32 近似函数为:
 
@@ -1634,12 +1634,10 @@ $ D_i = op("round")_("f32")(A_i B_i + C_i) $
 aexp2.approx  aD, aS
 arcp.approx   aD, aS
 arsqrt.approx aD, aS
-asilu.approx  aD, aS
 
 vexp2.approx  vD, vS
 vrcp.approx   vD, vS
 vrsqrt.approx vD, vS
-vsilu.approx  vD, vS
 ```
 
 这些指令对有效区域逐元素执行. 向量形式为:
@@ -1662,7 +1660,6 @@ for 0 <= i < rows(D):
 $ "exp2_approx"(x) = 2^x $
 $ "rcp_approx"(x) = 1 / x $
 $ "rsqrt_approx"(x) = 1 / sqrt(x) $
-$ "silu_approx"(x) = x dot sigma(x) = x / (1 + e^(-x)) $
 
 - 精度: 数学结果为有限非零值时, 结果的相对误差不超过 $2^(-10)$; 不要求正确舍入, 也不要求与其他实现逐位一致.
 - 确定性: 同一实现上, 相同输入产生相同结果.
@@ -1671,17 +1668,17 @@ $ "silu_approx"(x) = x dot sigma(x) = x / (1 + e^(-x)) $
 - 特殊值: 按下表求值; 其他有限输入按数学定义求值.
 
 #manual-table(
-  columns: (0.9fr, 1fr, 1fr, 1fr, 1fr),
+  columns: (0.9fr, 1fr, 1fr, 1fr),
   caption: [近似函数特殊值规则],
 )[
-  | 输入 `x`      | `exp2_approx`  | `rcp_approx`  | `rsqrt_approx`  | `silu_approx`  |
-  | :-----------: | :------------: | :-----------: | :-------------: | :------------: |
-  | NaN           | NaN            | NaN           | NaN             | NaN            |
-  | $+infinity$   | $+infinity$    | $+0$          | $+0$            | $+infinity$    |
-  | $-infinity$   | $+0$           | $-0$          | NaN             | NaN            |
-  | $+0$          | $1$            | $+infinity$   | $+infinity$     | $+0$           |
-  | $-0$          | $1$            | $-infinity$   | $-infinity$     | $-0$           |
-  | 有限 $x < 0$  | 按定义         | 按定义        | NaN             | 按定义         |
+  | 输入 `x`      | `exp2_approx`  | `rcp_approx`  | `rsqrt_approx`  |
+  | :-----------: | :------------: | :-----------: | :-------------: |
+  | NaN           | NaN            | NaN           | NaN             |
+  | $+infinity$   | $+infinity$    | $+0$          | $+0$            |
+  | $-infinity$   | $+0$           | $-0$          | NaN             |
+  | $+0$          | $1$            | $+infinity$   | $+infinity$     |
+  | $-0$          | $1$            | $-infinity$   | $-infinity$     |
+  | 有限 $x < 0$  | 按定义         | 按定义        | NaN             |
 ]
 
 == 向量广播 <elementwise-bcast>
@@ -2193,11 +2190,11 @@ vreduce.sumsq xD, vS
   inset: 3.5pt,
   caption: [向量规约操作],
 )[
-  | 指令             | 规约表达式                                              |
-  | ---------------- | ------------------------------------------------------- |
-  | `vreduce.sum`    | `tree_reduce(vS, add_f32_rne)`                          |
-  | `vreduce.max`    | `tree_reduce(vS, pair_max)`                             |
-  | `vreduce.min`    | `tree_reduce(vS, pair_min)`                             |
+  | 指令             | 规约表达式                                        |
+  | ---------------- | ------------------------------------------------- |
+  | `vreduce.sum`    | `tree_reduce(vS, add_f32_rne)`                    |
+  | `vreduce.max`    | `tree_reduce(vS, pair_max)`                       |
+  | `vreduce.min`    | `tree_reduce(vS, pair_min)`                       |
   | `vreduce.sumsq`  | `tree_reduce([round_f32(vS[j]^2)], add_f32_rne)`  |
 ]
 
@@ -2652,11 +2649,9 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `aexp2.approx`   | R2      | @elementwise-approx  |
   | `arcp.approx`    | R2      | @elementwise-approx  |
   | `arsqrt.approx`  | R2      | @elementwise-approx  |
-  | `asilu.approx`   | R2      | @elementwise-approx  |
   | `vexp2.approx`   | R2      | @elementwise-approx  |
   | `vrcp.approx`    | R2      | @elementwise-approx  |
   | `vrsqrt.approx`  | R2      | @elementwise-approx  |
-  | `vsilu.approx`   | R2      | @elementwise-approx  |
 ]
 
 
