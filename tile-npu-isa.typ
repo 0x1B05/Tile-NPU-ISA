@@ -1125,29 +1125,37 @@ bdot.nt.acc.i8.i32 vD, bA, tB
 
 == `nn` 和 `nt` 的矩阵布局
 
-`nn` 和 `nt` 表示右操作数的逻辑方向. `mma` 只有 `nn` 形式: 右操作数 `tB` 总是按 $K times N$ 存放, `tB` 的第 $k$ 行对应矩阵乘阵列的第 $k$ 行, 阵列只需一个方向的右操作数装载路径. 需要 $B^sans(T)$ 时, 由数据准备阶段把转置形式存入 Tile, 例如使用 `transform = transpose` 的 `tload` (见 @transpose-load) 或 `ttranspose`.
+矩阵乘记作 $A_(M times K) B_(K times N) -> D_(M times N)$. `nn` 和 `nt` 的两个字母依次表示 $A$, $B$ 是否转置; 当前 ISA 的 $A$ 侧只使用 `n`, 因此实际出现的是 `nn` 和 `nt`.
 
-`bdot` 的两种形式都只按行读取 Tile, 区别在运算结构: `bdot.nn` 逐行读取 `tB[k, :]`, 将 `bA[k]` 广播到整行后逐 lane 乘加, 跨行保留 $N$ 个 `i32` 部分和; `bdot.nt` 逐行读取 `tB[j, :]`, 与 `bA` 做一次完整点积, 得到 `vD[j]`.
+脉动阵列只为右操作数保留一个装载方向: 存在 Tile 寄存器中的右操作数按行装入阵列. 因此 `tB` 总是按行存放: `nn` 使用 $K times N$ 的行主序布局, `nt` 则把 $B$ 的转置形式按 $N times K$ 放入 Tile.
 
-=== `nn`
+=== `mma`
 
-`mma.nn` 的数学形式为:
+`mma` 只有 `nn` 形式, 其数学形式为: $ A_(M times K) B_(K times N) -> D_(M times N) $
 
-$ A_(M times K) B_(K times N) -> D_(M times N) $
+其中: $ A_(i,k) = "tA"_(i,k), quad B_(k,j) = "tB"_(k,j) $
 
-其中:
+因此: $ D_(i,j) = sum_(k=0)^(K-1) A_(i,k) B_(k,j) $
 
-$ A_(i,k) = "tA"_(i,k), quad B_(k,j) = "tB"_(k,j) $
+右操作数 `tB` 按 $K times N$ 存放, 第 $k$ 行对应脉动阵列的第 $k$ 行. 需要 $B^sans(T)$ 时, 由数据准备阶段把转置形式存入 Tile, 例如使用 `transform = transpose` 的 `tload` (见 @transpose-load) 或 `ttranspose`.
 
-因此:
+=== `bdot`
 
-$ D_(i,j) = sum_(k=0)^(K-1) A_(i,k) B_(k,j) $
+`bdot` 计算长度为 $K$ 的 Vec8 与 Tile 的点积, 有 `nn` 和 `nt` 两种右操作数布局. 其数学形式是 GEMV:
 
-=== `nt`
+$ A_(1 times K) B_(K times N) -> D_(1 times N) $
 
-`bdot.nt` 把 Tile 的每一行当作一个与 `bA` 做点积的向量, Tile `tB` 的物理有效 shape 为 $N times K$:
+其中 `bdot.nn` 的 `tB` 直接存放 $B$, `bdot.nt` 的 `tB` 存放 $B^sans(T)$.
 
-$ "vD"_j = sum_(k=0)^(K-1) "bA"_k "tB"_(j,k) $
+`bdot.nn` 的 `tB` 按 $K times N$ 存放. 第 $k$ 行与 `bA[k]` 相乘, 结果按列累加:
+
+$ D_j = sum_(k=0)^(K-1) A_k B_(k,j) $
+
+`bdot.nt` 的 `tB` 按 $N times K$ 存放, 第 $j$ 行与 `bA` 做完整点积:
+
+$ D_j = sum_(k=0)^(K-1) A_k B_(j,k) $
+
+两种形式都按行读取 `tB`; `bdot.nn` 保留 $N$ 个按列累加的 `i32` 部分和, `bdot.nt` 每读取一行就得到一个输出 lane.
 
 == `mma.nn.zero.i8.i32` 和 `mma.nn.acc.i8.i32` <matrix-mma>
 
@@ -1158,28 +1166,22 @@ mma.nn.acc.i8.i32  aD, tA, tB
 
 两种形式都按普通右矩阵执行矩阵乘. 每个 `i8` 操作数先符号扩展到 `i32`, 再进行乘法; 乘积和累加使用 `i32` 算术. `zero` 将结果写入目的 Acc; `acc` 将结果加上目的 Acc 的旧值.
 
-约束:
-
-$
-  op("rows")("tA") & = M, op("cols")("tA") = K \
-  op("rows")("tB") & = K, op("cols")("tB") = N \
-  op("rows")("aD") & = M, op("cols")("aD") = N
-$
+为与右操作数按行装载的数据流一致, 下面的伪代码按 $k$ 外层展开.
 
 操作:
 
 ```text
 for 0 <= i < M:
     for 0 <= j < N:
-        partial ← 0
-        for 0 <= k < K:
-            lhs ← sign_ext(tA[i,k])
-            rhs ← sign_ext(tB[k,j])
-            partial ← partial + lhs × rhs
         if zero:
-            aD[i,j] ← partial
-        else:  # acc
-            aD[i,j] ← wrap32(aD[i,j] + partial)
+            aD[i,j] ← 0
+
+for 0 <= k < K:
+    for 0 <= i < M:
+        lhs ← sign_ext(tA[i,k])
+        for 0 <= j < N:
+            rhs ← sign_ext(tB[k,j])
+            aD[i,j] ← wrap32(aD[i,j] + lhs × rhs)
 ```
 
 示例: 沿 K 维分块累加:
@@ -1191,9 +1193,7 @@ mma.nn.acc.i8.i32  a0, tA2, tB2
 mma.nn.acc.i8.i32  a0, tA3, tB3
 ```
 
-每条 `mma.nn.acc` 都读取上一次得到的 `a0`, 并产生新的 `a0`, 结果为:
-
-$ "a0" = A_0 B_0 + A_1 B_1 + A_2 B_2 + A_3 B_3 $
+每条 `mma.nn.acc` 都读取上一次得到的 `a0`, 并产生新的 `a0`, 结果为: $ "a0" = A_0 B_0 + A_1 B_1 + A_2 B_2 + A_3 B_3 $
 
 == `bdot.nn.i8.i32` 和 `bdot.nn.acc.i8.i32` <matrix-bdot-nn>
 
@@ -1203,15 +1203,6 @@ bdot.nn.acc.i8.i32 vD, bA, tB
 ```
 
 Vec8 与 Tile 各列执行点积. `zero` 形式将结果写入 `i32` Vec32; `acc` 形式将结果累加到旧值.
-
-约束:
-
-$
-   op("len")("bA") & = K \
-  op("rows")("tB") & = K \
-  op("cols")("tB") & = N \
-   op("len")("vD") & = N
-$
 
 操作:
 
@@ -1227,9 +1218,7 @@ for 0 <= k < K:
 
 该形式逐行读取 `tB`, 与逐列做点积的写法结果相同: `i32` 回绕加法满足结合律, 累加顺序不影响结果.
 
-数学形式为:
-
-$ "bA"_(1 times K) "tB"_(K times N) -> "vD"_(1 times N) $
+数学形式为: $ A_(1 times K) B_(K times N) -> D_(1 times N) $
 
 `bdot.nn.acc.i8.i32` 使用相同的列点积定义, 但部分和从 `vD` 的旧值开始:
 
@@ -1254,13 +1243,6 @@ $ "tB"[j, 0:K] $
 
 `zero` 形式将结果写入 `i32` Vec32; `acc` 形式将结果累加到旧值.
 
-约束:
-
-$
-   op("len")("bA") & = K and op("len")("vD") = N \
-  op("cols")("tB") & = K and op("rows")("tB") = N \
-$
-
 操作:
 
 ```text
@@ -1273,9 +1255,7 @@ for 0 <= j < N:
     vD[j] ← sum
 ```
 
-数学形式为:
-
-$ "bA"_(1 times K) ("tB"_(N times K))^sans(T) -> "vD"_(1 times N) $
+数学形式为: $ A_(1 times K) (B_(N times K))^sans(T) -> D_(1 times N) $
 
 `bdot.nt.acc.i8.i32` 使用相同的行点积定义, 再将结果加到旧值:
 
@@ -1291,19 +1271,11 @@ for 0 <= j < N:
 
 == Decode 中的 $Q K^sans(T)$
 
-以`head_dim = 128`为例, head dimension 可以分为四个 32-element 子块:
+以`head_dim = 128`为例, head dimension 可以分为四个 32-element 子块: $ Q = [Q_0, Q_1, Q_2, Q_3], quad op("shape")(Q_d) = 1 times 32 $
 
-$ Q = [Q_0, Q_1, Q_2, Q_3], quad op("shape")(Q_d) = 1 times 32 $
+每个 Query 子块可放入一个 Vec8: $ Q_0 -> "b0", quad Q_1 -> "b1", quad Q_2 -> "b2", quad Q_3 -> "b3" $
 
-每个 Query 子块可放入一个 Vec8:
-
-$ Q_0 -> "b0", quad Q_1 -> "b1", quad Q_2 -> "b2", quad Q_3 -> "b3" $
-
-对于一个包含 `N` 个 key 的 Tile:
-
-$ op("shape")(K_0) = N times 32 $
-
-其中每一行是一个 key 的 32 维子块.
+对于一个包含 `N` 个 key 的 Tile: $ op("shape")(K_0) = N times 32 $, 其中每一行是一个 key 的 32 维子块.
 
 在该子块上:
 
@@ -1311,9 +1283,7 @@ $ op("shape")(K_0) = N times 32 $
 bdot.nt.i8.i32 vScore0, b0, tK0
 ```
 
-产生:
-
-$ "vScore0"_j = op("dot")(Q_0, K_0[j,:]) $
+产生: $ "vScore0"_j = op("dot")(Q_0, K_0[j,:]) $
 
 依次处理四个 head-dimension 子块:
 
@@ -1324,25 +1294,17 @@ bdot.nt.acc.i8.i32 vScore0, b2, tK2
 bdot.nt.acc.i8.i32 vScore0, b3, tK3
 ```
 
-得到:
+得到: $ "vScore0"_j = sum_(d=0)^3 op("dot")(Q_d, K_d[j,:]) $
 
-$ "vScore0"_j = sum_(d=0)^3 op("dot")(Q_d, K_d[j,:]) $
-
-这等价于:
-
-$ Q K^sans(T) $
+这等价于: $ Q K^sans(T) $
 
 但具体的 scale, 反量化和 softmax 前缩放须由指令序列显式完成.
 
 == Decode 中的 $P V$
 
-假设一个 key block 有 `K` 个 token, V 的维度块宽度为 32:
+假设一个 key block 有 `K` 个 token, V 的维度块宽度为 32: $ op("shape")(P) = 1 times K, quad op("shape")(V) = K times 32 $
 
-$ op("shape")(P) = 1 times K, quad op("shape")(V) = K times 32 $
-
-将 P 的 `i8` 量化值放入 Vec8, 将 V 的 `i8` block 放入 Tile:
-
-$ "Pbits" -> "bP", "Vbits" -> "tV" $
+将 P 的 `i8` 量化值放入 Vec8, 将 V 的 `i8` block 放入 Tile: $ "Pbits" -> "bP", "Vbits" -> "tV" $
 
 然后执行:
 
@@ -1350,9 +1312,7 @@ $ "Pbits" -> "bP", "Vbits" -> "tV" $
 bdot.nn.i8.i32 vOutRaw, bP, tV
 ```
 
-产生:
-
-$ "vOutRaw"_j = sum_(k=0)^(K-1) "Pbits"_k "Vbits"_(k,j) $
+产生: $ "vOutRaw"_j = sum_(k=0)^(K-1) "Pbits"_k "Vbits"_(k,j) $
 
 如果 V 的 scale 或 P 的 scale 不同, 须显式执行 scale 重建:
 
