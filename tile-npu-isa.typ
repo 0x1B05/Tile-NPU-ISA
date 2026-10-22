@@ -596,6 +596,12 @@ gather 同样使用 R2 格式和 `sel3 = {dom2, 0}`, 但 `S5[11:7]` 为 Vec32 �
 
 #rivet-encoding-figure(m-row-schema, caption: [行访存格式 (M_BLK row 形式)])
 
+== 访存数据类型
+
+内存中的元素类型由绑定配置寄存器的 `dtype` 决定.
+
+类型与精度转换 (`i8` → `i32`, `i8` → `f32`, 子字节格式如 `q4` 的展开, 以及打包量化格式如 `q8` + scale 到 `f32` 的反量化) 由 `twiden`, `acvt`/`vcvt`, `tquant`/`vquant`, `tdequant`/`bdequant` 等显式指令完成 (见 @quantization).
+
 == 基础访存指令
 
 === 矩阵整块访存 <mem-block>
@@ -629,6 +635,24 @@ for 0 <= i < R:
 ```
 
 其中 `CS` 是源 Tile 或 Acc. 内存 view 的有效范围等于寄存器的有效区域, 访存恰好覆盖 $R times C$ 个元素, 不存在越界元素.
+
+==== 转置 <transpose>
+
+绑定描述符的 `transform=transpose` 交换 Tile 整块 load/store 的访存坐标:
+
+```asm
+tload  tD    # tm[tD].transform = transpose
+tstore tS    # tm[tS].transform = transpose
+```
+
+其结果等价于:
+
+```text
+load:  tD[i,j] ← memory[addr(j,i)]
+store: memory[addr(j,i)] ← tS[i,j]
+```
+
+转置在访存路径中完成. 该变换只对 Tile 的 load/store 定义; 其余访存指令 (`aload`/`astore`, 行形式与向量访存) 执行时绑定描述符的 `transform` 须为 `normal`.
 
 === 矩阵行访存 <mem-row>
 
@@ -743,15 +767,11 @@ for 0 <= j < len(CS):
 
 gather 不触发递增. load 的递增量按目的 `CD` 的有效范围计算, store 按源 `CS` 计算. 自增将连续的 tile 流 (权重块扫描, KV 追加等) 表达为对同一描述符的连续访存, 无需在循环中重写 `base_addr`.
 
-== 存储数据类型
+== 示例
 
-内存中的元素类型由绑定配置寄存器的 `dtype` 决定; load/store 均为原样搬运, 访存路径不执行类型转换. 转置加载通过 `TM`/`AM` 的 `transform` 字段选择, 仍使用 `tload` (见 @transpose-load).
+以下示例组合使用上述访存形式和地址自增行为.
 
-#note[
-  类型与精度转换 (`i8` → `i32`, `i8` → `f32`, 子字节格式如 `q4` 的展开, 以及打包量化格式如 `q8` + scale 到 `f32` 的反量化) 由 `twiden`, `acvt`/`vcvt`, `tquant`/`vquant`, `tdequant`/`bdequant` 等显式指令完成 (见 @quantization).
-]
-
-== Embedding 的行 Gather
+=== Embedding 查表
 
 Embedding 查表使用 gather 加载: token ID 先作为 `i32` 向量由 `vload` 载入 Vec32, 再由 `tload.gather` 索引出 embedding 行, 由 `vload.gather` 索引出对应的 scale:
 
@@ -761,9 +781,9 @@ tload.gather t0, v1        # tm0 指向 embedding 表
 vload.gather v2, v1        # vm2 指向 table_scale
 ```
 
-`tm0` 的 `base_addr` 指向表原点, `row_stride_bytes` 为相邻 token 之间的字节跨步, `col_stride_bytes` 为 embedding 维方向的字节跨步; `vm2` 的 `stride_bytes` 为相邻 token scale 之间的字节跨步. token ID 的合法性 ($0 <= "id" < "vocab_size"$) 由软件保证, 索引越界行为见 gather 加载的定义.
+`tm0` 的 `base_addr` 指向表原点, `row_stride_bytes` 为相邻 token 之间的字节跨步, `col_stride_bytes` 为 embedding 维方向的字节跨步; `vm2` 的 `stride_bytes` 为相邻 token scale 之间的字节跨步.
 
-== KV Cache 追加示例
+=== KV Cache 追加
 
 Decode 的 KV 追加可直接用 `bstore` 写 `i8` 行片段, 用 `vstore` 写 scale; bits 和 scale 分别使用 Vec8 和 Vec32 访存. 起始追加位置的地址由 Scalar 代码计算后写入绑定描述符的 `base_addr`, 并置位自增标志; 此后每次写入自动前进到下一追加位置:
 
@@ -776,15 +796,15 @@ bstore  b0     # 写入 token t 的 bits, 完成后 bm0.base_addr += len × stri
 vstore  v0     # 写入 token t 的 scale, 同理
 ```
 
-下一个 token 追加时重复同样的 `bstore`/`vstore` 即可, 无需重写描述符.
+下一个 token 追加时重复同样的 `bstore`/`vstore` 即可.
 
-= 填充, 搬运与转置 <data-movement>
+= 填充, 搬运 <data-movement>
 
 本节定义数据寄存器的填充, 复制, 行搬运, lane 搬运和广播操作.
 
 元素类型使用寄存器配置中的 dtype: Tile/Vec8 为 `i8/u8`, Acc/Vec32 为 `i32/u32/f32`.
 
-#instruction-table(caption: [填充, 搬运与转置指令])[
+#instruction-table(caption: [填充, 搬运指令])[
   | Instruction         | Format  | Operation       | Summary                                           |
   | :-----------------: | :-----: | --------------- | ------------------------------------------------- |
   | `{t,a,b,v}fill`     | I       | D[p] = imm      | 将立即数填入 Tile/Acc/Vec8/Vec32 的有效区域.      |
@@ -975,20 +995,6 @@ for 0 <= j < len(D):
     D[j] ← S[lane]
 ```
 
-== Full load 的转置形式 <transpose-load>
-
-绑定描述符的 `transform=transpose` 可以作为 full `tload` 的访存变换:
-
-```asm
-tload tD    # tm[tD].transform = transpose
-```
-
-其结果等价于:
-
-$ "tD"_(i,j) <- "memory"[op("addr")(j, i)] $
-
-转置在访存路径中完成, 不经过单独的 Tile 转置指令. 该变换只对 full `tload` 定义; 其余访存指令 (store, 行形式, `aload`/`astore` 与向量访存) 执行时绑定描述符的 `transform` 必须为 `normal`, 否则为非法配置.
-
 == KV Cache 中的行搬运
 
 KV cache 追加可以采用如下指令序列:
@@ -1084,7 +1090,7 @@ bdot.nt.acc.i8.i32 vD, bA, tB
 
 因此: $ D_(i,j) = sum_(k=0)^(K-1) A_(i,k) B_(k,j) $
 
-右操作数 `tB` 按 $K times N$ 存放, 第 $k$ 行对应脉动阵列的第 $k$ 行. 需要 $B^sans(T)$ 时, 由数据准备阶段使用 `transform = transpose` 的 `tload` (见 @transpose-load) 把转置形式存入 Tile.
+右操作数 `tB` 按 $K times N$ 存放, 第 $k$ 行对应脉动阵列的第 $k$ 行. 需要 $B^sans(T)$ 时, 由数据准备阶段使用 `transform = transpose` 的 `tload` (见 @transpose) 把转置形式存入 Tile.
 
 === `bdot`
 
@@ -2402,11 +2408,11 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `vstore`        | R2      | @mem-vector  |
 ]
 
-== 填充, 搬运与转置
+== 填充, 搬运
 
 详细语义见 @data-movement.
 
-#instruction-index(caption: [填充, 搬运与转置指令清单])[
+#instruction-index(caption: [填充, 搬运指令清单])[
   | Instruction     | Format  | Section         |
   | :-------------: | :-----: | :-------------- |
   | `tfill`         | I       | @fill-instr     |
