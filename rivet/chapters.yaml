@@ -263,11 +263,11 @@ structures:
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0101": "E_BCAST"}}
       27: {name: "0", description: must be 0}
-      26: {name: EW, description: element width, values: {"0": "8-bit (Tile + Vec8)", "1": "32-bit (Acc + Vec32)"}}
+      26: {name: EW, description: element width, values: {"0": "reserved", "1": "32-bit (Acc + Vec32)"}}
       25: {name: DIR, description: broadcast dir, values: {"0": "byrow", "1": "bycol"}}
       24-21: {name: funct4, description: "{G, op3}"}
       20-17: {name: reserved4, description: must be 0}
-      16-12: {name: S5, description: "vector src (Vec8/Vec32)"}
+      16-12: {name: S5, description: "vector src (Vec32)"}
       11-7: {name: A5, description: matrix src1 A}
       6-2: {name: D5, description: matrix dst D}
       1-0: {name: q, description: "space tag (00)"}

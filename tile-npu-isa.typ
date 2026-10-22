@@ -212,7 +212,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | 地址与访存      | 内存 ↔ `t/a/b/v`                                                               | 按绑定的 TM/AM/BM/VM 描述符执行整块, 行和向量访问  | `{t,a}{load,store}` #linebreak() `{t,a}{load,store}.row` #linebreak() `{b,v}{load,store}` #linebreak() `{t,b,v}load.gather`  |
   | 初始化与搬运    | 域内 #linebreak() `t` ↔ `b` #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane  | 填充, 复制, 行搬运, lane 搬运和广播                | `{t,a,b,v}{fill,fillx,copy}` #linebreak() `{t,a}{insert,extract}.row` #linebreak() `{b,v}{insert,extract,broadcast}`         |
   | 矩阵乘与点积    | `t` × `t` → `a` #linebreak() `b` × `t` → `v`                                   | `i8` 乘法, `i32` 累加或点积                        | `mma` #linebreak() `bdot`                                                                                                    |
-  | 逐元素与广播    | `t/a/v` 同域 #linebreak() 矩阵 ↔ 向量广播                                      | 算术, 位运算, 移位, 特殊函数, 比较和选择           | `{t,a,v}op` #linebreak() `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                                             |
+  | 逐元素与广播    | `t/a/v` 同域 #linebreak() Acc ↔ Vec32 广播                                     | 算术, 位运算, 移位, 特殊函数, 比较和选择           | `{t,a,v}op` #linebreak() `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                                             |
   | 规约            | `a` → `v` #linebreak() `v` → Scalar                                            | 行规约, 向量规约, 平方和和 argmax                  | `areduce` #linebreak() `vreduce`                                                                                             |
   | 类型转换与扩大  | `a/v` 内部 #linebreak() `t` → `a`                                              | 数值类型转换和 `i8` → `i32` 扩大                   | `acvt`, `vcvt` #linebreak() `twiden`                                                                                         |
   | 量化与反量化    | `a` ↔ `t` #linebreak() `v` ↔ `b`                                               | 低精度存储与 `f32` 计算之间的显式转换              | `tquant`, `tdequant` #linebreak() `vquant`, `bdequant`                                                                       |
@@ -1597,9 +1597,9 @@ $ "rsqrt_approx"(x) = 1 / sqrt(x) $
 
 === 按行广播
 
-Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 i 个元素广播到矩阵第 i 行.
+向量广播只支持 Acc 与 Vec32; 向量的第 i 个元素广播到矩阵第 i 行.
 
-向量广播使用 R3 格式; `EW` 选择 8-bit/32-bit 寄存器组合, `DIR` 选择按行/按列:
+向量广播使用 R3 格式; `EW = 1` 选择 32-bit Acc/Vec32 组合, `EW = 0` 保留; `DIR` 选择按行/按列:
 
 #rivet-encoding-figure(e-bcast-schema, caption: [向量广播格式 (E_BCAST)])
 
@@ -1609,16 +1609,6 @@ Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 i 个元素广播到矩阵第 i
 )[
   | Instruction    | Format  | Operation                   | Summary                        |
   | :------------: | :-----: | --------------------------- | ------------------------------ |
-  | `taddb.byrow`  | R3      | D[i,j] = A[i,j] + S[i]      | 向量按行广播加法.              |
-  | `tsubb.byrow`  | R3      | D[i,j] = A[i,j] - S[i]      | 向量按行广播减法.              |
-  | `tminb.byrow`  | R3      | D[i,j] = min(A[i,j], S[i])  | 向量按行广播取小.              |
-  | `tmaxb.byrow`  | R3      | D[i,j] = max(A[i,j], S[i])  | 向量按行广播取大.              |
-  | `tandb.byrow`  | R3      | D[i,j] = A[i,j] and S[i]    | 向量按行广播按位与.            |
-  | `torb.byrow`   | R3      | D[i,j] = A[i,j] or S[i]     | 向量按行广播按位或.            |
-  | `txorb.byrow`  | R3      | D[i,j] = A[i,j] xor S[i]    | 向量按行广播按位异或.          |
-  | `tshlb.byrow`  | R3      | D[i,j] = shl(A[i,j], S[i])  | 向量按行广播左移.              |
-  | `tshrb.byrow`  | R3      | D[i,j] = shr(A[i,j], S[i])  | 向量按行广播逻辑右移.          |
-  | `tsrab.byrow`  | R3      | D[i,j] = sra(A[i,j], S[i])  | 向量按行广播算术右移.          |
   | `aaddv.byrow`  | R3      | D[i,j] = A[i,j] + S[i]      | 向量按行广播加法.              |
   | `asubv.byrow`  | R3      | D[i,j] = A[i,j] - S[i]      | 向量按行广播减法.              |
   | `amulv.byrow`  | R3      | D[i,j] = A[i,j] × S[i]      | 向量按行广播乘法.              |
@@ -1632,13 +1622,7 @@ Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 i 个元素广播到矩阵第 i
   | `asrav.byrow`  | R3      | D[i,j] = sra(A[i,j], S[i])  | 向量按行广播算术右移; 仅整数.  |
 ]
 
-Tile 使用 Vec8 作为每一行的标量源:
-
-```asm
-topb.byrow tD, tA, bS
-```
-
-Acc/Vec32 使用 Vec32 作为每一行的标量源:
+Acc 使用 Vec32 作为每一行的标量源:
 
 ```asm
 aopv.byrow aD, aA, vS
@@ -1664,7 +1648,7 @@ $ "a0"_(i,j) = "a1"_(i,j) "v0"_i $
 
 === 按列广播
 
-Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 j 个元素广播到矩阵第 j 列.
+向量广播只支持 Acc 与 Vec32; 向量的第 j 个元素广播到矩阵第 j 列.
 
 #instruction-table(
   columns: (1.2fr, 0.5fr, 2fr, 2fr),
@@ -1672,16 +1656,6 @@ Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 j 个元素广播到矩阵第 j
 )[
   | Instruction    | Format  | Operation                   | Summary                        |
   | :------------: | :-----: | --------------------------- | ------------------------------ |
-  | `taddb.bycol`  | R3      | D[i,j] = A[i,j] + S[j]      | 向量按列广播加法.              |
-  | `tsubb.bycol`  | R3      | D[i,j] = A[i,j] - S[j]      | 向量按列广播减法.              |
-  | `tminb.bycol`  | R3      | D[i,j] = min(A[i,j], S[j])  | 向量按列广播取小.              |
-  | `tmaxb.bycol`  | R3      | D[i,j] = max(A[i,j], S[j])  | 向量按列广播取大.              |
-  | `tandb.bycol`  | R3      | D[i,j] = A[i,j] and S[j]    | 向量按列广播按位与.            |
-  | `torb.bycol`   | R3      | D[i,j] = A[i,j] or S[j]     | 向量按列广播按位或.            |
-  | `txorb.bycol`  | R3      | D[i,j] = A[i,j] xor S[j]    | 向量按列广播按位异或.          |
-  | `tshlb.bycol`  | R3      | D[i,j] = shl(A[i,j], S[j])  | 向量按列广播左移.              |
-  | `tshrb.bycol`  | R3      | D[i,j] = shr(A[i,j], S[j])  | 向量按列广播逻辑右移.          |
-  | `tsrab.bycol`  | R3      | D[i,j] = sra(A[i,j], S[j])  | 向量按列广播算术右移.          |
   | `aaddv.bycol`  | R3      | D[i,j] = A[i,j] + S[j]      | 向量按列广播加法.              |
   | `asubv.bycol`  | R3      | D[i,j] = A[i,j] - S[j]      | 向量按列广播减法.              |
   | `amulv.bycol`  | R3      | D[i,j] = A[i,j] × S[j]      | 向量按列广播乘法.              |
@@ -1695,13 +1669,7 @@ Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 j 个元素广播到矩阵第 j
   | `asrav.bycol`  | R3      | D[i,j] = sra(A[i,j], S[j])  | 向量按列广播算术右移; 仅整数.  |
 ]
 
-Tile 使用 Vec8 作为每一列的标量源:
-
-```asm
-topb.bycol tD, tA, bS
-```
-
-Acc/Vec32 使用 Vec32 作为每一列的标量源:
+Acc 使用 Vec32 作为每一列的标量源:
 
 ```asm
 aopv.bycol aD, aA, vS
@@ -2562,16 +2530,6 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 #instruction-index(caption: [向量按行广播指令清单])[
   | Instruction    | Format  | Section             |
   | :------------: | :-----: | :------------------ |
-  | `taddb.byrow`  | R3      | @elementwise-bcast  |
-  | `tsubb.byrow`  | R3      | @elementwise-bcast  |
-  | `tminb.byrow`  | R3      | @elementwise-bcast  |
-  | `tmaxb.byrow`  | R3      | @elementwise-bcast  |
-  | `tandb.byrow`  | R3      | @elementwise-bcast  |
-  | `torb.byrow`   | R3      | @elementwise-bcast  |
-  | `txorb.byrow`  | R3      | @elementwise-bcast  |
-  | `tshlb.byrow`  | R3      | @elementwise-bcast  |
-  | `tshrb.byrow`  | R3      | @elementwise-bcast  |
-  | `tsrab.byrow`  | R3      | @elementwise-bcast  |
   | `aaddv.byrow`  | R3      | @elementwise-bcast  |
   | `asubv.byrow`  | R3      | @elementwise-bcast  |
   | `amulv.byrow`  | R3      | @elementwise-bcast  |
@@ -2588,16 +2546,6 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 #instruction-index(caption: [向量按列广播指令清单])[
   | Instruction    | Format  | Section             |
   | :------------: | :-----: | :------------------ |
-  | `taddb.bycol`  | R3      | @elementwise-bcast  |
-  | `tsubb.bycol`  | R3      | @elementwise-bcast  |
-  | `tminb.bycol`  | R3      | @elementwise-bcast  |
-  | `tmaxb.bycol`  | R3      | @elementwise-bcast  |
-  | `tandb.bycol`  | R3      | @elementwise-bcast  |
-  | `torb.bycol`   | R3      | @elementwise-bcast  |
-  | `txorb.bycol`  | R3      | @elementwise-bcast  |
-  | `tshlb.bycol`  | R3      | @elementwise-bcast  |
-  | `tshrb.bycol`  | R3      | @elementwise-bcast  |
-  | `tsrab.bycol`  | R3      | @elementwise-bcast  |
   | `aaddv.bycol`  | R3      | @elementwise-bcast  |
   | `asubv.bycol`  | R3      | @elementwise-bcast  |
   | `amulv.bycol`  | R3      | @elementwise-bcast  |
