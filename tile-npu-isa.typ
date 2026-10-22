@@ -98,8 +98,8 @@ Operation 列使用的函数记号:
 )[
   | 寄存器类型  | 汇编名称   | 单寄存器容量                                       | 基础数据解释                         | 主要用途                                |
   | :---------: | :--------: | -------------------------------------------------- | ------------------------------------ | --------------------------------------- |
-  | Tile        | `t0..t15`  | $32 times 32 times 8$ bit #linebreak() $= 1$ KiB   | `i8`, `u8`                           | 矩阵输入, 低精度中间结果                |
-  | Acc         | `a0..a11`  | $32 times 32 times 32$ bit #linebreak() $= 4$ KiB  | `i32`, `u32`, `f32`                  | 矩阵宽累加结果, Attention score/output  |
+  | Tile        | `t0..t31`  | $32 times 32 times 8$ bit #linebreak() $= 1$ KiB   | `i8`, `u8`                           | 矩阵输入, 低精度中间结果                |
+  | Acc         | `a0..a31`  | $32 times 32 times 32$ bit #linebreak() $= 4$ KiB  | `i32`, `u32`, `f32`                  | 矩阵宽累加结果, Attention score/output  |
   | Vec8        | `b0..b31`  | $32 times 8$ bit #linebreak() $= 32$ B             | `i8`, `u8`                           | 低精度向量, decode 阶段单 batch query   |
   | Vec32       | `v0..v31`  | $32 times 32$ bit #linebreak() $= 128$ B           | `i32`, `u32`, `f32`                  | 行状态, 规约结果, 向量计算输入输出      |
   | Scalar      | `x0..x31`  | $64$ bit $= 8$ B                                   | `i64`, `u64`; f32 位模式取低 32 bit  | 地址, 循环, 索引和控制值                |
@@ -123,8 +123,8 @@ Operation 列使用的函数记号:
 )[
   | 寄存器类型          | 汇编名称     | 绑定或适用对象    | 容量   | 配置字段                                         |
   | :-----------------: | :----------: | :---------------: | ------ | ------------------------------------------------ |
-  | TC: Tile 计算配置   | `tc0..tc15`  | `tc[i]` ↔ `t[i]`  | 32bit  | `dtype`, `rows`, `cols`, `layout`, `arith_mode`  |
-  | AC: Acc 计算配置    | `ac0..ac11`  | `ac[i]` ↔ `a[i]`  | 32bit  | `dtype`, `rows`, `cols`, `layout`                |
+  | TC: Tile 计算配置   | `tc0..tc31`  | `tc[i]` ↔ `t[i]`  | 32bit  | `dtype`, `rows`, `cols`, `layout`, `arith_mode`  |
+  | AC: Acc 计算配置    | `ac0..ac31`  | `ac[i]` ↔ `a[i]`  | 32bit  | `dtype`, `rows`, `cols`, `layout`                |
   | BC: Vec8 计算配置   | `bc0..bc31`  | `bc[i]` ↔ `b[i]`  | 32bit  | `dtype`, `len`                                   |
   | VC: Vec32 计算配置  | `vc0..vc31`  | `vc[i]` ↔ `v[i]`  | 32bit  | `dtype`, `len`                                   |
 ]
@@ -143,8 +143,8 @@ Operation 列使用的函数记号:
   )[
     | 寄存器类型            | 汇编名称     | 绑定或适用对象    | 容量    | 配置字段                                                                   |
     | :-------------------: | :----------: | :---------------: | ------- | -------------------------------------------------------------------------- |
-    | TM: Tile 访存描述符   | `tm0..tm15`  | `tm[i]` ↔ `t[i]`  | 192bit  | `base_addr`, `row_stride_bytes`, `col_stride_bytes`, `transform`, `flags`  |
-    | AM: Acc 访存描述符    | `am0..am11`  | `am[i]` ↔ `a[i]`  | 192bit  | `base_addr`, `row_stride_bytes`, `col_stride_bytes`, `transform`, `flags`  |
+    | TM: Tile 访存描述符   | `tm0..tm31`  | `tm[i]` ↔ `t[i]`  | 192bit  | `base_addr`, `row_stride_bytes`, `col_stride_bytes`, `transform`, `flags`  |
+    | AM: Acc 访存描述符    | `am0..am31`  | `am[i]` ↔ `a[i]`  | 192bit  | `base_addr`, `row_stride_bytes`, `col_stride_bytes`, `transform`, `flags`  |
     | BM: Vec8 访存描述符   | `bm0..bm31`  | `bm[i]` ↔ `b[i]`  | 128bit  | `base_addr`, `stride_bytes`, `flags`                                       |
     | VM: Vec32 访存描述符  | `vm0..vm31`  | `vm[i]` ↔ `v[i]`  | 128bit  | `base_addr`, `stride_bytes`, `flags`                                       |
   ],
@@ -343,7 +343,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 编码原则:
 
 + `reserved` 字段必须为 0, 非零组合为保留编码;
-+ 寄存器编号字段的合法范围由操作数所属的数据域决定; 编码值未对应到该数据域中已定义的架构寄存器时, 该指令编码为保留编码, 执行时按非法指令处理 (例如 Tile 仅允许 `t0..t15`, Acc 仅允许 `a0..a11`);
++ 寄存器编号字段的合法范围由操作数所属的数据域决定; 编码值未对应到该数据域中已定义的架构寄存器时, 该指令编码为保留编码, 执行时按非法指令处理 (例如 Tile 仅允许 `t0..t31`, Acc 仅允许 `a0..a31`);
 + 译码按 `q` → `major4` → `funct3` → `sel3` 分层: 选择子位的含义总在其指令族语境下解释; 操作数字段位置全局固定 (`D5` 在 `[6:2]`, 第一源在 `[11:7]`, 第二源或索引在 `[16:12]`), 寄存器读取可在译码完成前开始;
 + `sel3` 内高位优先放域选择 (`dom2`, `EW`), 变体位 (`BX`, `FS`, `IS`, `DIR`, `MV`) 固定占 `sel3` 最低位 `[25]`; 选择操作数来源的变体位 (`BX`, `FS`, `IS`) 只改变 `[16:12]` 的解释;
   + 元素位宽`EW`由 `[26]` 表示: `dom2` 的低位与 `EW` 同位, `0` 为 8-bit, `1` 为 32-bit; 使用 `EW` 的指令族要求 `[27] = 0`, 因此 `sel3[2:1] = {0, EW}` 与对应矩阵域的 `dom2` 编码一致;
