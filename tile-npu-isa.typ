@@ -1357,20 +1357,20 @@ D[p] ← op(A[p], value)
   columns: (0.8fr, 1fr, 1.2fr, 3.4fr),
   caption: [逐元素公共操作编码 ({G, op3})],
 )[
-  | `G`  | `op3`  | 操作   | 备注              |
-  | ---- | ------ | ------ | ----------------- |
-  | `0`  | `000`  | `add`  |                   |
-  | `0`  | `001`  | `sub`  |                   |
-  | `0`  | `010`  | `mul`  | 仅 Acc/Vec32      |
-  | `0`  | `011`  | `div`  | 仅 f32 Acc/Vec32  |
-  | `0`  | `100`  | `min`  |                   |
-  | `0`  | `101`  | `max`  |                   |
-  | `1`  | `000`  | `and`  | 按位操作          |
-  | `1`  | `001`  | `or`   | 按位操作          |
-  | `1`  | `010`  | `xor`  | 按位操作          |
-  | `1`  | `011`  | `shl`  | 整数逐元素移位    |
-  | `1`  | `100`  | `shr`  | 逻辑右移          |
-  | `1`  | `101`  | `sra`  | 算术右移          |
+  | `G`  | `op3`  | 操作   | 备注            |
+  | ---- | ------ | ------ | --------------- |
+  | `0`  | `000`  | `add`  |                 |
+  | `0`  | `001`  | `sub`  |                 |
+  | `0`  | `010`  | `mul`  | 仅 Acc/Vec32    |
+  | `0`  | `011`  | 保留   |                 |
+  | `0`  | `100`  | `min`  |                 |
+  | `0`  | `101`  | `max`  |                 |
+  | `1`  | `000`  | `and`  | 按位操作        |
+  | `1`  | `001`  | `or`   | 按位操作        |
+  | `1`  | `010`  | `xor`  | 按位操作        |
+  | `1`  | `011`  | `shl`  | 整数逐元素移位  |
+  | `1`  | `100`  | `shr`  | 逻辑右移        |
+  | `1`  | `101`  | `sra`  | 算术右移        |
 ]
 
 基础逐元素操作按数据类型划分.
@@ -1384,7 +1384,7 @@ D[p] ← op(A[p], value)
   | `i8/u8`         | `add`, `sub`, `min`, `max`, `and`, `or`, `xor`, `not`, `shl`, `shr`, `sra`, `select`  |
   | `i32/u32`       | `add`, `sub`, `mul`, `min`, `max`, bitwise, shift, `cmp`, `select`                    |
   | `i32`           | 另外支持 `abs`, `neg`                                                                 |
-  | `f32`           | `add`, `sub`, `mul`, `div`, `min`, `max`, `abs`, `neg`, `fma`, `cmp`, `select`        |
+  | `f32`           | `add`, `sub`, `mul`, `min`, `max`, `abs`, `neg`, `fma`, `cmp`, `select`               |
   | `f32` 近似函数  | `exp2.approx`, `rcp.approx`, `rsqrt.approx`                                           |
 ]
 
@@ -1425,8 +1425,6 @@ D[p] ← op(A[p], value)
   | `{a,v}subx`  | R3      | D[p] = A[p] - xS        | Scalar 值逐元素减法.              |
   | `{a,v}mul`   | R3      | D[p] = A[p] × B[p]      | 同域逐元素乘法.                   |
   | `{a,v}mulx`  | R3      | D[p] = A[p] × xS        | Scalar 值逐元素乘法.              |
-  | `{a,v}div`   | R3      | D[p] = A[p] / B[p]      | 同域逐元素除法; 仅 f32.           |
-  | `{a,v}divx`  | R3      | D[p] = A[p] / xS        | Scalar 值逐元素除法; 仅 f32.      |
   | `{a,v}min`   | R3      | D[p] = min(A[p], B[p])  | 同域逐元素取小.                   |
   | `{a,v}minx`  | R3      | D[p] = min(A[p], xS)    | Scalar 值逐元素取小.              |
   | `{a,v}max`   | R3      | D[p] = max(A[p], B[p])  | 同域逐元素取大.                   |
@@ -1501,7 +1499,6 @@ f32 逐元素运算包括:
 vadd   vD, vA, vB
 vsub   vD, vA, vB
 vmul   vD, vA, vB
-vdiv   vD, vA, vB
 vmin   vD, vA, vB
 vmax   vD, vA, vB
 vabs   vD, vA
@@ -1625,7 +1622,6 @@ Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 i 个元素广播到矩阵第 i
   | `aaddv.byrow`  | R3      | D[i,j] = A[i,j] + S[i]      | 向量按行广播加法.              |
   | `asubv.byrow`  | R3      | D[i,j] = A[i,j] - S[i]      | 向量按行广播减法.              |
   | `amulv.byrow`  | R3      | D[i,j] = A[i,j] × S[i]      | 向量按行广播乘法.              |
-  | `adivv.byrow`  | R3      | D[i,j] = A[i,j] / S[i]      | 向量按行广播除法; 仅 f32.      |
   | `aminv.byrow`  | R3      | D[i,j] = min(A[i,j], S[i])  | 向量按行广播取小.              |
   | `amaxv.byrow`  | R3      | D[i,j] = max(A[i,j], S[i])  | 向量按行广播取大.              |
   | `aandv.byrow`  | R3      | D[i,j] = A[i,j] and S[i]    | 向量按行广播按位与.            |
@@ -1689,7 +1685,6 @@ Tile 使用 Vec8, Acc 使用 Vec32; 向量的第 j 个元素广播到矩阵第 j
   | `aaddv.bycol`  | R3      | D[i,j] = A[i,j] + S[j]      | 向量按列广播加法.              |
   | `asubv.bycol`  | R3      | D[i,j] = A[i,j] - S[j]      | 向量按列广播减法.              |
   | `amulv.bycol`  | R3      | D[i,j] = A[i,j] × S[j]      | 向量按列广播乘法.              |
-  | `adivv.bycol`  | R3      | D[i,j] = A[i,j] / S[j]      | 向量按列广播除法; 仅 f32.      |
   | `aminv.bycol`  | R3      | D[i,j] = min(A[i,j], S[j])  | 向量按列广播取小.              |
   | `amaxv.bycol`  | R3      | D[i,j] = max(A[i,j], S[j])  | 向量按列广播取大.              |
   | `aandv.bycol`  | R3      | D[i,j] = A[i,j] and S[j]    | 向量按列广播按位与.            |
@@ -1947,10 +1942,11 @@ $
 === Vec32 的逐元素 softmax 后处理
 
 ```asm
-vsub       v0, vScore, vMax
-vmul       v1, v0, vLog2e
+vsub           v0, vScore, vMax
+vmul           v1, v0, vLog2e
 vexp2.approx   v2, v1
-vdiv       vOut, v2, vSum
+vrcp.approx    v3, vSum
+vmul           vOut, v2, v3
 ```
 
 = 规约与类型转换 <reduction-conversion>
@@ -2493,8 +2489,6 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `asubx`      | R3      | @elementwise-ops  |
   | `amul`       | R3      | @elementwise-ops  |
   | `amulx`      | R3      | @elementwise-ops  |
-  | `adiv`       | R3      | @elementwise-ops  |
-  | `adivx`      | R3      | @elementwise-ops  |
   | `amin`       | R3      | @elementwise-ops  |
   | `aminx`      | R3      | @elementwise-ops  |
   | `amax`       | R3      | @elementwise-ops  |
@@ -2525,8 +2519,6 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `vsubx`      | R3      | @elementwise-ops  |
   | `vmul`       | R3      | @elementwise-ops  |
   | `vmulx`      | R3      | @elementwise-ops  |
-  | `vdiv`       | R3      | @elementwise-ops  |
-  | `vdivx`      | R3      | @elementwise-ops  |
   | `vmin`       | R3      | @elementwise-ops  |
   | `vminx`      | R3      | @elementwise-ops  |
   | `vmax`       | R3      | @elementwise-ops  |
@@ -2583,7 +2575,6 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `aaddv.byrow`  | R3      | @elementwise-bcast  |
   | `asubv.byrow`  | R3      | @elementwise-bcast  |
   | `amulv.byrow`  | R3      | @elementwise-bcast  |
-  | `adivv.byrow`  | R3      | @elementwise-bcast  |
   | `aminv.byrow`  | R3      | @elementwise-bcast  |
   | `amaxv.byrow`  | R3      | @elementwise-bcast  |
   | `aandv.byrow`  | R3      | @elementwise-bcast  |
@@ -2610,7 +2601,6 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `aaddv.bycol`  | R3      | @elementwise-bcast  |
   | `asubv.bycol`  | R3      | @elementwise-bcast  |
   | `amulv.bycol`  | R3      | @elementwise-bcast  |
-  | `adivv.bycol`  | R3      | @elementwise-bcast  |
   | `aminv.bycol`  | R3      | @elementwise-bcast  |
   | `amaxv.bycol`  | R3      | @elementwise-bcast  |
   | `aandv.bycol`  | R3      | @elementwise-bcast  |
