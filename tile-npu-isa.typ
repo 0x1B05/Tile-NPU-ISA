@@ -143,14 +143,16 @@ Tile/Acc 的物理尺寸为 32 行 $times$ 32 列, Vec8/Vec32 为 32 lane; 计�
   )[
     | 寄存器类型            | 汇编名称     | 绑定或适用对象    | 位宽    | 配置字段                                                                   |
     | :-------------------: | :----------: | :---------------: | ------- | -------------------------------------------------------------------------- |
-    | TM: Tile 访存描述符   | `tm0..tm31`  | `tm[i]` ↔ `t[i]`  | 192bit  | `base_addr`, `row_stride_bytes`, `col_stride_bytes`, `transform`, `flags`  |
-    | AM: Acc 访存描述符    | `am0..am31`  | `am[i]` ↔ `a[i]`  | 192bit  | `base_addr`, `row_stride_bytes`, `col_stride_bytes`, `transform`, `flags`  |
-    | BM: Vec8 访存描述符   | `bm0..bm31`  | `bm[i]` ↔ `b[i]`  | 128bit  | `base_addr`, `stride_bytes`, `flags`                                       |
-    | VM: Vec32 访存描述符  | `vm0..vm31`  | `vm[i]` ↔ `v[i]`  | 128bit  | `base_addr`, `stride_bytes`, `flags`                                       |
+    | TM: Tile 访存描述符   | `tm0..tm31`  | `tm[i]` ↔ `t[i]`  | 128bit  | `base_addr`, `row_stride_bytes`, `col_stride_bytes`, `transform`, `flags`  |
+    | AM: Acc 访存描述符    | `am0..am31`  | `am[i]` ↔ `a[i]`  | 128bit  | `base_addr`, `row_stride_bytes`, `col_stride_bytes`, `transform`, `flags`  |
+    | BM: Vec8 访存描述符   | `bm0..bm31`  | `bm[i]` ↔ `b[i]`  | 96bit   | `base_addr`, `stride_bytes`, `flags`                                       |
+    | VM: Vec32 访存描述符  | `vm0..vm31`  | `vm[i]` ↔ `v[i]`  | 96bit   | `base_addr`, `stride_bytes`, `flags`                                       |
   ],
 )<mem-desc>
 
 访存描述符定义对应的内存视图. 矩阵访存使用 `TM`/`AM` 描述符, 向量访存使用 `BM`/`VM` 描述符.
+
+NPU 访存地址为 u48 字节地址; 地址空间布局由平台定义. 描述符 `base_addr` 保存 u48 地址; 写入时 Scalar 值的 bit 63:47 须全为 0 或全为 1, 取低 48 bit, 否则校验失败 (`CFG_ERROR`).
 
 访存的有效范围由绑定的计算配置决定: `TM`/`AM` 的有效行数和列数取自 `TC`/`AC` 的 `rows`/`cols`, `BM`/`VM` 的有效长度取自 `BC`/`VC` 的 `len`. 内存中的元素类型同样按绑定配置的 `dtype` 解释. 基地址由描述符的 `base_addr` 字段给出.
 
@@ -178,7 +180,7 @@ $
 
 其中 $i$, $j$ 为当前 Tile 或 Acc 内的局部坐标.
 
-计算配置寄存器 TC/AC 与 BC/VC 均为 32-bit; 矩阵访存描述符 TM/AM 为 192-bit (三个 64-bit word), 向量访存描述符 BM/VM 为 128-bit (两个 64-bit word). 位段分配如下.
+计算配置寄存器 TC/AC 与 BC/VC 均为 32-bit; 矩阵访存描述符 TM/AM 为 128-bit (四个 32-bit word), 向量访存描述符 BM/VM 为 96-bit (三个 32-bit word). 位段分配如下.
 
 #rivet-c-figure(tc-schema, caption: [TC 计算配置寄存器位段])
 
@@ -187,11 +189,14 @@ $
 #rivet-c-figure(bc-schema, caption: [BC/VC 计算配置寄存器位段])
 
 #rivet-tm-figure(
-  (tm-0-schema, tm-1-schema, tm-2-schema),
+  (tm-0-schema, tm-1-schema, tm-2-schema, tm-3-schema),
   caption: [TM/AM 矩阵访存描述符位段],
 )
 
-#rivet-vm-figure(vm-schema, caption: [BM/VM 向量访存描述符位段])
+#rivet-tm-figure(
+  (vm-0-schema, vm-1-schema, vm-2-schema),
+  caption: [BM/VM 向量访存描述符位段],
+)
 
 === 硬件线程与执行
 
@@ -442,7 +447,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `111`     | -           | -       | -                 | -      | -      | -             |
 ]
 
-`base_addr` 为 64-bit 字段, 完整地址由 `cfg.setx` 写入; `cfg.seti` 写入时将 `imm16` 符号扩展到 64 bit.
+`base_addr` 为 u48 字段, 完整地址由 `cfg.setx` 写入; `cfg.seti` 写入时将 `imm16` 符号扩展到 64 bit, 恰好满足 u48 的扩展要求, 可表达 u48 空间两端附近的地址.
 
 == `cfg.seti` — 写立即数配置字段 <cfg-seti>
 
@@ -457,9 +462,9 @@ cfg.seti C, field, imm
     C[field] ← v
 ```
 
-其中 `v` 为 64-bit 位模式. `row_stride_bytes`、`col_stride_bytes`、`stride_bytes` 按有符号 32-bit 值保存; `base_addr` 保存完整的 64-bit 位模式; 其他字段按各自的合法取值或枚举编码校验. 校验针对扩展后的完整值进行, 通过后按字段位宽写入.
+其中 `v` 为 64-bit 位模式. `row_stride_bytes`、`col_stride_bytes`、`stride_bytes` 按有符号 32-bit 值保存; `base_addr` 保存 u48 位模式, 要求 `v` 的 bit 63:47 全为 0 或全为 1, 写入时取低 48 bit; 其他字段按各自的合法取值或枚举编码校验. 校验针对扩展后的完整值进行, 通过后按字段位宽写入.
 
-例如 `imm16 = 0xfffc` 表示 $-4$, 扩展后为 `0xfffffffffffffffc`: 写入步长字段时得到 $-4$, 写入 `base_addr` 时得到地址 `0xfffffffffffffffc`; 写入 `rows` 时超出 $[1, 32]$ 的合法范围.
+例如 `imm16 = 0xfffc` 表示 $-4$, 扩展后为 `0xfffffffffffffffc`: 写入步长字段时得到 $-4$, 写入 `base_addr` 时得到 48-bit 地址 `0xfffffffffffc`; 写入 `rows` 时超出 $[1, 32]$ 的合法范围.
 
 示例:
 

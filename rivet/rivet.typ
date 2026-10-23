@@ -18,7 +18,10 @@
 #let tm-0-schema = load-schema(descriptors, "tm-0")
 #let tm-1-schema = load-schema(descriptors, "tm-1")
 #let tm-2-schema = load-schema(descriptors, "tm-2")
-#let vm-schema = load-schema(descriptors, "vm")
+#let tm-3-schema = load-schema(descriptors, "tm-3")
+#let vm-0-schema = load-schema(descriptors, "vm-0")
+#let vm-1-schema = load-schema(descriptors, "vm-1")
+#let vm-2-schema = load-schema(descriptors, "vm-2")
 
 #let fmt-r4-schema = load-schema(formats, "fmt-r4")
 #let fmt-r3-schema = load-schema(formats, "fmt-r3")
@@ -97,11 +100,8 @@
   kind: "bits",
 )
 
-// Matrix descriptor figures: TM/AM split across three words.
+// Descriptor figures: TM/AM split across four words, BM/VM across three.
 #let rivet-tm-figure(rows, caption: none) = schema-rows-figure(rivet-desc-config, rows, caption: caption)
-
-// BM/VM descriptor figure.
-#let rivet-vm-figure(doc, caption: none) = schema-figure(rivet-desc-config, doc, caption: caption)
 
 // Compute config register figures.
 #let rivet-c-figure(doc, caption: none) = schema-figure(rivet-compute-config, doc, caption: caption)
