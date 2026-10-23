@@ -1721,7 +1721,7 @@ $ "a0"_(i,j) = "a1"_(i,j) "v0"_j $
 
 == 比较指令 <elementwise-cmp>
 
-条件取独立子集: 整数为 `eq/ne/lt/ge`, `gt` 与 `le` 由交换两个源操作数获得; f32 为 `eq/lt/le/unord`, `ord` 由 `unord` 结果取反获得, `ne` 由 `eq` 结果取反获得. 比较只在 Acc 与 Vec32 上定义, 分寄存器和 Scalar 两种形式; 目的为同宽 mask, 真为全一, 假为零 (见前言 `M` 记号).
+条件取独立子集: 整数为 `eq/ne/lt/ge`, `gt` 与 `le` 由交换两个源操作数获得; f32 为 `eq/lt/le/unord`, `ord` 由 `unord` 结果取反获得, `ne` 由 `eq` 结果取反获得. 比较只在 Vec32 上定义, 分寄存器和 Scalar 两种形式; 目的为同宽 mask, 真为全一, 假为零 (见前言 `M` 记号).
 
 比较使用 R4 格式, `BX` 选择第二源为同域寄存器或 Scalar; mask 目的为 `M5` 槽位:
 
@@ -1731,33 +1731,31 @@ $ "a0"_(i,j) = "a1"_(i,j) "v0"_j $
   columns: (1.3fr, 0.5fr, 2fr, 2fr),
   caption: [比较指令],
 )[
-  | Instruction        | Format  | Operation                     | Summary                         |
-  | :----------------: | :-----: | ----------------------------- | ------------------------------- |
-  | `{a,v}cmp.eq`      | R4      | D[p] = A[p] == B[p]           | 同域右源相等比较.               |
-  | `{a,v}cmp.ne`      | R4      | D[p] = A[p] != B[p]           | 同域右源不等比较; 仅整数.       |
-  | `{a,v}cmp.lt`      | R4      | D[p] = A[p] < B[p]            | 同域右源小于比较.               |
-  | `{a,v}cmp.ge`      | R4      | D[p] = A[p] >= B[p]           | 同域右源大于等于比较; 仅整数.   |
-  | `{a,v}cmp.le`      | R4      | D[p] = A[p] <= B[p]           | 同域右源小于等于比较; 仅 f32.   |
-  | `{a,v}cmp.unord`   | R4      | D[p] = unordered(A[p], B[p])  | 同域右源浮点无序比较.           |
-  | `{a,v}cmpx.eq`     | R4      | D[p] = A[p] == xS             | Scalar 值相等比较.              |
-  | `{a,v}cmpx.ne`     | R4      | D[p] = A[p] != xS             | Scalar 值不等比较; 仅整数.      |
-  | `{a,v}cmpx.lt`     | R4      | D[p] = A[p] < xS              | Scalar 值小于比较.              |
-  | `{a,v}cmpx.ge`     | R4      | D[p] = A[p] >= xS             | Scalar 值大于等于比较; 仅整数.  |
-  | `{a,v}cmpx.le`     | R4      | D[p] = A[p] <= xS             | Scalar 值小于等于比较; 仅 f32.  |
-  | `{a,v}cmpx.unord`  | R4      | D[p] = unordered(A[p], xS)    | Scalar 值浮点无序比较.          |
+  | Instruction    | Format  | Operation                     | Summary                         |
+  | :------------: | :-----: | ----------------------------- | ------------------------------- |
+  | `vcmp.eq`      | R4      | D[p] = A[p] == B[p]           | 同域右源相等比较.               |
+  | `vcmp.ne`      | R4      | D[p] = A[p] != B[p]           | 同域右源不等比较; 仅整数.       |
+  | `vcmp.lt`      | R4      | D[p] = A[p] < B[p]            | 同域右源小于比较.               |
+  | `vcmp.ge`      | R4      | D[p] = A[p] >= B[p]           | 同域右源大于等于比较; 仅整数.   |
+  | `vcmp.le`      | R4      | D[p] = A[p] <= B[p]           | 同域右源小于等于比较; 仅 f32.   |
+  | `vcmp.unord`   | R4      | D[p] = unordered(A[p], B[p])  | 同域右源浮点无序比较.           |
+  | `vcmpx.eq`     | R4      | D[p] = A[p] == xS             | Scalar 值相等比较.              |
+  | `vcmpx.ne`     | R4      | D[p] = A[p] != xS             | Scalar 值不等比较; 仅整数.      |
+  | `vcmpx.lt`     | R4      | D[p] = A[p] < xS              | Scalar 值小于比较.              |
+  | `vcmpx.ge`     | R4      | D[p] = A[p] >= xS             | Scalar 值大于等于比较; 仅整数.  |
+  | `vcmpx.le`     | R4      | D[p] = A[p] <= xS             | Scalar 值小于等于比较; 仅 f32.  |
+  | `vcmpx.unord`  | R4      | D[p] = unordered(A[p], xS)    | Scalar 值浮点无序比较.          |
 ]
 
 比较指令产生 mask 数据:
 
 ```asm
-acmp.COND   aM, aA, aB
 vcmp.COND   vM, vA, vB
 ```
 
 Scalar 形式为:
 
 ```asm
-acmpx.COND  aM, aA, xS
 vcmpx.COND  vM, vA, xS
 ```
 
@@ -1770,15 +1768,7 @@ true  → u32 lane 为 0xffffffff
 false → 0
 ```
 
-对于矩阵比较:
-
-```text
-for 0 <= i < rows(D):
-    for 0 <= j < cols(D):
-        D[i,j] ← predicate(A[i,j], B[i,j])
-```
-
-对于向量比较:
+执行语义为:
 
 ```text
 for 0 <= j < len(D):
@@ -1799,7 +1789,7 @@ for 0 <= j < len(D):
   | `{a,v}select`  | R4      | D[p] = M[p] ? A[p] : B[p]          | mask 非零时选择 A, 否则选择 B.  |
 ]
 
-select 按位选择, 与元素 dtype 无关: 根据 mask 在两个已经计算好的值之间选择 (t 数据使用 `u8` mask, a/v 数据使用 `u32` mask). mask 通常由 `cmp` 产生; Tile 域没有比较指令, 位置型 mask 可由 `tmask.*` 合成 (以零 Tile 为源, fill 取 $-1$ 即全一).
+select 按位选择, 与元素 dtype 无关: 根据 mask 在两个已经计算好的值之间选择 (t 数据使用 `u8` mask, a/v 数据使用 `u32` mask). mask 可由 mask 指令或 Vec32 的 `vcmp` 产生; Tile 域没有比较指令, 位置型 mask 可由 `tmask.*` 合成 (以零 Tile 为源, fill 取 $-1$ 即全一); Acc mask 可由 `amask.*` 生成.
 
 ```asm
 tselect tD, tM, tA, tB
@@ -2586,18 +2576,6 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 #instruction-index(caption: [比较指令清单])[
   | Instruction    | Format  | Section           |
   | :------------: | :-----: | :---------------- |
-  | `acmp.eq`      | R4      | @elementwise-cmp  |
-  | `acmp.ne`      | R4      | @elementwise-cmp  |
-  | `acmp.lt`      | R4      | @elementwise-cmp  |
-  | `acmp.ge`      | R4      | @elementwise-cmp  |
-  | `acmp.le`      | R4      | @elementwise-cmp  |
-  | `acmp.unord`   | R4      | @elementwise-cmp  |
-  | `acmpx.eq`     | R4      | @elementwise-cmp  |
-  | `acmpx.ne`     | R4      | @elementwise-cmp  |
-  | `acmpx.lt`     | R4      | @elementwise-cmp  |
-  | `acmpx.ge`     | R4      | @elementwise-cmp  |
-  | `acmpx.le`     | R4      | @elementwise-cmp  |
-  | `acmpx.unord`  | R4      | @elementwise-cmp  |
   | `vcmp.eq`      | R4      | @elementwise-cmp  |
   | `vcmp.ne`      | R4      | @elementwise-cmp  |
   | `vcmp.lt`      | R4      | @elementwise-cmp  |
