@@ -206,11 +206,11 @@ $
 
 除非另有说明, 指令的架构效果按程序序对后续指令可见. 实现可以并行或重排执行, 但必须保持架构效果等价. `fence.mem`, `fence.sa`, `fence.all` 提供显式完成边界, `kernel.end` 报告 kernel 完成并隐含 `fence.all` (见 @scalar-sync). 浮点运算遵循各指令定义.
 
-=== 内存模型
+=== 内存模型 <memory-model>
 
 内存按字节寻址, 采用小端序, 地址为 64-bit. 标量访存按 RISC-V 规范执行, 要求自然对齐. NPU 访存按描述符的坐标映射逐元素计算地址; 元素地址按其 dtype 自然对齐, 访存范围恰好覆盖有效区域.
 
-所有标量与 NPU 访存保持统一的程序可见顺序.
+NPU 后端异步完成访存: NPU store 对程序序在后的标量 load 的可见性由 `fence.mem` 建立, 跨边界读取才保证拿到新值; 标量 store 对程序序在后的 NPU load 可见. 同一后端的 NPU 访存按程序序相互可见; 访存与脉动阵列等不同后端之间的完成顺序由 `fence.sa` 与 `fence.all` 界定 (见 @scalar-sync).
 
 === 错误模型
 
@@ -2106,7 +2106,7 @@ vVal[j] ← 最大值的 f32 位模式
 
 `argmax_tree` 的 NaN, 相等值, `+0`/`-0`, 奇数节点直通和树拓扑规则与行规约中的定义完全相同. 因而 NaN 候选胜过非 NaN, 两个 NaN 取较小逻辑索引, 数值相等时也取较小逻辑索引.
 
-`vIdx` 是普通的 `i32` Vec32, 可以直接作为 `{t,b,v}load.gather` 的索引向量, "取出 argmax 对应的行"不需要经过 Scalar; 需要进入 Scalar 参与地址计算时, 用 `vstore` 把 `vIdx` 写入内存再由 RV64 `lw` 读回. 除低频的 `{b,v}extract` lane 读取外 (见 @lane-move), NPU 指令不写 Scalar 寄存器堆, 热路径上 NPU 结果流向 Scalar 的通路是内存.
+`vIdx` 是普通的 `i32` Vec32, 可以直接作为 `{t,b,v}load.gather` 的索引向量, "取出 argmax 对应的行"不需要经过 Scalar; 需要进入 Scalar 参与地址计算时, 用 `vstore` 把 `vIdx` 写入内存, 经 `fence.mem` 后由 RV64 `lw` 读回 (见 @memory-model). 除低频的 `{b,v}extract` lane 读取外 (见 @lane-move), NPU 指令不写 Scalar 寄存器堆, 热路径上 NPU 结果流向 Scalar 的通路是内存.
 
 如果算子需要忽略显式 mask 的位置, 不能只依赖 `-inf` 填充. 因为真实输入也可能是 `-inf`, 而且填充位置仍属于当前有效 Vector shape.
 
