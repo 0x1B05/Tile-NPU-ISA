@@ -237,7 +237,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | 初始化与搬运    | 域内 #linebreak() `t` ↔ `b` #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane  | 填充, 复制, 行搬运, lane 搬运和广播                | `{t,a,b,v}{fill,fillx,copy}` #linebreak() `{t,a}{insert,extract}.row` #linebreak() `{b,v}{insert,extract,broadcast}`         |
   | 矩阵乘与点积    | `t` × `t` → `a` #linebreak() `b` × `t` → `v`                                   | `i8` 乘法, `i32` 累加或点积                        | `mma` #linebreak() `bdot`                                                                                                    |
   | 逐元素与广播    | `t/a/v` 同域 #linebreak() Acc ↔ Vec32 广播                                     | 算术, 位运算, 移位, 特殊函数, 比较和选择           | `{t,a,v}op` #linebreak() `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                                             |
-  | 规约            | `a` → `v` #linebreak() `v` → Scalar                                            | 行规约, 向量规约, 平方和和 argmax                  | `areduce` #linebreak() `vreduce`                                                                                             |
+  | 规约            | `a` → `v` #linebreak() `v` → `v`                                               | 行规约, 向量规约, 平方和和 argmax                  | `areduce` #linebreak() `vreduce`                                                                                             |
   | 类型转换与扩大  | `a/v` 内部 #linebreak() `t` → `a`                                              | 数值类型转换和 `i8` → `i32` 扩大                   | `acvt`, `vcvt` #linebreak() `twiden`                                                                                         |
   | 量化与反量化    | `a` ↔ `t` #linebreak() `v` → `b`                                               | 低精度存储与 `f32` 计算之间的显式转换              | `tquant`, `tdequant` #linebreak() `vquant`                                                                                   |
   | 同步与结束      | 后端 → 完成边界 #linebreak() kernel → 完成                                     | 访存, 脉动阵列, 全后端完成以及 kernel 生命周期     | `fence.mem`, `fence.sa`, `fence.all` #linebreak() `kernel.end`                                                               |
@@ -262,10 +262,6 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
 
 #note[
   预留策略: `10` 空间除配置与系统指令外的空间作为预留. 未来的扩展 (新的数据类型, 更宽的 Tile, 多核同步, DMA 等) 优先使用预留空间.
-]
-
-#note[
-  #link("https://opensecura.googlesource.com/hw/kelvin/")也使用了类似的策略: 复用RV64im, 压缩指令的空间用于custom的向量指令.
 ]
 
 == 指令格式 <encoding>
@@ -327,7 +323,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `G`       | 操作组; 与 `op3` 共同组成 `funct4`, 选择逐元素操作                                             |
   | `xBound`  | Scalar 边界操作数: 按指令解释为 `xBounds`, `xLen` 或 `xDelta`                                  |
   | `index5`  | 5-bit 索引字段: 由 `IS` 选择立即数索引或 Scalar 寄存器索引                                     |
-  | `xVal5`   | `xValue` 目的寄存器字段, 仅 `vreduce.argmax` 使用                                              |
+  | `vVal5`   | `vVal` 目的寄存器字段, 仅 `vreduce.argmax` 使用                                                |
 ]
 
 字段名后的数字表示位宽, 如 `D5`, `dom2`, `funct3`.
@@ -990,13 +986,7 @@ for 0 <= j < cols(aS):
 {b,v}broadcast D, S[lane]
 ```
 
-在 Scalar 与 Vector 的单个 lane 之间读写数据, 或将一个 lane 广播到整个向量. `lane` 可以是立即数, 也可以由 Scalar 寄存器提供.
-
-`extract` 操作:
-
-```text
-x[xD] ← S[lane]
-```
+在 Scalar 与 Vector 的单个 lane 之间读写数据, 或将一个 lane 广播到整个向量. `lane` 可以是立即数, 也可以由 Scalar 寄存器提供. `extract` 是低频的 NPU → Scalar 调试/交互通道; 热路径上的结果传递统一走内存 (`vstore` + `lw`), 见 @reduce-argmax.
 
 Scalar 结果的扩展规则由源 dtype 决定:
 
@@ -1004,6 +994,12 @@ Scalar 结果的扩展规则由源 dtype 决定:
 i8/i32: 符号扩展到 64 bit;
 u8/u32: 零扩展到 64 bit;
 f32: 低 32 bit 写入浮点位模式, 高 32 bit 清零.
+```
+
+`extract` 操作:
+
+```text
+x[xD] ← S[lane]
 ```
 
 `insert` 操作:
@@ -1933,33 +1929,33 @@ vmul           vOut, v2, v3
 
 = 规约与类型转换 <reduction-conversion>
 
-本节定义矩阵规约, 向量规约, Scalar 规约, 数据类型转换和低精度扩大转换. 规约指令将多个元素合并为一个或多个结果.
+本节定义矩阵规约, 向量规约, 数据类型转换和低精度扩大转换. 规约指令将多个元素合并为一个或多个结果.
 
 == 规约指令格式
 
 行规约每行产生一个 Vec32 元素. 除基础 `sum/max/min` 外, 行规约还定义了 `sumsq`, `absmax` 与 `argmax`; 向量规约另含 f32 `sumsq` 与 `argmax`.
 
 #instruction-table(caption: [规约指令])[
-  | Instruction            | Format  | Operation                                                                     | Summary                                         |
-  | :--------------------: | :-----: | ----------------------------------------------------------------------------- | ----------------------------------------------- |
-  | `areduce.rows.sum`     | R2      | $"vD"[i] = sum_j "aS"[i,j]$                                                   | 将 Acc 按行求和到 Vec32.                        |
-  | `areduce.rows.max`     | R2      | $"vD"[i] = max_j "aS"[i,j]$                                                   | 将 Acc 按行取最大到 Vec32.                      |
-  | `areduce.rows.min`     | R2      | $"vD"[i] = min_j "aS"[i,j]$                                                   | 将 Acc 按行取最小到 Vec32.                      |
-  | `areduce.rows.sumsq`   | R2      | $"vD"[i] = sum_j "aS"[i,j]^2$                                                 | 将 Acc 每行有效元素的平方和写入 Vec32.          |
-  | `areduce.rows.absmax`  | R2      | $"vD"[i] = max_j abs("aS"[i,j])$                                              | 将 Acc 每行有效元素的绝对值最大写入 Vec32.      |
-  | `areduce.rows.argmax`  | R2      | $"vD"[i] = op("argmax")_j "aS"[i,j]$                                          | 将 Acc 每行最大值的局部列号写入 Vec32.          |
-  | `vreduce.sum`          | R2      | $"xD" = sum_j "vS"[j]$                                                        | 将 f32 Vec32 的有效 lane 求和到 Scalar.         |
-  | `vreduce.max`          | R2      | $"xD" = max_j "vS"[j]$                                                        | 将 f32 Vec32 的有效 lane 取最大到 Scalar.       |
-  | `vreduce.min`          | R2      | $"xD" = min_j "vS"[j]$                                                        | 将 f32 Vec32 的有效 lane 取最小到 Scalar.       |
-  | `vreduce.sumsq`        | R2      | $"xD" = sum_j "vS"[j]^2$                                                      | 将 f32 Vec32 的有效 lane 平方和到 Scalar.       |
-  | `vreduce.argmax`       | R4      | $"xIndex" = op("argmax")_j "vS"[j]$ #linebreak() $"xValue" = "vS"["xIndex"]$  | 输出最大值的逻辑索引与浮点位模式到两个 Scalar.  |
+  | Instruction            | Format  | Operation                                                                        | Summary                                         |
+  | :--------------------: | :-----: | -------------------------------------------------------------------------------- | ----------------------------------------------- |
+  | `areduce.rows.sum`     | R2      | $"vD"[i] = sum_j "aS"[i,j]$                                                      | 将 Acc 按行求和到 Vec32.                        |
+  | `areduce.rows.max`     | R2      | $"vD"[i] = max_j "aS"[i,j]$                                                      | 将 Acc 按行取最大到 Vec32.                      |
+  | `areduce.rows.min`     | R2      | $"vD"[i] = min_j "aS"[i,j]$                                                      | 将 Acc 按行取最小到 Vec32.                      |
+  | `areduce.rows.sumsq`   | R2      | $"vD"[i] = sum_j "aS"[i,j]^2$                                                    | 将 Acc 每行有效元素的平方和写入 Vec32.          |
+  | `areduce.rows.absmax`  | R2      | $"vD"[i] = max_j abs("aS"[i,j])$                                                 | 将 Acc 每行有效元素的绝对值最大写入 Vec32.      |
+  | `areduce.rows.argmax`  | R2      | $"vD"[i] = op("argmax")_j "aS"[i,j]$                                             | 将 Acc 每行最大值的局部列号写入 Vec32.          |
+  | `vreduce.sum`          | R2      | $"vD"[j] = sum_k "vS"[k]$                                                        | 将 f32 Vec32 的有效 lane 求和, 广播到 Vec32.    |
+  | `vreduce.max`          | R2      | $"vD"[j] = max_k "vS"[k]$                                                        | 将 f32 Vec32 的有效 lane 取最大, 广播到 Vec32.  |
+  | `vreduce.min`          | R2      | $"vD"[j] = min_k "vS"[k]$                                                        | 将 f32 Vec32 的有效 lane 取最小, 广播到 Vec32.  |
+  | `vreduce.sumsq`        | R2      | $"vD"[j] = sum_k "vS"[k]^2$                                                      | 将 f32 Vec32 的有效 lane 平方和, 广播到 Vec32.  |
+  | `vreduce.argmax`       | R4      | $"vIdx"[j] = op("argmax")_k "vS"[k]$ #linebreak() $"vVal"[j] = "vS"["vIdx"[0]]$  | 将最大值的逻辑索引与值分别广播到两个 Vec32.     |
 ]
 
 普通单目的规约使用 R2 格式:
 
 #rivet-encoding-figure(red-schema, caption: [规约格式 (AREDUCE/VREDUCE)])
 
-`vreduce.argmax` 使用 R4 双目的变体, 写两个 Scalar 目的寄存器:
+`vreduce.argmax` 使用 R4 双目的变体, 写两个 Vec32 目的寄存器:
 
 #rivet-encoding-figure(
   vreduce-argmax-schema,
@@ -1983,14 +1979,14 @@ areduce.rows.absmax vD, aS
 areduce.rows.argmax vD, aS
 ```
 
-向量到 Scalar 的规约形式为:
+向量规约的形式为:
 
 ```asm
-vreduce.sum       xD, vS
-vreduce.max       xD, vS
-vreduce.min       xD, vS
-vreduce.sumsq     xD, vS
-vreduce.argmax    xIndex, xValue, vS
+vreduce.sum       vD, vS
+vreduce.max       vD, vS
+vreduce.min       vD, vS
+vreduce.sumsq     vD, vS
+vreduce.argmax    vIdx, vVal, vS
 ```
 
 == 矩阵按行规约 <reduce-areduce>
@@ -2057,22 +2053,22 @@ for 0 <= i < R:
 
 `argmax_tree` 使用与上文相同的相邻二叉树和奇数节点直通规则. 两个候选比较时, NaN 胜过非 NaN, 两个 NaN 取左操作数; 两个数值中较大者胜出, 数值相等时取较小的逻辑索引.
 
-== 向量到 Scalar 的规约 <reduce-vreduce>
+== 向量规约 <reduce-vreduce>
 
 === Vec32 浮点规约
 
 对于:
 
 ```asm
-vreduce.sum   xD, vS
-vreduce.max   xD, vS
-vreduce.min   xD, vS
-vreduce.sumsq xD, vS
+vreduce.sum   vD, vS
+vreduce.max   vD, vS
+vreduce.min   vD, vS
+vreduce.sumsq vD, vS
 ```
 
 设$N = op("len")("vS")$
 
-源 `vS` 必须$op("dtype")("vS") = "f32"$. 结果的 f32 位模式写入 `xD` 的低 32 bit, 高 32 bit 清零.
+源 `vS` 必须$op("dtype")("vS") = "f32"$, 目的 `vD` 必须$op("dtype")("vD") = "f32"$. 规约结果的 f32 位模式写入 `vD` 的全部有效 lane, 即结果按整个向量广播, 无需再执行 `vbroadcast`.
 
 `vreduce` 对 `vS[0..N-1]` 使用上文定义的相邻二叉树. `sum`, `max`, `min` 和 `sumsq` 对应的规约表达式如下表所示.
 
@@ -2092,25 +2088,27 @@ vreduce.sumsq xD, vS
 == Argmax <reduce-argmax>
 
 ```asm
-vreduce.argmax xIndex, xValue, vS
+vreduce.argmax vIdx, vVal, vS
 ```
 
-将 `f32` Vec32 的有效 lane 取最大值, 输出其逻辑索引与浮点位模式到两个 Scalar.
+将 `f32` Vec32 的有效 lane 取最大值, 把其逻辑索引与值分别广播到两个 Vec32.
 
-约束: 源 `vS` 的 dtype 须为 `f32`. 两个输出的解释为:
+约束: 源 `vS` 的 dtype 须为 `f32`, `vVal` 的 dtype 须为 `f32`, `vIdx` 的 dtype 须为 `i32`. 两个输出写入各自目的的全部有效 lane:
 
 ```text
-xIndex: 最大值的逻辑索引, i32 语义, 符号扩展到 64 bit
-xValue: 最大值的 f32 位模式, 写入低 32 bit, 高 32 bit 清零
+vIdx[j] ← 最大值的逻辑索引, i32
+vVal[j] ← 最大值的 f32 位模式
 ```
 
 操作:
 
 ```text
-(xIndex, xValue) ← argmax_tree((j, vS[j]) for 0 <= j < len(vS))
+(best_index, best_value) ← argmax_tree((j, vS[j]) for 0 <= j < len(vS))
 ```
 
 `argmax_tree` 的 NaN, 相等值, `+0`/`-0`, 奇数节点直通和树拓扑规则与行规约中的定义完全相同. 因而 NaN 候选胜过非 NaN, 两个 NaN 取较小逻辑索引, 数值相等时也取较小逻辑索引.
+
+`vIdx` 是普通的 `i32` Vec32, 可以直接作为 `{t,b,v}load.gather` 的索引向量, "取出 argmax 对应的行"不需要经过 Scalar; 需要进入 Scalar 参与地址计算时, 用 `vstore` 把 `vIdx` 写入内存再由 RV64 `lw` 读回. 除低频的 `{b,v}extract` lane 读取外 (见 @lane-move), NPU 指令不写 Scalar 寄存器堆, 热路径上 NPU 结果流向 Scalar 的通路是内存.
 
 如果算子需要忽略显式 mask 的位置, 不能只依赖 `-inf` 填充. 因为真实输入也可能是 `-inf`, 而且填充位置仍属于当前有效 Vector shape.
 
