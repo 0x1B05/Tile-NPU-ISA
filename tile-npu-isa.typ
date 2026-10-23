@@ -239,7 +239,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | 逐元素与广播    | `t/a/v` 同域 #linebreak() Acc ↔ Vec32 广播                                     | 算术, 位运算, 移位, 特殊函数, 比较和选择           | `{t,a,v}op` #linebreak() `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                                             |
   | 规约            | `a` → `v` #linebreak() `v` → Scalar                                            | 行规约, 向量规约, 平方和和 argmax                  | `areduce` #linebreak() `vreduce`                                                                                             |
   | 类型转换与扩大  | `a/v` 内部 #linebreak() `t` → `a`                                              | 数值类型转换和 `i8` → `i32` 扩大                   | `acvt`, `vcvt` #linebreak() `twiden`                                                                                         |
-  | 量化与反量化    | `a` ↔ `t` #linebreak() `v` ↔ `b`                                               | 低精度存储与 `f32` 计算之间的显式转换              | `tquant`, `tdequant` #linebreak() `vquant`, `bdequant`                                                                       |
+  | 量化与反量化    | `a` ↔ `t` #linebreak() `v` → `b`                                               | 低精度存储与 `f32` 计算之间的显式转换              | `tquant`, `tdequant` #linebreak() `vquant`                                                                                   |
   | 同步与结束      | 后端 → 完成边界 #linebreak() kernel → 完成                                     | 访存, 脉动阵列, 全后端完成以及 kernel 生命周期     | `fence.mem`, `fence.sa`, `fence.all` #linebreak() `kernel.end`                                                               |
 ]
 
@@ -624,7 +624,7 @@ gather 同样使用 R2 格式和 `sel3 = {dom2, 0}`, 但 `S5[11:7]` 为 Vec32 �
 
 内存中的元素类型由绑定配置寄存器的 `dtype` 决定.
 
-类型与精度转换 (`i8` → `i32`, `i8` → `f32`, 子字节格式如 `q4` 的展开, 以及打包量化格式如 `q8` + scale 到 `f32` 的反量化) 由 `twiden`, `acvt`/`vcvt`, `tquant`/`vquant`, `tdequant`/`bdequant` 等显式指令完成 (见 @quantization).
+类型与精度转换 (`i8` → `i32`, `i8` → `f32`, 子字节格式如 `q4` 的展开, 以及打包量化格式如 `q8` + scale 到 `f32` 的反量化) 由 `twiden`, `acvt`/`vcvt`, `tquant`/`vquant`, `tdequant` 等显式指令完成 (见 @quantization).
 
 == 基础访存指令
 
@@ -985,8 +985,8 @@ for 0 <= j < cols(aS):
 == Scalar 与 Vector lane 操作 <lane-move>
 
 ```asm
-{b,v}extract xD, S[lane]
-{b,v}insert  D[lane], xS
+{b,v}extract   xD, S[lane]
+{b,v}insert    D[lane], xS
 {b,v}broadcast D, S[lane]
 ```
 
@@ -2265,7 +2265,6 @@ vScore = vScore × scale
   | `tquant.rows.scale.q8s32`  | R4      | tD[i,:] = quant_q8s32(aS[i,:], vScale[i]).bits                                           | 用外部 Vec32 scale 将 Acc 按行量化到 Tile.         |
   | `vquant.q8s32`             | R4      | bD = quant_q8s32(vS).bits #linebreak() vScale[lane] = quant_q8s32(vS).scale              | 将 Vec32 量化到 Vec8, 产生一个指定 lane 的 scale.  |
   | `tdequant.rows.f32`        | R4      | aD[i,j] = f32(tS[i,j]) × vScale[i]                                                       | 用每行的 Vec32 scale 将 Tile 反量化到 f32 Acc.     |
-  | `bdequant.f32`             | R4      | vD[j] = f32(bS[j]) × vScale[lane]                                                        | 用指定 scale lane 将 Vec8 反量化到 f32 Vec32.      |
 ]
 
 量化与反量化使用 R4 双目的/双源格式; `vScale` 始终是 Vec32 scale 寄存器, `dom2` 选择主目的数据域, 量化方向随之确定.
@@ -2276,7 +2275,7 @@ vScore = vScore × scale
 
 向量形式使用 `IS[25]` 和 `index5[16:12]` 指定 scale lane, `funct3 = 000`:
 
-#rivet-encoding-figure(qnt-vec-schema, caption: [向量量化与反量化格式 (QNT)])
+#rivet-encoding-figure(qnt-vec-schema, caption: [向量量化格式 (QNT)])
 
 汇编操作数先列目的, 再列源. 动态量化的 `vScale` 是第二目的; 外部 scale 量化与反量化的 `vScale` 是源, 位于数据源之后.
 
@@ -2285,7 +2284,6 @@ tquant.rows.q8s32       tD, vScale, aS
 tquant.rows.scale.q8s32 tD, aS, vScale
 vquant.q8s32            bD, vScale[lane], vS
 tdequant.rows.f32       aD, tS, vScale
-bdequant.f32            vD, bS, vScale[lane]
 ```
 
 矩阵行量化每行产生一个 scale; 向量量化产生一个 scale. bits 和 scale 是两个显式目的/源, 依赖与生命周期必须一起跟踪. `tquant.rows.scale.q8s32` 不重新计算 scale: 每行的 scale 由显式 Vec32 源 `vScale` 提供 (记作 `quant_q8s32(x, s)`), 适用于 scale 已由前序计算 (如运行最大值, 外部校准) 给出的场景, 此时只有 Tile bits 一个目的. 内部动态量化使用具名格式 q8s32, 外部权重保留原始 bits/scale.
@@ -2293,7 +2291,7 @@ bdequant.f32            vD, bS, vScale[lane]
 约束:
 
 1. 矩阵形式 (`tquant`/`tdequant`): Acc 与 Tile 有效 shape 相同, Tile 操作数 dtype 为 `i8`, Acc 操作数 dtype 为 `f32`; `vScale` dtype 为 `f32` 且 `len` 等于行数.
-2. 向量形式 (`vquant`/`bdequant`): 两个数据向量 `len` 相同, Vec8 操作数 dtype 为 `i8`, Vec32 数据操作数 dtype 为 `f32`; `vScale` dtype 为 `f32`, scale lane 号 (`IS` = 0 时为 `index5` 立即数, `IS` = 1 时为由 `index5` 指定的 Scalar 寄存器的值) 必须在 `vScale` 的有效范围内.
+2. 向量形式 (`vquant`): 两个数据向量 `len` 相同, Vec8 操作数 dtype 为 `i8`, Vec32 数据操作数 dtype 为 `f32`; `vScale` dtype 为 `f32`, scale lane 号 (`IS` = 0 时为 `index5` 立即数, `IS` = 1 时为由 `index5` 指定的 Scalar 寄存器的值) 必须在 `vScale` 的有效范围内.
 
 `quant_q8s32(x)` 的动态量化定义如下 (`x` 为一行或一个向量的有效元素, 共 $N$ 个):
 
@@ -2540,7 +2538,6 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `vrsqrt.approx`  | R2      | @elementwise-approx  |
 ]
 
-
 #instruction-index(caption: [向量按行广播指令清单])[
   | Instruction    | Format  | Section             |
   | :------------: | :-----: | :------------------ |
@@ -2658,5 +2655,4 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `tquant.rows.scale.q8s32`  | R4      | @quantization  |
   | `vquant.q8s32`             | R4      | @quantization  |
   | `tdequant.rows.f32`        | R4      | @quantization  |
-  | `bdequant.f32`             | R4      | @quantization  |
 ]
