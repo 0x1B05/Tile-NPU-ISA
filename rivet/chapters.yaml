@@ -463,7 +463,7 @@ structures:
       24-22: {name: funct3, description: reduce op, values: {"000": "sum", "001": "max", "010": "min", "011": "sumsq", "100": "argmax (AREDUCE)", "101": "absmax (AREDUCE)"}}
       21-12: {name: reserved10, description: must be 0}
       11-7: {name: S5, description: "src (Acc/Vec32)"}
-      6-2: {name: D5, description: "dst (Vec32/Scalar)"}
+      6-2: {name: D5, description: "dst (Vec32)"}
       1-0: {name: q, description: "space tag (10)"}
   vreduce-argmax:
     bits: 32
@@ -472,9 +472,9 @@ structures:
       27-25: {name: reserved3, description: must be 0}
       24-22: {name: funct3, description: "100 = argmax"}
       21-17: {name: reserved5, description: must be 0}
-      16-12: {name: xVal5, description: "dst xValue (f32 bits)"}
+      16-12: {name: vVal5, description: "dst vVal (Vec32 f32)"}
       11-7: {name: S5, description: "src vS (Vec32)"}
-      6-2: {name: D5, description: "dst xIndex (i32)"}
+      6-2: {name: D5, description: "dst vIdx (Vec32 u32)"}
       1-0: {name: q, description: "space tag (10)"}
   cvt:
     bits: 32
