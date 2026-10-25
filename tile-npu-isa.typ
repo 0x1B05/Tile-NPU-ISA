@@ -2045,7 +2045,7 @@ tree_reduce(nodes, pair_op):
 
 `absmax` 的每个叶先经过 `absmax_leaf(x)` 映射: NaN 视为 `+0`, 其他值取绝对值; 然后对有效叶执行 `pair_max`. 因此单元素、`-0` 和全 NaN 的 `absmax` 都得到非负结果.
 
-`areduce.rows.argmax` 每行取最大值, 目的 `vD` 的 dtype 为 `i32`, 值为该行最大值的有效局部列号; 数值并列取较小索引, NaN 候选被忽略 (规则与 `vreduce.argmax` 一致). 全部候选均为 NaN 时该行的结果为 0:
+`areduce.rows.argmax` 每行取最大值, 目的 `vD` 的 dtype 为 `u32`, 值为该行最大值的有效局部列号; 数值并列取较小索引, NaN 候选被忽略 (规则与 `vreduce.argmax` 一致). 全部候选均为 NaN 时该行的结果为 0:
 
 ```text
 for 0 <= i < R:
@@ -2096,7 +2096,7 @@ vreduce.argmax vIdx, vVal, vS
 将 `f32` Vec32 的有效 lane 取最大值, 把其逻辑索引与值分别广播到两个 Vec32.
 
 ```text
-vIdx[j] ← 最大值的逻辑索引, i32
+vIdx[j] ← 最大值的逻辑索引, u32
 vVal[j] ← 最大值的 f32 位模式
 ```
 
@@ -2107,12 +2107,6 @@ vVal[j] ← 最大值的 f32 位模式
 ```
 
 `argmax_tree` 的 NaN, 相等值, `+0`/`-0`, 奇数节点直通和树拓扑规则与行规约中的定义完全相同. 因而 NaN 候选被忽略: 一方为 NaN 时返回另一方, 两个 NaN 取较小逻辑索引, 数值相等时也取较小逻辑索引. 全部候选均为 NaN 时, `best_index = 0`, `best_value` 为 `vS[0]` 的 NaN 位模式.
-
-`vIdx` 是普通的 `i32` Vec32, 可以直接作为 `{t,b,v}load.gather` 的索引向量, "取出 argmax 对应的行"不需要经过 Scalar; 需要进入 Scalar 参与地址计算时, 用 `vstore` 把 `vIdx` 写入内存, 经 `fence.mem` 后由 RV64 `lw` 读回 (见 @memory-model). 除低频的 `{b,v}extract` lane 读取外 (见 @lane-move), NPU 指令不写 Scalar 寄存器堆, 热路径上 NPU 结果流向 Scalar 的通路是内存.
-
-如果算子需要忽略显式 mask 的位置, 不能只依赖 `-inf` 填充. 因为真实输入也可能是 `-inf`, 而且填充位置仍属于当前有效 Vector shape.
-
-正确做法是缩短 `vS.len`; 或保留显式候选有效性; 或使用带有效性输入的专用 argmax 展开.
 
 #important[
   下表汇总规约指令的 NaN 处理.

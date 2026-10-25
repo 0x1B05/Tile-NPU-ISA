@@ -474,7 +474,7 @@ structures:
       21-17: {name: reserved5, description: must be 0}
       16-12: {name: vVal5, description: "dst vVal (Vec32 f32)"}
       11-7: {name: S5, description: "src vS (Vec32)"}
-      6-2: {name: D5, description: "dst vIdx (Vec32 i32)"}
+      6-2: {name: D5, description: "dst vIdx (Vec32 u32)"}
       1-0: {name: q, description: "space tag (10)"}
   cvt:
     bits: 32
