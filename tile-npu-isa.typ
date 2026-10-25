@@ -1948,8 +1948,10 @@ vmul           vOut, v2, v3
   | `vreduce.max`          | R2      | $"vD"[j] = max_k "vS"[k]$                                                        | 将 f32 Vec32 的有效 lane 取最大, 广播到 Vec32.  |
   | `vreduce.min`          | R2      | $"vD"[j] = min_k "vS"[k]$                                                        | 将 f32 Vec32 的有效 lane 取最小, 广播到 Vec32.  |
   | `vreduce.sumsq`        | R2      | $"vD"[j] = sum_k "vS"[k]^2$                                                      | 将 f32 Vec32 的有效 lane 平方和, 广播到 Vec32.  |
-  | `vreduce.argmax`       | R4      | $"vIdx"[j] = op("argmax")_k "vS"[k]$ #linebreak() $"vVal"[j] = "vS"["vIdx"[0]]$  | 将最大值的逻辑索引与值分别广播到两个 Vec32.     |
+  | `vreduce.argmax`       | R4      | $"vIdx"[j] = "best_index"$ #linebreak() $"vVal"[j] = "best_value"$  | 将最大值的逻辑索引与值分别广播到两个 Vec32.     |
 ]
+
+表中 `best_index` 和 `best_value` 为 `argmax_tree` 的输出, 定义见 @reduce-argmax.
 
 普通单目的规约使用 R2 格式:
 
@@ -2043,7 +2045,7 @@ tree_reduce(nodes, pair_op):
 
 `absmax` 的每个叶先经过 `absmax_leaf(x)` 映射: NaN 视为 `+0`, 其他值取绝对值; 然后对有效叶执行 `pair_max`. 因此单元素、`-0` 和全 NaN 的 `absmax` 都得到非负结果.
 
-`areduce.rows.argmax` 每行取最大值, 目的 `vD` 的 dtype 为 `i32`, 值为该行最大值的有效局部列号; 并列取较小索引, NaN 选择规则与 `vreduce.argmax` 一致:
+`areduce.rows.argmax` 每行取最大值, 目的 `vD` 的 dtype 为 `i32`, 值为该行最大值的有效局部列号; 数值并列取较小索引, NaN 候选被忽略 (规则与 `vreduce.argmax` 一致). 全部候选均为 NaN 时该行的结果为 0:
 
 ```text
 for 0 <= i < R:
@@ -2051,7 +2053,7 @@ for 0 <= i < R:
     vD[i] ← best_index
 ```
 
-`argmax_tree` 使用与上文相同的相邻二叉树和奇数节点直通规则. 两个候选比较时, NaN 胜过非 NaN, 两个 NaN 取左操作数; 两个数值中较大者胜出, 数值相等时取较小的逻辑索引.
+`argmax_tree` 使用与上文相同的相邻二叉树和奇数节点直通规则. 两个候选比较时, NaN 候选被忽略: 一方为 NaN 时返回另一方, 两方均为 NaN 时保留左操作数; 两个数值中较大者胜出, 数值相等时取较小的逻辑索引. 因此全部候选均为 NaN 时返回索引 0.
 
 == 向量规约 <reduce-vreduce>
 
@@ -2104,13 +2106,38 @@ vVal[j] ← 最大值的 f32 位模式
 (best_index, best_value) ← argmax_tree((j, vS[j]) for 0 <= j < len(vS))
 ```
 
-`argmax_tree` 的 NaN, 相等值, `+0`/`-0`, 奇数节点直通和树拓扑规则与行规约中的定义完全相同. 因而 NaN 候选胜过非 NaN, 两个 NaN 取较小逻辑索引, 数值相等时也取较小逻辑索引.
+`argmax_tree` 的 NaN, 相等值, `+0`/`-0`, 奇数节点直通和树拓扑规则与行规约中的定义完全相同. 因而 NaN 候选被忽略: 一方为 NaN 时返回另一方, 两个 NaN 取较小逻辑索引, 数值相等时也取较小逻辑索引. 全部候选均为 NaN 时, `best_index = 0`, `best_value` 为 `vS[0]` 的 NaN 位模式.
 
 `vIdx` 是普通的 `i32` Vec32, 可以直接作为 `{t,b,v}load.gather` 的索引向量, "取出 argmax 对应的行"不需要经过 Scalar; 需要进入 Scalar 参与地址计算时, 用 `vstore` 把 `vIdx` 写入内存, 经 `fence.mem` 后由 RV64 `lw` 读回 (见 @memory-model). 除低频的 `{b,v}extract` lane 读取外 (见 @lane-move), NPU 指令不写 Scalar 寄存器堆, 热路径上 NPU 结果流向 Scalar 的通路是内存.
 
 如果算子需要忽略显式 mask 的位置, 不能只依赖 `-inf` 填充. 因为真实输入也可能是 `-inf`, 而且填充位置仍属于当前有效 Vector shape.
 
 正确做法是缩短 `vS.len`; 或保留显式候选有效性; 或使用带有效性输入的专用 argmax 展开.
+
+#important[
+  下表汇总规约指令的 NaN 处理.
+
+  #manual-table(
+    caption: [规约的 NaN 规则],
+  )[
+    | 规约                    | 有数值和 NaN                   | 全部为 NaN       | 说明                                      |
+    | ----------------------- | ------------------------------ | ---------------- | ----------------------------------------- |
+    | `sum` / `sumsq`         | 结果为 NaN                     | 结果为 NaN       | NaN 沿加法树传播.                         |
+    | `max` / `min`           | 忽略 NaN, 得到数值结果         | 结果为 NaN       | 一方为 NaN 时返回另一方.                  |
+    | `absmax`                | NaN 视为 `+0`                  | 结果为 `+0`      | 用于量化 scale.                           |
+    | `areduce.rows.argmax`   | 忽略 NaN, 索引指向数值最大者   | 索引为 0         | 仅输出索引; 数值并列取较小索引.           |
+    | `vreduce.argmax`        | 忽略 NaN, 索引和值对应数值最大者 | 索引为 0, 值为 NaN | 两个目的分别广播; 数值并列取较小索引.     |
+  ]
+
+  其他 f32 运算的 NaN 处理:
+
+  - 算术与 `fma`: 按 IEEE-754 传播; NaN 参与时结果为 NaN.
+  - 一元 `abs` / `neg`: NaN 输入保持 NaN.
+  - 逐元素 `min` / `max`: 按 IEEE-754 minNum/maxNum; 一方为 NaN 时返回另一方, 两方均为 NaN 时为 NaN.
+  - 比较: 任一操作数为 NaN 时 `eq`/`lt`/`le` 为假, `unord` 为真; `ne`/`ord` 由取反得到.
+  - 近似函数: `exp2_approx`, `rcp_approx`, `rsqrt_approx` 的 NaN 输入得到 NaN, 其他特殊值见 @elementwise-approx.
+  - 量化: `x / scale` 为 NaN 时量化 bits 为 0; `absmax` 将 NaN 视为 `+0`, 见 @quantization.
+]
 
 == 类型转换指令 <reduce-cvt>
 
