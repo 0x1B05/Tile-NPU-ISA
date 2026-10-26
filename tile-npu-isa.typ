@@ -1043,23 +1043,23 @@ tinsert.row tK[rowK], b0
 #instruction-table(caption: [矩阵乘与点积指令])[
   | Instruction           | Format  | Operation                                       | Summary                                           |
   | :-------------------: | :-----: | ----------------------------------------------- | ------------------------------------------------- |
-  | `mma.nn.zero.i8.i32`  | R4      | $"aD"[m,n] = sum_k "tA"[m,k] times "tB"[k,n]$   | 按普通右矩阵执行矩阵乘, 写入 `i32` Acc.           |
-  | `mma.nn.acc.i8.i32`   | R4      | $"aD"[m,n] += sum_k "tA"[m,k] times "tB"[k,n]$  | 按普通右矩阵执行矩阵乘, 累加到旧 `i32` Acc.       |
+  | `mma.nt.zero.i8.i32`  | R4      | $"aD"[m,n] = sum_k "tA"[m,k] times "tB"[n,k]$   | 按转置右矩阵执行矩阵乘, 写入 `i32` Acc.           |
+  | `mma.nt.acc.i8.i32`   | R4      | $"aD"[m,n] += sum_k "tA"[m,k] times "tB"[n,k]$  | 按转置右矩阵执行矩阵乘, 累加到旧 `i32` Acc.       |
   | `bdot.nn.i8.i32`      | R4      | $"vD"[n] = sum_k "bA"[k] times "tB"[k,n]$       | Vec8 与 Tile 各列执行点积, 结果写入 Vec32.        |
   | `bdot.nn.acc.i8.i32`  | R4      | $"vD"[n] += sum_k "bA"[k] times "tB"[k,n]$      | Vec8 与 Tile 各列执行点积, 累加到旧 `i32` Vec32.  |
   | `bdot.nt.i8.i32`      | R4      | $"vD"[n] = sum_k "bA"[k] times "tB"[n,k]$       | Vec8 与 Tile 各行执行点积, 结果写入 Vec32.        |
   | `bdot.nt.acc.i8.i32`  | R4      | $"vD"[n] += sum_k "bA"[k] times "tB"[n,k]$      | Vec8 与 Tile 各行执行点积, 累加到旧 `i32` Vec32.  |
 ]
 
-矩阵乘与点积使用 R4 格式; `funct3` 的三个 bit 依次区分 MMA/BDOT, nn/nt 和 zero/acc. `nt` 只对 `bdot` 定义, `funct3 = 010/011` 保留:
+矩阵乘与点积使用 R4 格式; `funct3` 的三个 bit 依次区分 MMA/BDOT, nn/nt 和 zero/acc. `mma` 只使用 `nt`, `bdot` 使用 `nn` 和 `nt`; `funct3 = 000/001` 保留:
 
 #rivet-encoding-figure(mma-bdot-schema, caption: [矩阵乘与点积格式 (MMA_BDOT)])
 
 == 指令格式
 
 ```asm
-mma.nn.zero.i8.i32 aD, tA, tB
-mma.nn.acc.i8.i32  aD, tA, tB
+mma.nt.zero.i8.i32 aD, tA, tB
+mma.nt.acc.i8.i32  aD, tA, tB
 
 bdot.nn.i8.i32     vD, bA, tB
 bdot.nn.acc.i8.i32 vD, bA, tB
@@ -1089,11 +1089,11 @@ bdot.nt.acc.i8.i32 vD, bA, tB
   columns: (1fr, 4fr),
   caption: [矩阵乘与点积的数学形式],
 )[
-  | 形式       | 运算                                            |
-  | ---------- | ----------------------------------------------- |
-  | `mma.nn`   | $A_(M times K) B_(K times N) -> D_(M times N)$  |
-  | `bdot.nn`  | $"out"_j = sum_(k=0)^(K-1) b_k B_(k,j)$         |
-  | `bdot.nt`  | $"out"_j = sum_(k=0)^(K-1) b_k B_(j,k)$         |
+  | 形式       | 运算                                                    |
+  | ---------- | ------------------------------------------------------- |
+  | `mma.nt`   | $A_(M times K) B^sans(T)_(K times N) -> D_(M times N)$  |
+  | `bdot.nn`  | $"out"_j = sum_(k=0)^(K-1) b_k B_(k,j)$                 |
+  | `bdot.nt`  | $"out"_j = sum_(k=0)^(K-1) b_k B_(j,k)$                 |
 ]
 
 == `nn` 和 `nt` 的矩阵布局
@@ -1104,13 +1104,13 @@ bdot.nt.acc.i8.i32 vD, bA, tB
 
 === `mma`
 
-`mma` 只有 `nn` 形式, 其数学形式为: $ A_(M times K) B_(K times N) -> D_(M times N) $
+`mma` 只有 `nt` 形式, 其数学形式为: $ A_(M times K) B^sans(T)_(K times N) -> D_(M times N) $
 
-其中: $ A_(i,k) = "tA"_(i,k), quad B_(k,j) = "tB"_(k,j) $
+其中: $ A_(i,k) = "tA"_(i,k), quad B_(j,k) = "tB"_(j,k) $
 
-因此: $ D_(i,j) = sum_(k=0)^(K-1) A_(i,k) B_(k,j) $
+因此: $ D_(i,j) = sum_(k=0)^(K-1) A_(i,k) B_(j,k) $
 
-右操作数 `tB` 按 $K times N$ 存放, 第 $k$ 行对应脉动阵列的第 $k$ 行. 需要 $B^sans(T)$ 时, 由数据准备阶段使用 `transform = transpose` 的 `tload` (见 @transpose) 把转置形式存入 Tile.
+右操作数 `tB` 直接按 $N times K$ 存放, 第 $j$ 行对应输出的第 $j$ 列; 这与脉动阵列按行装载右操作数的方向一致, 不需要先做转置搬运.
 
 === `bdot`
 
@@ -1130,14 +1130,14 @@ $ D_j = sum_(k=0)^(K-1) A_k B_(j,k) $
 
 两种形式都按行读取 `tB`; `bdot.nn` 保留 $N$ 个按列累加的 `i32` 部分和, `bdot.nt` 每读取一行就得到一个输出 lane.
 
-== `mma.nn.zero.i8.i32` 和 `mma.nn.acc.i8.i32` <matrix-mma>
+== `mma.nt.zero.i8.i32` 和 `mma.nt.acc.i8.i32` <matrix-mma>
 
 ```asm
-mma.nn.zero.i8.i32 aD, tA, tB
-mma.nn.acc.i8.i32  aD, tA, tB
+mma.nt.zero.i8.i32 aD, tA, tB
+mma.nt.acc.i8.i32  aD, tA, tB
 ```
 
-两种形式都按普通右矩阵执行矩阵乘. 每个 `i8` 操作数先符号扩展到 `i32`, 再进行乘法; 乘积和累加使用 `i32` 算术. `zero` 将结果写入目的 Acc; `acc` 将结果加上目的 Acc 的旧值.
+两种形式都按转置右矩阵执行矩阵乘. 每个 `i8` 操作数先符号扩展到 `i32`, 再进行乘法; 乘积和累加使用 `i32` 算术. `zero` 将结果写入目的 Acc; `acc` 将结果加上目的 Acc 的旧值.
 
 为与右操作数按行装载的数据流一致, 下面的伪代码按 $k$ 外层展开.
 
@@ -1153,20 +1153,20 @@ for 0 <= k < K:
     for 0 <= i < M:
         lhs ← sign_ext(tA[i,k])
         for 0 <= j < N:
-            rhs ← sign_ext(tB[k,j])
+            rhs ← sign_ext(tB[j,k])
             aD[i,j] ← wrap32(aD[i,j] + lhs × rhs)
 ```
 
 示例: 沿 K 维分块累加:
 
 ```asm
-mma.nn.zero.i8.i32 a0, tA0, tB0
-mma.nn.acc.i8.i32  a0, tA1, tB1
-mma.nn.acc.i8.i32  a0, tA2, tB2
-mma.nn.acc.i8.i32  a0, tA3, tB3
+mma.nt.zero.i8.i32 a0, tA0, tB0
+mma.nt.acc.i8.i32  a0, tA1, tB1
+mma.nt.acc.i8.i32  a0, tA2, tB2
+mma.nt.acc.i8.i32  a0, tA3, tB3
 ```
 
-每条 `mma.nn.acc` 都读取上一次得到的 `a0`, 并产生新的 `a0`, 结果为: $ "a0" = A_0 B_0 + A_1 B_1 + A_2 B_2 + A_3 B_3 $
+每条 `mma.nt.acc` 都读取上一次得到的 `a0`, 并产生新的 `a0`, 结果为: $ "a0" = A_0 B_0^sans(T) + A_1 B_1^sans(T) + A_2 B_2^sans(T) + A_3 B_3^sans(T) $
 
 == `bdot.nn.i8.i32` 和 `bdot.nn.acc.i8.i32` <matrix-bdot-nn>
 
@@ -1936,18 +1936,18 @@ vmul           vOut, v2, v3
 行规约每行产生一个 Vec32 元素. 除基础 `sum/max/min` 外, 行规约还定义了 `sumsq`, `absmax` 与 `argmax`; 向量规约另含 f32 `sumsq` 与 `argmax`.
 
 #instruction-table(caption: [规约指令])[
-  | Instruction            | Format  | Operation                                                                        | Summary                                         |
-  | :--------------------: | :-----: | -------------------------------------------------------------------------------- | ----------------------------------------------- |
-  | `areduce.rows.sum`     | R2      | $"vD"[i] = sum_j "aS"[i,j]$                                                      | 将 Acc 按行求和到 Vec32.                        |
-  | `areduce.rows.max`     | R2      | $"vD"[i] = max_j "aS"[i,j]$                                                      | 将 Acc 按行取最大到 Vec32.                      |
-  | `areduce.rows.min`     | R2      | $"vD"[i] = min_j "aS"[i,j]$                                                      | 将 Acc 按行取最小到 Vec32.                      |
-  | `areduce.rows.sumsq`   | R2      | $"vD"[i] = sum_j "aS"[i,j]^2$                                                    | 将 Acc 每行有效元素的平方和写入 Vec32.          |
-  | `areduce.rows.absmax`  | R2      | $"vD"[i] = max_j abs("aS"[i,j])$                                                 | 将 Acc 每行有效元素的绝对值最大写入 Vec32.      |
-  | `areduce.rows.argmax`  | R2      | $"vD"[i] = op("argmax")_j "aS"[i,j]$                                             | 将 Acc 每行最大值的局部列号写入 Vec32.          |
-  | `vreduce.sum`          | R2      | $"vD"[j] = sum_k "vS"[k]$                                                        | 将 f32 Vec32 的有效 lane 求和, 广播到 Vec32.    |
-  | `vreduce.max`          | R2      | $"vD"[j] = max_k "vS"[k]$                                                        | 将 f32 Vec32 的有效 lane 取最大, 广播到 Vec32.  |
-  | `vreduce.min`          | R2      | $"vD"[j] = min_k "vS"[k]$                                                        | 将 f32 Vec32 的有效 lane 取最小, 广播到 Vec32.  |
-  | `vreduce.sumsq`        | R2      | $"vD"[j] = sum_k "vS"[k]^2$                                                      | 将 f32 Vec32 的有效 lane 平方和, 广播到 Vec32.  |
+  | Instruction            | Format  | Operation                                                           | Summary                                         |
+  | :--------------------: | :-----: | ------------------------------------------------------------------- | ----------------------------------------------- |
+  | `areduce.rows.sum`     | R2      | $"vD"[i] = sum_j "aS"[i,j]$                                         | 将 Acc 按行求和到 Vec32.                        |
+  | `areduce.rows.max`     | R2      | $"vD"[i] = max_j "aS"[i,j]$                                         | 将 Acc 按行取最大到 Vec32.                      |
+  | `areduce.rows.min`     | R2      | $"vD"[i] = min_j "aS"[i,j]$                                         | 将 Acc 按行取最小到 Vec32.                      |
+  | `areduce.rows.sumsq`   | R2      | $"vD"[i] = sum_j "aS"[i,j]^2$                                       | 将 Acc 每行有效元素的平方和写入 Vec32.          |
+  | `areduce.rows.absmax`  | R2      | $"vD"[i] = max_j abs("aS"[i,j])$                                    | 将 Acc 每行有效元素的绝对值最大写入 Vec32.      |
+  | `areduce.rows.argmax`  | R2      | $"vD"[i] = op("argmax")_j "aS"[i,j]$                                | 将 Acc 每行最大值的局部列号写入 Vec32.          |
+  | `vreduce.sum`          | R2      | $"vD"[j] = sum_k "vS"[k]$                                           | 将 f32 Vec32 的有效 lane 求和, 广播到 Vec32.    |
+  | `vreduce.max`          | R2      | $"vD"[j] = max_k "vS"[k]$                                           | 将 f32 Vec32 的有效 lane 取最大, 广播到 Vec32.  |
+  | `vreduce.min`          | R2      | $"vD"[j] = min_k "vS"[k]$                                           | 将 f32 Vec32 的有效 lane 取最小, 广播到 Vec32.  |
+  | `vreduce.sumsq`        | R2      | $"vD"[j] = sum_k "vS"[k]^2$                                         | 将 f32 Vec32 的有效 lane 平方和, 广播到 Vec32.  |
   | `vreduce.argmax`       | R4      | $"vIdx"[j] = "best_index"$ #linebreak() $"vVal"[j] = "best_value"$  | 将最大值的逻辑索引与值分别广播到两个 Vec32.     |
 ]
 
@@ -2114,13 +2114,13 @@ vVal[j] ← 最大值的 f32 位模式
   #manual-table(
     caption: [规约的 NaN 规则],
   )[
-    | 规约                    | 有数值和 NaN                   | 全部为 NaN       | 说明                                      |
-    | ----------------------- | ------------------------------ | ---------------- | ----------------------------------------- |
-    | `sum` / `sumsq`         | 结果为 NaN                     | 结果为 NaN       | NaN 沿加法树传播.                         |
-    | `max` / `min`           | 忽略 NaN, 得到数值结果         | 结果为 NaN       | 一方为 NaN 时返回另一方.                  |
-    | `absmax`                | NaN 视为 `+0`                  | 结果为 `+0`      | 用于量化 scale.                           |
-    | `areduce.rows.argmax`   | 忽略 NaN, 索引指向数值最大者   | 索引为 0         | 仅输出索引; 数值并列取较小索引.           |
-    | `vreduce.argmax`        | 忽略 NaN, 索引和值对应数值最大者 | 索引为 0, 值为 NaN | 两个目的分别广播; 数值并列取较小索引.     |
+    | 规约                   | 有数值和 NaN                      | 全部为 NaN          | 说明                                   |
+    | ---------------------- | --------------------------------- | ------------------- | -------------------------------------- |
+    | `sum` / `sumsq`        | 结果为 NaN                        | 结果为 NaN          | NaN 沿加法树传播.                      |
+    | `max` / `min`          | 忽略 NaN, 得到数值结果            | 结果为 NaN          | 一方为 NaN 时返回另一方.               |
+    | `absmax`               | NaN 视为 `+0`                     | 结果为 `+0`         | 用于量化 scale.                        |
+    | `areduce.rows.argmax`  | 忽略 NaN, 索引指向数值最大者      | 索引为 0            | 仅输出索引; 数值并列取较小索引.        |
+    | `vreduce.argmax`       | 忽略 NaN, 索引和值对应数值最大者  | 索引为 0, 值为 NaN  | 两个目的分别广播; 数值并列取较小索引.  |
   ]
 
   其他 f32 运算的 NaN 处理:
@@ -2319,7 +2319,7 @@ bits_j ← sat_rne(x_j / scale)      # RNE 舍入到整数, 饱和到 [-127, 127
 Q8 MMA 是以下基础指令的复合操作, 不隐藏临时 Acc:
 
 ```asm
-mma.nn.zero.i8.i32 aTmp, tA, tB
+mma.nt.zero.i8.i32 aTmp, tA, tB
 acvt.i32.f32       aTmp, aTmp
 amulv.byrow    aTmp, aTmp, vAs
 amulv.bycol    aTmp, aTmp, vBs
@@ -2434,8 +2434,8 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 #instruction-index(caption: [矩阵乘与点积指令清单])[
   | Instruction           | Format  | Section          |
   | :-------------------: | :-----: | :--------------- |
-  | `mma.nn.zero.i8.i32`  | R4      | @matrix-mma      |
-  | `mma.nn.acc.i8.i32`   | R4      | @matrix-mma      |
+  | `mma.nt.zero.i8.i32`  | R4      | @matrix-mma      |
+  | `mma.nt.acc.i8.i32`   | R4      | @matrix-mma      |
   | `bdot.nn.i8.i32`      | R4      | @matrix-bdot-nn  |
   | `bdot.nn.acc.i8.i32`  | R4      | @matrix-bdot-nn  |
   | `bdot.nt.i8.i32`      | R4      | @matrix-bdot-nt  |
