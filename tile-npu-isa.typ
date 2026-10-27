@@ -1038,7 +1038,7 @@ tinsert.row tK[rowK], b0
 
 = 矩阵乘与 Tile 行点积 <matrix>
 
-本节定义基础 `i8` 矩阵乘和 Tile 行—Tile 点积指令. 基础指令使用*`i8` 输入, `i32` 输出或累加*; 点积的左操作数是 Tile 的指定行.
+本节定义基础 `i8` 矩阵乘和 Tile 行—Tile 点积指令. 基础指令使用*`i8` 输入, `i32` 输出或累加*; 点积的左操作数是 Tile 的指定行. 本节采用行向量约定: 长度为 K 的向量视为 $1 times K$ 行向量.
 
 #instruction-table(caption: [矩阵乘与点积指令])[
   | Instruction           | Format  | Operation                                       | Summary                                             |
@@ -1049,7 +1049,7 @@ tinsert.row tK[rowK], b0
   | `tdot.nt.acc.i8.i32`  | R4      | $"vD"[n] += sum_k "tA"[r,k] times "tB"[n,k]$    | Tile 行与 Tile 各行执行点积, 累加到旧 `i32` Vec32.  |
 ]
 
-矩阵乘与点积使用 R4 格式; `funct3[1]` 选择 MMA (`0`) 或 TDOT (`1`), `funct3[0]` 选择 zero (`0`) 或 acc (`1`), `funct3[2]` 必须为 0. 因此 `funct3 = 000/001` 为 `mma`, `010/011` 为 `tdot`, `1xx` 保留. `tdot.nt` 的 `row5` 选择 Tile A 的行; `mma` 的 `row5` 必须为 0:
+矩阵乘与点积使用 R4 格式; `funct3[1]` 选择 MMA (`0`) 或 TDOT (`1`), `funct3[0]` 选择 zero (`0`) 或 acc (`1`), `funct3[2]` 保留.
 
 #rivet-encoding-figure(mma-schema, caption: [矩阵乘与点积格式 (MMA)])
 
@@ -1084,39 +1084,17 @@ tdot.nt.acc.i8.i32 vD, tA[row], tB
   columns: (1fr, 4fr),
   caption: [矩阵乘与点积的数学形式],
 )[
-  | 形式       | 运算                                                    |
-  | ---------- | ------------------------------------------------------- |
-  | `mma.nt`   | $A_(M times K) B^top_(K times N) -> D_(M times N)$  |
-  | `tdot.nt`  | $"out"_j = sum_(k=0)^(K-1) A_(r,k) B_(j,k)$             |
+  | 形式       | 运算                                         |
+  | ---------- | -------------------------------------------- |
+  | `mma.nt`   | $D_(i,j) = sum_(k=0)^(K-1) A_(i,k) B_(j,k)$  |
+  | `tdot.nt`  | $D_j = sum_(k=0)^(K-1) A_k B_(j,k)$          |
 ]
 
-== `nt` 右操作数布局
+#note[
+  矩阵乘nt形式记作 $A_(M times K) (B_(N times K))^top -> D_(M times N)$. nt 的第二个字母表示 $B$ 转置.
 
-矩阵乘记作 $A_(M times K) B_(K times N) -> D_(M times N)$. `nt` 的第二个字母表示 $B$ 转置; 当前 ISA 只有 `nt`.
-
-脉动阵列只为右操作数保留一个装载方向: 存在 Tile 寄存器中的右操作数按行装入阵列. 因此 `tB` 总是按行存放: `nt` 把 $B$ 的转置形式按 $N times K$ 放入 Tile.
-
-=== `mma`
-
-`mma` 只有 `nt` 形式, 其数学形式为: $ A_(M times K) (B_(N times K))^top -> D_(M times N) $
-
-其中: $ A_(i,k) = "tA"_(i,k), quad B_(j,k) = "tB"_(j,k) $
-
-因此: $ D_(i,j) = sum_(k=0)^(K-1) A_(i,k) B_(j,k) $
-
-右操作数 `tB` 直接按 $N times K$ 存放, 第 $j$ 行对应输出的第 $j$ 列; 这与脉动阵列按行装载右操作数的方向一致, 不需要先做转置搬运.
-
-=== `tdot`
-
-`tdot` 只有 `nt` 形式, 计算 Tile 行与 Tile 的点积. 其数学形式是 GEMV:
-
-$ A_(1 times K) (B_(N times K))^top -> D_(1 times N) $
-
-其中 `tB` 按 $N times K$ 存放, 第 $j$ 行与 Tile 行 $A$ 做完整点积:
-
-$ D_j = sum_(k=0)^(K-1) A_k B_(j,k) $
-
-$A$ 来自 `tA[row]`, 要求 `row < rows(tA)` 且 `cols(tA) = K`.
+  脉动阵列只允许存在 Tile 寄存器中的右操作数按行装入阵列. 因此 `tB` 总是按行存放: `nt` 把 $B$ 按 $N times K$ 放入 Tile.
+]
 
 == `mma.nt.zero.i8.i32` 和 `mma.nt.acc.i8.i32` <matrix-mma>
 
@@ -1125,24 +1103,24 @@ mma.nt.zero.i8.i32 aD, tA, tB
 mma.nt.acc.i8.i32  aD, tA, tB
 ```
 
-两种形式都按转置右矩阵执行矩阵乘. 每个 `i8` 操作数先符号扩展到 `i32`, 再进行乘法; 乘积和累加使用 `i32` 算术. `zero` 将结果写入目的 Acc; `acc` 将结果加上目的 Acc 的旧值.
+数学形式为: $ A_(M times K) (B_(N times K))^top -> D_(M times N) $
 
-为与右操作数按行装载的数据流一致, 下面的伪代码按 $k$ 外层展开.
+两种形式都按转置右矩阵执行矩阵乘. 每个 `i8` 操作数先符号扩展到 `i32`, 再进行乘法; 乘积和累加使用 `i32` 算术.
 
-操作:
+`zero` 将结果写入目的 Acc; `acc` 将结果加上目的 Acc 的旧值. 下面的伪代码按输出元素 `(i,j)` 展开, 每个输出元素在 K 上累加:
 
 ```text
 for 0 <= i < M:
     for 0 <= j < N:
-        if zero:
-            aD[i,j] ← 0
-
-for 0 <= k < K:
-    for 0 <= i < M:
-        lhs ← sign_ext(tA[i,k])
-        for 0 <= j < N:
+        partial ← 0
+        for 0 <= k < K:
+            lhs ← sign_ext(tA[i,k])
             rhs ← sign_ext(tB[j,k])
-            aD[i,j] ← wrap32(aD[i,j] + lhs × rhs)
+            partial ← partial + lhs × rhs
+        if zero:
+            aD[i,j] ← partial
+        else:  # acc
+            aD[i,j] ← wrap32(aD[i,j] + partial)
 ```
 
 示例: 沿 K 维分块累加:
@@ -1163,27 +1141,11 @@ tdot.nt.i8.i32     vD, tA[row], tB
 tdot.nt.acc.i8.i32 vD, tA[row], tB
 ```
 
-`tdot.nt` 与 Tile 各行执行点积. Tile 的每一行是一个待匹配的向量:
-
-$ "tB"[j, 0..K-1] $
-
-左操作数是 `tA[row]`; `row` 是 5-bit 立即数, 必须小于 `rows(tA)`, 且 `cols(tA) = K`. `zero` 形式将结果写入 `i32` Vec32; `acc` 形式将结果累加到旧值.
-
-操作:
-
-```text
-for 0 <= j < N:
-    sum ← 0
-    for 0 <= k < K:
-        lhs ← sign_ext(tA[row,k])
-        rhs ← sign_ext(tB[j,k])
-        sum ← sum + lhs × rhs
-    vD[j] ← sum
-```
-
 数学形式为: $ A_(1 times K) (B_(N times K))^top -> D_(1 times N) $
 
-`tdot.nt.acc.i8.i32` 使用相同的行点积定义, 再将结果加到旧值:
+左操作数是 `tA[row]`; `row` 是 5-bit 立即数. `tdot.nt` 将左操作数与右操作数 Tile 的每一行执行点积.
+
+`zero` 形式将结果写入 `i32` Vec32; `acc` 形式将结果累加到旧值:
 
 ```text
 for 0 <= j < N:
@@ -1192,74 +1154,17 @@ for 0 <= j < N:
         lhs ← sign_ext(tA[row,k])
         rhs ← sign_ext(tB[j,k])
         partial ← partial + lhs × rhs
-    vD[j] ← wrap32(vD[j] + partial)
+    if zero:
+        vD[j] ← partial
+    else:  # acc
+        vD[j] ← wrap32(vD[j] + partial)
 ```
 
-该形式用于单个 token 的 GEMV: 激活按 $K$ 方向分块存放在 Tile 的行中, 权重按 $N times K$ 存放. 例如:
+`tdot` 用于单个 token 的 GEMV: 激活按 $K$ 方向分块存放在 Tile 的行中, 权重按 $N times K$ 存放. 例如:
 
 ```asm
 # 从激活 Tile 的第 3 行直接累加一个 K 块
 tdot.nt.acc.i8.i32 vAcc, tAct[3], tWeight
-```
-
-这个形式直接读取 Tile 行, 不需要额外的行搬运指令.
-
-== Decode 中的 $Q K^top$
-
-以`head_dim = 128`为例, head dimension 可以分为四个 32-element 子块: $ Q = [Q_0, Q_1, Q_2, Q_3], quad op("shape")(Q_d) = 1 times 32 $
-
-每个 Query 子块放入同一 Tile 的连续行: $ Q_0 -> "tQ"[0], quad Q_1 -> "tQ"[1], quad Q_2 -> "tQ"[2], quad Q_3 -> "tQ"[3] $
-
-对于一个包含 `N` 个 key 的 Tile: $ op("shape")(K_0) = N times 32 $, 其中每一行是一个 key 的 32 维子块.
-
-在该子块上:
-
-```asm
-tdot.nt.i8.i32 vScore0, tQ[0], tK0
-```
-
-产生: $ "vScore0"_j = op("dot")(Q_0, K_0[j,:]) $
-
-依次处理四个 head-dimension 子块:
-
-```asm
-tdot.nt.i8.i32     vScore0, tQ[0], tK0
-tdot.nt.acc.i8.i32 vScore0, tQ[1], tK1
-tdot.nt.acc.i8.i32 vScore0, tQ[2], tK2
-tdot.nt.acc.i8.i32 vScore0, tQ[3], tK3
-```
-
-得到: $ "vScore0"_j = sum_(d=0)^3 op("dot")(Q_d, K_d[j,:]) $
-
-这等价于: $ Q K^top $
-
-但具体的 scale, 反量化和 softmax 前缩放须由指令序列显式完成.
-
-== Decode 中的 $P V$
-
-假设一个 key block 的当前 K 块有 `K` 个 token ($K <= 32$), V 的维度块宽度为 32: $ op("shape")(P) = 1 times K, quad op("shape")(V) = K times 32 $
-
-将 P 的 `i8` 量化值放入 Tile 行, 将 $V^top$ 的 `i8` block 按 $N times K$ 放入 Tile: $ "Pbits" -> "tP"[0], "Vbits"^top -> "tV" $
-
-然后执行:
-
-```asm
-tdot.nt.i8.i32 vOutRaw, tP[0], tV
-```
-
-产生: $ "vOutRaw"_j = sum_(k=0)^(K-1) "Pbits"_k "Vbits"_(j,k) $
-
-如果 V 的 scale 或 P 的 scale 不同, 须显式执行 scale 重建:
-
-```text
-vOutF32 = convert_i32_to_f32(vOutRaw)
-vOutF32 = apply_scale(vOutF32, p_scale, v_scale)
-```
-
-随后可以使用 Vec32 累加:
-
-```asm
-vadd vOut, vOut, vOutF32
 ```
 
 = 逐元素, 广播和 mask <elementwise>
