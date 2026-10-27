@@ -127,7 +127,7 @@ colors:
     "11-7": "163,200,177"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
-  mma-bdot:
+  mma:
     "31-28": "179,163,205"
     "27-25": "230,230,230"
     "24-22": "192,200,210"
@@ -444,10 +444,10 @@ structures:
       11-7: {name: S5, description: src reg}
       6-2: {name: D5, description: dst reg}
       1-0: {name: q, description: "space tag (01)"}
-  mma-bdot:
+  mma:
     bits: 32
     ranges:
-      31-28: {name: major4, description: major opcode, values: {"0000": "MMA_BDOT"}}
+      31-28: {name: major4, description: major opcode, values: {"0000": "MMA"}}
       27-25: {name: reserved3, description: must be 0}
       24-22: {name: funct3, description: op, values: {"000": "mma.nt.zero", "001": "mma.nt.acc", "010": "tdot.nt", "011": "tdot.nt.acc", "100": "reserved", "101": "reserved", "110": "reserved", "111": "reserved"}}
       21-17: {name: row5, description: "tdot.nt Tile A row; 0 for mma"}

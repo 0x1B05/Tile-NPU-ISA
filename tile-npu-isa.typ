@@ -349,7 +349,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `01`    | `0010`    | `REG_MOVE`      | R2     |
   | `01`    | `0011`    | `ROW_MOVE`      | R4     |
   | `01`    | `0100`    | `LANE_MOVE`     | R4     |
-  | `10`    | `0000`    | `MMA_BDOT`      | R4     |
+  | `10`    | `0000`    | `MMA`           | R4     |
   | `10`    | `0001`    | `AREDUCE`       | R2     |
   | `10`    | `0010`    | `VREDUCE`       | R2/R4  |
   | `10`    | `0011`    | `CVT`           | R2     |
@@ -1051,7 +1051,7 @@ tinsert.row tK[rowK], b0
 
 矩阵乘与点积使用 R4 格式; `funct3[1]` 选择 MMA (`0`) 或 TDOT (`1`), `funct3[0]` 选择 zero (`0`) 或 acc (`1`), `funct3[2]` 必须为 0. 因此 `funct3 = 000/001` 为 `mma`, `010/011` 为 `tdot`, `1xx` 保留. `tdot.nt` 的 `row5` 选择 Tile A 的行; `mma` 的 `row5` 必须为 0:
 
-#rivet-encoding-figure(mma-bdot-schema, caption: [矩阵乘与点积格式 (MMA_BDOT)])
+#rivet-encoding-figure(mma-schema, caption: [矩阵乘与点积格式 (MMA)])
 
 == 指令格式
 
