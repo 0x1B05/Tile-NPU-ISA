@@ -1049,7 +1049,7 @@ tinsert.row tK[rowK], b0
   | `tdot.nt.acc.i8.i32`  | R4      | $"vD"[n] += sum_k "tA"[r,k] times "tB"[n,k]$    | Tile 行与 Tile 各行执行点积, 累加到旧 `i32` Vec32.  |
 ]
 
-矩阵乘与点积使用 R4 格式; `funct3` 的三个 bit 依次区分 MMA/DOT, 布局和 zero/acc. `mma` 与 `tdot` 都只使用 `nt`; `funct3 = 000/001` 和 `100/101` 保留. `tdot.nt` 的 `row5` 选择 Tile A 的行; `mma` 的 `row5` 必须为 0:
+矩阵乘与点积使用 R4 格式; `funct3[1]` 选择 MMA (`0`) 或 TDOT (`1`), `funct3[0]` 选择 zero (`0`) 或 acc (`1`), `funct3[2]` 必须为 0. 因此 `funct3 = 000/001` 为 `mma`, `010/011` 为 `tdot`, `1xx` 保留. `tdot.nt` 的 `row5` 选择 Tile A 的行; `mma` 的 `row5` 必须为 0:
 
 #rivet-encoding-figure(mma-bdot-schema, caption: [矩阵乘与点积格式 (MMA_BDOT)])
 
@@ -1086,7 +1086,7 @@ tdot.nt.acc.i8.i32 vD, tA[row], tB
 )[
   | 形式       | 运算                                                    |
   | ---------- | ------------------------------------------------------- |
-  | `mma.nt`   | $A_(M times K) B^sans(T)_(K times N) -> D_(M times N)$  |
+  | `mma.nt`   | $A_(M times K) B^top_(K times N) -> D_(M times N)$  |
   | `tdot.nt`  | $"out"_j = sum_(k=0)^(K-1) A_(r,k) B_(j,k)$             |
 ]
 
@@ -1098,7 +1098,7 @@ tdot.nt.acc.i8.i32 vD, tA[row], tB
 
 === `mma`
 
-`mma` 只有 `nt` 形式, 其数学形式为: $ A_(M times K) B^sans(T)_(K times N) -> D_(M times N) $
+`mma` 只有 `nt` 形式, 其数学形式为: $ A_(M times K) (B_(N times K))^top -> D_(M times N) $
 
 其中: $ A_(i,k) = "tA"_(i,k), quad B_(j,k) = "tB"_(j,k) $
 
@@ -1110,7 +1110,7 @@ tdot.nt.acc.i8.i32 vD, tA[row], tB
 
 `tdot` 只有 `nt` 形式, 计算 Tile 行与 Tile 的点积. 其数学形式是 GEMV:
 
-$ A_(1 times K) B^sans(T)_(K times N) -> D_(1 times N) $
+$ A_(1 times K) (B_(N times K))^top -> D_(1 times N) $
 
 其中 `tB` 按 $N times K$ 存放, 第 $j$ 行与 Tile 行 $A$ 做完整点积:
 
@@ -1154,7 +1154,7 @@ mma.nt.acc.i8.i32  a0, tA2, tB2
 mma.nt.acc.i8.i32  a0, tA3, tB3
 ```
 
-每条 `mma.nt.acc` 都读取上一次得到的 `a0`, 并产生新的 `a0`, 结果为: $ "a0" = A_0 B_0^sans(T) + A_1 B_1^sans(T) + A_2 B_2^sans(T) + A_3 B_3^sans(T) $
+每条 `mma.nt.acc` 都读取上一次得到的 `a0`, 并产生新的 `a0`, 结果为: $ "a0" = A_0 B_0^top + A_1 B_1^top + A_2 B_2^top + A_3 B_3^top $
 
 == `tdot.nt.i8.i32` 和 `tdot.nt.acc.i8.i32` <matrix-tdot-nt>
 
@@ -1165,7 +1165,7 @@ tdot.nt.acc.i8.i32 vD, tA[row], tB
 
 `tdot.nt` 与 Tile 各行执行点积. Tile 的每一行是一个待匹配的向量:
 
-$ "tB"[j, 0:K] $
+$ "tB"[j, 0..K-1] $
 
 左操作数是 `tA[row]`; `row` 是 5-bit 立即数, 必须小于 `rows(tA)`, 且 `cols(tA) = K`. `zero` 形式将结果写入 `i32` Vec32; `acc` 形式将结果累加到旧值.
 
@@ -1181,7 +1181,7 @@ for 0 <= j < N:
     vD[j] ← sum
 ```
 
-数学形式为: $ A_(1 times K) (B_(N times K))^sans(T) -> D_(1 times N) $
+数学形式为: $ A_(1 times K) (B_(N times K))^top -> D_(1 times N) $
 
 `tdot.nt.acc.i8.i32` 使用相同的行点积定义, 再将结果加到旧值:
 
@@ -1204,7 +1204,7 @@ tdot.nt.acc.i8.i32 vAcc, tAct[3], tWeight
 
 这个形式直接读取 Tile 行, 不需要额外的行搬运指令.
 
-== Decode 中的 $Q K^sans(T)$
+== Decode 中的 $Q K^top$
 
 以`head_dim = 128`为例, head dimension 可以分为四个 32-element 子块: $ Q = [Q_0, Q_1, Q_2, Q_3], quad op("shape")(Q_d) = 1 times 32 $
 
@@ -1231,7 +1231,7 @@ tdot.nt.acc.i8.i32 vScore0, tQ[3], tK3
 
 得到: $ "vScore0"_j = sum_(d=0)^3 op("dot")(Q_d, K_d[j,:]) $
 
-这等价于: $ Q K^sans(T) $
+这等价于: $ Q K^top $
 
 但具体的 scale, 反量化和 softmax 前缩放须由指令序列显式完成.
 
@@ -1239,7 +1239,7 @@ tdot.nt.acc.i8.i32 vScore0, tQ[3], tK3
 
 假设一个 key block 的当前 K 块有 `K` 个 token ($K <= 32$), V 的维度块宽度为 32: $ op("shape")(P) = 1 times K, quad op("shape")(V) = K times 32 $
 
-将 P 的 `i8` 量化值放入 Tile 行, 将 $V^sans(T)$ 的 `i8` block 按 $N times K$ 放入 Tile: $ "Pbits" -> "tP"[0], "Vbits"^sans(T) -> "tV" $
+将 P 的 `i8` 量化值放入 Tile 行, 将 $V^top$ 的 `i8` block 按 $N times K$ 放入 Tile: $ "Pbits" -> "tP"[0], "Vbits"^top -> "tV" $
 
 然后执行:
 
