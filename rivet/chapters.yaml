@@ -449,8 +449,8 @@ structures:
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0000": "MMA"}}
       27-25: {name: reserved3, description: must be 0}
-      24-22: {name: funct3, description: op, values: {"000": "mma.nt.zero", "001": "mma.nt.acc", "010": "tdot.nt", "011": "tdot.nt.acc", "100": "reserved", "101": "reserved", "110": "reserved", "111": "reserved"}}
-      21-17: {name: row5, description: "tdot.nt Tile A row; 0 for mma"}
+      24-22: {name: funct3, description: op, values: {"000": "mma.nt.zero", "001": "mma.nt.acc", "010": "vmma.nt.zero", "011": "vmma.nt.acc", "100": "reserved", "101": "reserved", "110": "reserved", "111": "reserved"}}
+      21-17: {name: row5, description: "vmma.nt Tile A row; 0 for mma"}
       16-12: {name: B5, description: "src2 (Tile)"}
       11-7: {name: A5, description: "src1 (Tile)"}
       6-2: {name: D5, description: "dst (Acc/Vec32)"}

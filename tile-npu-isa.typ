@@ -235,7 +235,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | 配置            | Scalar → TC, AC, BC, VC, TM, AM, BM, VM                                        | 建立数据域的类型, shape, 布局和访存描述            | `cfg.seti`, `cfg.setx`, `cfg.copy`, `cfg.get` #linebreak() `cfg.setw`, `cfg.getw`                                            |
   | 地址与访存      | 内存 ↔ `t/a/b/v`                                                               | 按绑定的 TM/AM/BM/VM 描述符执行整块, 行和向量访问  | `{t,a}{load,store}` #linebreak() `{t,a}{load,store}.row` #linebreak() `{b,v}{load,store}` #linebreak() `{t,b,v}load.gather`  |
   | 初始化与搬运    | 域内 #linebreak() `t` ↔ `b` #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane  | 填充, 复制, 行搬运, lane 搬运和广播                | `{t,a,b,v}{fill,fillx,copy}` #linebreak() `{t,a}{insert,extract}.row` #linebreak() `{b,v}{insert,extract,broadcast}`         |
-  | 矩阵乘与点积    | `t` × `t` → `a` #linebreak() `t` 行 × `t` → `v`                                | `i8` 乘法, `i32` 累加或点积                        | `mma` #linebreak() `tdot`                                                                                                    |
+  | 矩阵乘与点积    | `t` × `t` → `a` #linebreak() `t` 行 × `t` → `v`                                | `i8` 乘法, `i32` 累加或点积                        | `mma` #linebreak() `vmma`                                                                                                    |
   | 逐元素与广播    | `t/a/v` 同域 #linebreak() Acc ↔ Vec32 广播                                     | 算术, 位运算, 移位, 特殊函数, 比较和选择           | `{t,a,v}op` #linebreak() `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                                             |
   | 规约            | `a` → `v` #linebreak() `v` → `v`                                               | 行规约, 向量规约, 平方和和 argmax                  | `areduce` #linebreak() `vreduce`                                                                                             |
   | 类型转换与扩大  | `a/v` 内部 #linebreak() `t` → `a`                                              | 数值类型转换和 `i8` → `i32` 扩大                   | `acvt`, `vcvt` #linebreak() `twiden`                                                                                         |
@@ -1045,13 +1045,16 @@ tinsert.row tK[rowK], b0
   | :-------------------: | :-----: | ----------------------------------------------- | --------------------------------------------------- |
   | `mma.nt.zero.i8.i32`  | R4      | $"aD"[m,n] = sum_k "tA"[m,k] times "tB"[n,k]$   | 按转置右矩阵执行矩阵乘, 写入 `i32` Acc.             |
   | `mma.nt.acc.i8.i32`   | R4      | $"aD"[m,n] += sum_k "tA"[m,k] times "tB"[n,k]$  | 按转置右矩阵执行矩阵乘, 累加到旧 `i32` Acc.         |
-  | `tdot.nt.i8.i32`      | R4      | $"vD"[n] = sum_k "tA"[r,k] times "tB"[n,k]$     | Tile 行与 Tile 各行执行点积, 结果写入 Vec32.        |
-  | `tdot.nt.acc.i8.i32`  | R4      | $"vD"[n] += sum_k "tA"[r,k] times "tB"[n,k]$    | Tile 行与 Tile 各行执行点积, 累加到旧 `i32` Vec32.  |
+  | `vmma.nt.zero.i8.i32` | R4      | $"vD"[n] = sum_k "tA"[r,k] times "tB"[n,k]$     | Tile 行与 Tile 各行执行点积, 结果写入 Vec32.        |
+  | `vmma.nt.acc.i8.i32`  | R4      | $"vD"[n] += sum_k "tA"[r,k] times "tB"[n,k]$    | Tile 行与 Tile 各行执行点积, 累加到旧 `i32` Vec32.  |
 ]
 
-矩阵乘与点积使用 R4 格式; `funct3[1]` 选择 MMA (`0`) 或 TDOT (`1`), `funct3[0]` 选择 zero (`0`) 或 acc (`1`), `funct3[2]` 保留.
+矩阵乘与点积使用 R4 格式; `funct3[1]` 选择 MMA (`0`) 或 VMMA (`1`), `funct3[0]` 选择 zero (`0`) 或 acc (`1`), `funct3[2]` 保留.
 
-#rivet-encoding-figure(mma-schema, caption: [矩阵乘与点积格式 (MMA)])
+#rivet-encoding-figure(
+  mma-schema,
+  caption: [矩阵乘与向量—矩阵乘格式 (MMA/VMMA)],
+)
 
 == 指令格式
 
@@ -1059,8 +1062,8 @@ tinsert.row tK[rowK], b0
 mma.nt.zero.i8.i32 aD, tA, tB
 mma.nt.acc.i8.i32  aD, tA, tB
 
-tdot.nt.i8.i32     vD, tA[row], tB
-tdot.nt.acc.i8.i32 vD, tA[row], tB
+vmma.nt.zero.i8.i32 vD, tA[row], tB
+vmma.nt.acc.i8.i32  vD, tA[row], tB
 ```
 
 操作数含义:
@@ -1069,13 +1072,13 @@ tdot.nt.acc.i8.i32 vD, tA[row], tB
   columns: (0.9fr, 0.9fr, 3.5fr),
   caption: [矩阵乘与点积操作数],
 )[
-  | 操作数     | 数据域  | 作用                                 |
-  | ---------- | ------- | ------------------------------------ |
-  | `tA`       | Tile    | MMA 的左操作数                       |
-  | `tA[row]`  | Tile    | `tdot.nt` 的 Tile 行输入             |
-  | `tB`       | Tile    | MMA 或 tdot 的右操作数               |
-  | `aD`       | Acc     | MMA 的 `i32` 目的和累加寄存器        |
-  | `vD`       | Vec32   | `tdot.nt` 的 `i32` 输出和累加寄存器  |
+  | 操作数     | 数据域  | 作用                           |
+  | ---------- | ------- | ------------------------------ |
+  | `tA`       | Tile    | MMA 的左操作数                 |
+  | `tA[row]`  | Tile    | VMMA 的 Tile 行输入            |
+  | `tB`       | Tile    | MMA 或 VMMA 的右操作数         |
+  | `aD`       | Acc     | MMA 的 `i32` 目的和累加寄存器  |
+  | `vD`       | Vec32   | VMMA 的 `i32` 输出和累加寄存器 |
 ]
 
 数学形式:
@@ -1087,7 +1090,7 @@ tdot.nt.acc.i8.i32 vD, tA[row], tB
   | 形式       | 运算                                         |
   | ---------- | -------------------------------------------- |
   | `mma.nt`   | $D_(i,j) = sum_(k=0)^(K-1) A_(i,k) B_(j,k)$  |
-  | `tdot.nt`  | $D_j = sum_(k=0)^(K-1) A_k B_(j,k)$          |
+  | `vmma.nt`  | $D_j = sum_(k=0)^(K-1) A_k B_(j,k)$          |
 ]
 
 #note[
@@ -1134,16 +1137,16 @@ mma.nt.acc.i8.i32  a0, tA3, tB3
 
 每条 `mma.nt.acc` 都读取上一次得到的 `a0`, 并产生新的 `a0`, 结果为: $ "a0" = A_0 B_0^top + A_1 B_1^top + A_2 B_2^top + A_3 B_3^top $
 
-== `tdot.nt.i8.i32` 和 `tdot.nt.acc.i8.i32` <matrix-tdot-nt>
+== `vmma.nt.zero.i8.i32` 和 `vmma.nt.acc.i8.i32` <matrix-vmma-nt>
 
 ```asm
-tdot.nt.i8.i32     vD, tA[row], tB
-tdot.nt.acc.i8.i32 vD, tA[row], tB
+vmma.nt.zero.i8.i32 vD, tA[row], tB
+vmma.nt.acc.i8.i32  vD, tA[row], tB
 ```
 
 数学形式为: $ A_(1 times K) (B_(N times K))^top -> D_(1 times N) $
 
-左操作数是 `tA[row]`; `row` 是 5-bit 立即数. `tdot.nt` 将左操作数与右操作数 Tile 的每一行执行点积.
+左操作数是 `tA[row]`; `row` 是 5-bit 立即数. `vmma.nt` 将左操作数与右操作数 Tile 的每一行执行点积.
 
 `zero` 形式将结果写入 `i32` Vec32; `acc` 形式将结果累加到旧值:
 
@@ -1160,11 +1163,11 @@ for 0 <= j < N:
         vD[j] ← wrap32(vD[j] + partial)
 ```
 
-`tdot` 用于单个 token 的 GEMV: 激活按 $K$ 方向分块存放在 Tile 的行中, 权重按 $N times K$ 存放. 例如:
+`vmma` 用于单个 token 的 GEMV: 激活按 $K$ 方向分块存放在 Tile 的行中, 权重按 $N times K$ 存放. 例如:
 
 ```asm
 # 从激活 Tile 的第 3 行直接累加一个 K 块
-tdot.nt.acc.i8.i32 vAcc, tAct[3], tWeight
+vmma.nt.acc.i8.i32 vAcc, tAct[3], tWeight
 ```
 
 = 逐元素, 广播和 mask <elementwise>
@@ -2121,10 +2124,10 @@ amulv.bycol aFloat, aFloat, vScale
 
 或使用明确的 scale 乘法指令.
 
-=== Tile 行 dot 结果转 `f32`
+=== Tile 行点积结果转 `f32`
 
 ```asm
-tdot.nt.i8.i32 vRaw, tQ[0], tK
+vmma.nt.zero.i8.i32 vRaw, tQ[0], tK
 vcvt.i32.f32   vScore, vRaw
 vmul       vScore, vScore, vScale
 ```
@@ -2193,13 +2196,13 @@ amulv.bycol    aTmp, aTmp, vBs
 aadd          aOut, aOut, aTmp
 ```
 
-aOut 预先初始化, aTmp 与 aOut 分开. 每个 K 块分别 scale 后再累加. Decode 对应 `tdot → vcvt → scale → vadd`, raw 临时使用 v.
+aOut 预先初始化, aTmp 与 aOut 分开. 每个 K 块分别 scale 后再累加. Decode 对应 `vmma → vcvt → scale → vadd`, raw 临时使用 v.
 
 在 $P V$ 中, 当 `Vscale` 位于规约轴时, 先在 Vec32 中计算:
 
 $ "Pscaled" = P "Vscale" $
 
-再 vquant 到 b, 随后 tdot; 每个 V 维度块从原始 P 重建, 结果只乘 Pscale. 这是需要明确允许量化误差的算法选择, 不是 `f32` $P V$ 的无损替代.
+再 vquant 到 b, 随后 vmma; 每个 V 维度块从原始 P 重建, 结果只乘 Pscale. 这是需要明确允许量化误差的算法选择, 不是 `f32` $P V$ 的无损替代.
 
 = 指令集清单 <instructions>
 
@@ -2303,8 +2306,8 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | :-------------------: | :-----: | :--------------- |
   | `mma.nt.zero.i8.i32`  | R4      | @matrix-mma      |
   | `mma.nt.acc.i8.i32`   | R4      | @matrix-mma      |
-  | `tdot.nt.i8.i32`      | R4      | @matrix-tdot-nt  |
-  | `tdot.nt.acc.i8.i32`  | R4      | @matrix-tdot-nt  |
+  | `vmma.nt.zero.i8.i32` | R4      | @matrix-vmma-nt  |
+  | `vmma.nt.acc.i8.i32`  | R4      | @matrix-vmma-nt  |
 ]
 
 == 逐元素, 广播和 mask
