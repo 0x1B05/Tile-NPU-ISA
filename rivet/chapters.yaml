@@ -405,7 +405,7 @@ structures:
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0011": "ROW_MOVE"}}
       27: {name: "0", description: must be 0}
-      26: {name: EW, description: element width, values: {"0": "8-bit (Tile/Vec8)", "1": "32-bit (Acc/Vec32)"}}
+      26: {name: EW, description: element width, values: {"0": "reserved for ROW_MOVE", "1": "32-bit (Acc/Vec32)"}}
       25: {name: IS}
       24-22: {name: funct3, description: op, values: {"000": "insert.row", "001": "extract.row"}}
       21-17: {name: reserved5, description: must be 0}

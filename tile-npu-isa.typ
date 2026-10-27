@@ -27,8 +27,8 @@
 
 记法约定:
 + 指令助记符, 寄存器名与字段名使用等宽字体 (如 `vadd`, `a0`, `rows`)
-+ 花括号表示该位置可取的一组文本, 并展开为所有对应的助记符. 例如 `{t,a}insert.row` 表示 `tinsert.row` 和 `ainsert.row`; `{t,a}{load,store}` 表示 `tload`, `tstore`, `aload` 和 `astore`.
-+ 指令表的 Operation 列用赋值式描述每条指令的效果. 式子里的下标默认取遍目的寄存器的整个有效区域, 如 `D[i,j] = A[i,j] + B[i,j]` 表示对所有 `i`, `j` 逐元素相加. 矩阵使用 `[i,j]`, 向量使用 `[j]`; 同一表达式兼写矩阵与向量形式时使用 `[p]`. `D` 为目的操作数, `A`, `B`, `S` 为源操作数. 例如 `{t,a}insert.row` 的 `D[rd,j] = S[j]` 实际对应两条指令: `tD[rd,j] = bS[j]` 和 `aD[rd,j] = vS[j]`.
++ 花括号表示该位置可取的一组文本, 并展开为所有对应的助记符. 例如 `{b,v}insert` 表示 `binsert` 和 `vinsert`; `{t,a}{load,store}` 表示 `tload`, `tstore`, `aload` 和 `astore`.
++ 指令表的 Operation 列用赋值式描述每条指令的效果. 式子里的下标默认取遍目的寄存器的整个有效区域, 如 `D[i,j] = A[i,j] + B[i,j]` 表示对所有 `i`, `j` 逐元素相加. 矩阵使用 `[i,j]`, 向量使用 `[j]`; 同一表达式兼写矩阵与向量形式时使用 `[p]`. `D` 为目的操作数, `A`, `B`, `S` 为源操作数. 例如 `ainsert.row` 的 `D[rd,j] = S[j]` 对应 `aD[rd,j] = vS[j]`.
 
 指令表与伪代码中的通用操作数记号:
 
@@ -234,7 +234,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | 标量与控制      | Scalar ↔ Scalar #linebreak() Scalar ↔ 内存                                     | 地址, 索引, 标量计算, 控制流                       | RV64IM (见 RISC-V 规范)                                                                                                      |
   | 配置            | Scalar → TC, AC, BC, VC, TM, AM, BM, VM                                        | 建立数据域的类型, shape, 布局和访存描述            | `cfg.seti`, `cfg.setx`, `cfg.copy`, `cfg.get` #linebreak() `cfg.setw`, `cfg.getw`                                            |
   | 地址与访存      | 内存 ↔ `t/a/b/v`                                                               | 按绑定的 TM/AM/BM/VM 描述符执行整块, 行和向量访问  | `{t,a}{load,store}` #linebreak() `{t,a}{load,store}.row` #linebreak() `{b,v}{load,store}` #linebreak() `{t,b,v}load.gather`  |
-  | 初始化与搬运    | 域内 #linebreak() `t` ↔ `b` #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane  | 填充, 复制, 行搬运, lane 搬运和广播                | `{t,a,b,v}{fill,fillx,copy}` #linebreak() `{t,a}{insert,extract}.row` #linebreak() `{b,v}{insert,extract,broadcast}`         |
+  | 初始化与搬运    | 域内 #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane                         | 填充, 复制, 行搬运, lane 搬运和广播                | `{t,a,b,v}{fill,fillx,copy}` #linebreak() `a{insert,extract}.row` #linebreak() `{b,v}{insert,extract,broadcast}`              |
   | 矩阵乘与点积    | `t` × `t` → `a` #linebreak() `t` 行 × `t` → `v`                                | `i8` 乘法, `i32` 累加或点积                        | `mma` #linebreak() `vmma`                                                                                                    |
   | 逐元素与广播    | `t/a/v` 同域 #linebreak() Acc ↔ Vec32 广播                                     | 算术, 位运算, 移位, 特殊函数, 比较和选择           | `{t,a,v}op` #linebreak() `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                                             |
   | 规约            | `a` → `v` #linebreak() `v` → `v`                                               | 行规约, 向量规约, 平方和和 argmax                  | `areduce` #linebreak() `vreduce`                                                                                             |
@@ -316,7 +316,7 @@ ISA 按五个数据域及其数据流划分功能. 下表列出正文定义的�
   | `BX`      | 第二源选择 (`B`/`xS` 二选一): `0` 选择同域寄存器 `B`, `1` 选择 Scalar 寄存器 `xS`              |
   | `FS`      | fill 来源选择: `0` 选择立即数 `fill5`, `1` 选择 Scalar 寄存器 `xFill`                          |
   | `IS`      | 索引来源选择: `0` 选择 `index5` 中的立即数, `1` 选择由 `index5` 指定的 Scalar 寄存器           |
-  | `EW`      | 元素位宽选择: `0` 选择 8-bit 寄存器组合 (Tile/Vec8), `1` 选择 32-bit 寄存器组合 (Acc/Vec32)    |
+  | `EW`      | 元素位宽选择: `0` 选择 8-bit 寄存器组合 (Tile/Vec8), `1` 选择 32-bit 寄存器组合 (Acc/Vec32); `ROW_MOVE` 中 `0` 保留 |
   | `LS`      | load/store 选择: `0` 表示 load, `1` 表示 store; 在 `M_BLK` 中占 `funct3` 最低位                |
   | `DIR`     | 广播方向: `0` 表示按行, `1` 表示按列                                                           |
   | `MV`      | 矩阵/向量配置选择: `0` 选择矩阵配置, `1` 选择向量配置                                          |
@@ -830,8 +830,8 @@ vstore  v0     # 写入 token t 的 scale, 同理
   | `{t,a,b,v}fill`     | I       | D[p] = imm      | 将立即数填入 Tile/Acc/Vec8/Vec32 的有效区域.      |
   | `{t,a,b,v}fillx`    | R2      | D[p] = xS       | 用 Scalar 值填充 Tile/Acc/Vec8/Vec32 的有效区域.  |
   | `{t,a,b,v}copy`     | R2      | D[p] = S[p]     | 复制同域 Tile/Acc/Vec8/Vec32 的有效数据.          |
-  | `{t,a}insert.row`   | R4      | D[rd,j] = S[j]  | 将 Vec8/Vec32 写入 Tile/Acc 的指定行.             |
-  | `{t,a}extract.row`  | R4      | D[j] = S[rs,j]  | 从 Tile/Acc 指定行提取到 Vec8/Vec32.              |
+  | `ainsert.row`       | R4      | D[rd,j] = S[j]  | 将 Vec32 写入 Acc 的指定行.                       |
+  | `aextract.row`      | R4      | D[j] = S[rs,j]  | 从 Acc 指定行提取到 Vec32.                        |
   | `{b,v}extract`      | R4      | xD = S[lane]    | 将 Vec8/Vec32 的指定 lane 提取到 Scalar.          |
   | `{b,v}insert`       | R4      | D[lane] = xS    | 将 Scalar 值写入 Vec8/Vec32 的指定 lane.          |
   | `{b,v}broadcast`    | R4      | D[j] = S[lane]  | 将源 Vec8/Vec32 的一个 lane 广播到目的有效区域.   |
@@ -848,7 +848,7 @@ vstore  v0     # 写入 token t 的 scale, 同理
   caption: [fillx/copy 格式 (REG_MOVE, R2)],
 )
 
-行搬运与 lane 操作共用 R4 格式; `EW` 选择 8-bit/32-bit 寄存器组合, `IS` 选择索引来源:
+行搬运与 lane 操作共用 R4 格式; `ROW_MOVE` 的 `EW` 必须为 1 (Acc/Vec32), `LANE_MOVE` 的 `EW` 选择 Vec8/Vec32; `IS` 选择索引来源:
 
 #rivet-encoding-figure(
   row-move-schema,
@@ -924,33 +924,6 @@ tcopy t1, t0
 
 前一条复制的是计算配置值, 后一条复制的是 Tile 数据; 两条指令均为值复制, 执行后目的与源相互独立.
 
-== Tile 和 Vec8 的行搬运 <row-move-tile>
-
-```asm
-tinsert.row  tD[rd], bS
-textract.row bD,     tS[rs]
-```
-
-在 Vec8 与 Tile 的指定行之间搬运数据. 如果需要扩大或量化, 必须先使用 `twiden`, `aquant` 或 `vquant` 完成转换, 再执行行搬运.
-
-`tinsert.row` 操作: 将一个 Vec8 写入 Tile 的指定行:
-
-```text
-for 0 <= j < cols(tD):
-    tD[rd,j] ← bS[j]
-```
-
-只有目标 Tile 的第 `rd` 行被修改, 其他行保持原值.
-
-`textract.row` 操作: 将 Tile 的指定行读入 Vec8:
-
-```text
-for 0 <= j < cols(tS):
-    bD[j] ← tS[rs,j]
-```
-
-只有 `bD` 的有效 lane 被写入, 其他 lane 保持原值.
-
 == Acc 和 Vec32 的行搬运 <row-move-acc>
 
 ```asm
@@ -1013,27 +986,6 @@ D[lane] ← x[xS]
 ```text
 for 0 <= j < len(D):
     D[j] ← S[lane]
-```
-
-== KV Cache 中的行搬运
-
-KV cache 追加可以采用如下指令序列:
-
-```asm
-# 从计算结果中取得一个低精度行
-textract.row b0, tK[rowK]
-
-# 写入 KV cache 的 bits (bm0.base_addr 已指向追加位置)
-bstore b0
-
-# 写入对应的 scale (vm0.base_addr 已指向追加位置)
-vstore v0
-```
-
-如果需要把 Vec8 的一行写入驻留 Tile, 则使用:
-
-```asm
-tinsert.row tK[rowK], b0
 ```
 
 = 矩阵乘与 Tile 行点积 <matrix>
@@ -2285,8 +2237,6 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `vfill`         | I       | @fill-instr     |
   | `vfillx`        | R2      | @fill-instr     |
   | `vcopy`         | R2      | @copy-instr     |
-  | `tinsert.row`   | R4      | @row-move-tile  |
-  | `textract.row`  | R4      | @row-move-tile  |
   | `ainsert.row`   | R4      | @row-move-acc   |
   | `aextract.row`  | R4      | @row-move-acc   |
   | `bextract`      | R4      | @lane-move      |
