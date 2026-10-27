@@ -43,7 +43,7 @@
 #let reg-move-schema = load-schema(chapters, "reg-move")
 #let row-move-schema = load-schema(chapters, "row-move", deps: ("index-imm", "index-x"))
 #let lane-move-schema = load-schema(chapters, "lane-move", deps: ("index-imm", "index-x"))
-#let mma-bdot-schema = load-schema(chapters, "mma-bdot")
+#let mma-schema = load-schema(chapters, "mma")
 #let red-schema = load-schema(chapters, "red")
 #let vreduce-argmax-schema = load-schema(chapters, "vreduce-argmax")
 #let cvt-schema = load-schema(chapters, "cvt")
