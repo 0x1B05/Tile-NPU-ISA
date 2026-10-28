@@ -709,7 +709,7 @@ bload.gather   bD, vS
 vload.gather   vD, vS
 ```
 
-gather 的索引向量为 `vS` (Vec32), `vS` 对应的 `VC.dtype` 须为 `i32`.
+gather 的索引向量为 `vS` (Vec32), `vS` 对应的 `VC.dtype` 须为 `u32`. 索引按非负 32-bit 解释; stride 仍为有符号 32-bit, 因此负 stride 仍可用于反向遍历.
 
 `tload.gather` 使用 `tD` 绑定的 `TC` 配置与 `TM` 描述符, 访存地址定义为:
 
@@ -793,7 +793,7 @@ gather 不触发递增. load 的递增量按目的 `CD` 的有效范围计算, s
 
 === Embedding 查表
 
-Embedding 查表使用 gather 加载: token ID 先作为 `i32` 向量由 `vload` 载入 Vec32, 再由 `tload.gather` 索引出 embedding 行, 由 `vload.gather` 索引出对应的 scale:
+Embedding 查表使用 gather 加载: token ID 先作为 `u32` 向量由 `vload` 载入 Vec32, 再由 `tload.gather` 索引出 embedding 行, 由 `vload.gather` 索引出对应的 scale:
 
 ```asm
 vload        v1            # vm1 指向 ids 块
