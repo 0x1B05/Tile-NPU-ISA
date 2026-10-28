@@ -1,5 +1,5 @@
-# Config registers and memory descriptors: TC/AC (32-bit), BC/VC (32-bit),
-# TM/AM (128-bit, split into tm-0..tm-3), BM/VM (96-bit, vm-0..vm-2).
+# Config registers and memory descriptors: TC/AC (32-bit), VC (32-bit),
+# TM/AM (128-bit, split into tm-0..tm-3), VM (96-bit, vm-0..vm-2).
 colors:
   tc:
     "7-0": "240,214,148"
@@ -14,7 +14,7 @@ colors:
     "19-16": "163,200,177"
     "22-20": "192,200,210"
     "31-23": "230,230,230"
-  bc:
+  vc:
     "7-0": "240,214,148"
     "11-8": "163,200,177"
     "31-12": "230,230,230"
@@ -56,11 +56,11 @@ structures:
       19-16: {name: dt, description: "element type (others reserved)", values: {"0010": "i32", "0011": "u32", "0100": "f32"}}
       15-8: {name: cols, description: valid cols}
       7-0: {name: rows, description: valid rows}
-  bc:
+  vc:
     bits: 32
     ranges:
       31-12: {name: reserved}
-      11-8: {name: dt, description: "element type (BC: i8/u8; VC: i32/u32/f32)", values: {"0000": "i8", "0001": "u8", "0010": "i32", "0011": "u32", "0100": "f32", "5-15": "reserved"}}
+      11-8: {name: dt, description: "element type (others reserved)", values: {"0010": "i32", "0011": "u32", "0100": "f32"}}
       7-0: {name: len, description: valid len}
   tm-0:
     bits: 32

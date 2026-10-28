@@ -172,16 +172,6 @@ colors:
     "11-7": "163,200,177"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
-  qnt-vec:
-    "31-28": "179,163,205"
-    "27-26": "196,186,209"
-    "25": "196,186,209"
-    "24-22": "192,200,210"
-    "21-17": "240,214,148"
-    "16-12": "238,183,150"
-    "11-7": "163,200,177"
-    "6-2": "167,199,200"
-    "1-0": "222,184,203"
   cfg-seti:
     "31-28": "179,163,205"
     "27-26": "196,186,209"
@@ -319,7 +309,7 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0100": "E_MASK"}}
-      27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "Vec8", "11": "Vec32"}}
+      27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "reserved", "11": "Vec32"}}
       25: {name: FS}
       24-22: {name: funct3, description: op, values: {"000": "tail", "001": "tril", "010": "triu"}}
       21-17: {name: xBound5, description: "Scalar bound (xBounds/xLen/xDelta)"}
@@ -340,7 +330,7 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0000": "M_BLK"}}
-      27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "Vec8", "11": "Vec32"}}
+      27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "reserved", "11": "Vec32"}}
       25: {name: "0", description: must be 0}
       24-22: {name: funct3, description: "{form2, LS}", values: {"000": "block load", "001": "block store"}}
       21-12: {name: reserved10, description: must be 0}
@@ -351,7 +341,7 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0000": "M_BLK"}}
-      27-26: {name: dom2, description: dst domain, values: {"00": "Tile", "01": "reserved", "10": "Vec8", "11": "Vec32"}}
+      27-26: {name: dom2, description: dst domain, values: {"00": "Tile", "01": "reserved", "10": "reserved", "11": "Vec32"}}
       25: {name: "0", description: must be 0}
       24-22: {name: funct3, description: "{form2, LS}", values: {"010": "gather load"}}
       21-12: {name: reserved10, description: must be 0}
@@ -384,7 +374,7 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0001": "FILL_IMM"}}
-      27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "Vec8", "11": "Vec32"}}
+      27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "reserved", "11": "Vec32"}}
       25-23: {name: funct3, description: "000 = fill; others reserved"}
       22-7: {name: imm16, description: "fill imm (per dtype)"}
       6-2: {name: D5, description: dst reg}
@@ -393,7 +383,7 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0010": "REG_MOVE"}}
-      27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "Vec8", "11": "Vec32"}}
+      27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "reserved", "11": "Vec32"}}
       25: {name: "0", description: must be 0}
       24-22: {name: funct3, description: op, values: {"001": "fillx", "010": "copy", "011": "reserved"}}
       21-12: {name: reserved10, description: must be 0}
@@ -427,7 +417,7 @@ structures:
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0100": "LANE_MOVE"}}
       27: {name: "0", description: must be 0}
-      26: {name: EW, description: element width, values: {"0": "8-bit (Vec8)", "1": "32-bit (Vec32)"}}
+      26: {name: EW, description: element width, values: {"0": "reserved", "1": "32-bit (Vec32)"}}
       25: {name: IS}
       24-22: {name: funct3, description: op, values: {"000": "extract", "001": "insert", "010": "broadcast"}}
       21-17: {name: reserved5, description: must be 0}
@@ -499,32 +489,11 @@ structures:
       11-7: {name: S5, description: main src}
       6-2: {name: D5, description: main dst}
       1-0: {name: q, description: "space tag (10)"}
-  qnt-vec:
-    bits: 32
-    ranges:
-      31-28: {name: major4, description: major opcode, values: {"0100": "QNT"}}
-      27-26: {name: dom2, description: dst domain, values: {"10": "Vec8", "11": "reserved"}}
-      25: {name: IS}
-      24-22: {name: funct3, description: "op (others reserved)", values: {"000": "quant"}}
-      21-17: {name: vScale5, description: "scale reg"}
-      16-12:
-        name: index5
-        depends-on: 25
-        values:
-          0:
-            description: immediate index
-            structure: index-imm
-          1:
-            description: Scalar index register
-            structure: index-x
-      11-7: {name: S5, description: main src}
-      6-2: {name: D5, description: main dst}
-      1-0: {name: q, description: "space tag (10)"}
   cfg-seti:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0101": "CFG_MAT_SETI", "0110": "CFG_VEC_SETI"}}
-      27-26: {name: sel2, description: config type, values: {"00": "TC / BC", "01": "AC / VC", "10": "TM / BM", "11": "AM / VM"}}
+      27-26: {name: sel2, description: config type, values: {"00": "TC / reserved", "01": "AC / VC", "10": "TM / reserved", "11": "AM / VM"}}
       25-23: {name: field3, description: "field number, see field table"}
       22-7: {name: imm16, description: field value}
       6-2: {name: C5, description: dst config reg}
@@ -533,7 +502,7 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0111": "CFG_REG"}}
-      27-26: {name: sel2, description: config type, values: {"00": "TC / BC", "01": "AC / VC", "10": "TM / BM", "11": "AM / VM"}}
+      27-26: {name: sel2, description: config type, values: {"00": "TC / reserved", "01": "AC / VC", "10": "TM / reserved", "11": "AM / VM"}}
       25: {name: MV, description: config side, values: {"0": "matrix config", "1": "vector config"}}
       24-22: {name: funct3, description: op, values: {"000": "cfg.setx C, field, xS, N"}}
       21-20: {name: rsv2, description: must be 0}
@@ -546,7 +515,7 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0111": "CFG_REG"}}
-      27-26: {name: sel2, description: config type, values: {"00": "TC / BC", "01": "AC / VC", "10": "TM / BM", "11": "AM / VM"}}
+      27-26: {name: sel2, description: config type, values: {"00": "TC / reserved", "01": "AC / VC", "10": "TM / reserved", "11": "AM / VM"}}
       25: {name: MV, description: config side, values: {"0": "matrix config", "1": "vector config"}}
       24-22: {name: funct3, description: op, values: {"010": "cfg.get xD, C, field"}}
       21-20: {name: rsv2, description: must be 0}
@@ -559,7 +528,7 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0111": "CFG_REG"}}
-      27-26: {name: sel2, description: "config type; setw: 00/01 only", values: {"00": "TC / BC", "01": "AC / VC", "10": "TM / BM", "11": "AM / VM"}}
+      27-26: {name: sel2, description: "config type; setw: 00/01 only", values: {"00": "TC / reserved", "01": "AC / VC", "10": "TM / reserved", "11": "AM / VM"}}
       25: {name: MV, description: config side, values: {"0": "matrix config", "1": "vector config"}}
       24-22: {name: funct3, description: op, values: {"001": "cfg.copy CD, CS, N", "011": "cfg.setw C, xS, N"}}
       21-17: {name: reserved5, description: must be 0}
@@ -571,7 +540,7 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0111": "CFG_REG"}}
-      27-26: {name: sel2, description: compute config type, values: {"00": "TC / BC", "01": "AC / VC", "1x": "reserved"}}
+      27-26: {name: sel2, description: compute config type, values: {"00": "TC / reserved", "01": "AC / VC", "1x": "reserved"}}
       25: {name: MV, description: config side, values: {"0": "matrix config", "1": "vector config"}}
       24-22: {name: funct3, description: op, values: {"100": "cfg.getw xD, C"}}
       21-12: {name: reserved10, description: must be 0}

@@ -14,7 +14,7 @@
 
 #let tc-schema = load-schema(descriptors, "tc")
 #let ac-schema = load-schema(descriptors, "ac")
-#let bc-schema = load-schema(descriptors, "bc")
+#let vc-schema = load-schema(descriptors, "vc")
 #let tm-0-schema = load-schema(descriptors, "tm-0")
 #let tm-1-schema = load-schema(descriptors, "tm-1")
 #let tm-2-schema = load-schema(descriptors, "tm-2")
@@ -48,7 +48,6 @@
 #let vreduce-argmax-schema = load-schema(chapters, "vreduce-argmax")
 #let cvt-schema = load-schema(chapters, "cvt")
 #let qnt-mat-schema = load-schema(chapters, "qnt-mat")
-#let qnt-vec-schema = load-schema(chapters, "qnt-vec", deps: ("index-imm", "index-x"))
 #let sys-schema = load-schema(chapters, "sys")
 #let e-bin-schema = load-schema(chapters, "e-bin", deps: ("reg-b", "reg-x"))
 #let e-bcast-schema = load-schema(chapters, "e-bcast")
@@ -100,7 +99,7 @@
   kind: "bits",
 )
 
-// Descriptor figures: TM/AM split across four words, BM/VM across three.
+// Descriptor figures: TM/AM split across four words, VM across three.
 #let rivet-tm-figure(rows, caption: none) = schema-rows-figure(rivet-desc-config, rows, caption: caption)
 
 // Compute config register figures.
