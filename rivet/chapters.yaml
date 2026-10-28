@@ -492,8 +492,8 @@ structures:
   cfg-seti:
     bits: 32
     ranges:
-      31-28: {name: major4, description: major opcode, values: {"0101": "CFG_MAT_SETI", "0110": "CFG_VEC_SETI"}}
-      27-26: {name: sel2, description: config type, values: {"00": "TC / reserved", "01": "AC / VC", "10": "TM / reserved", "11": "AM / VM"}}
+      31-28: {name: major4, description: major opcode, values: {"0101": "CFG_COMPUTE_SETI", "0110": "CFG_MEM_SETI"}}
+      27-26: {name: sel2, description: config type within the selected group, values: {"00": "TC / TM", "01": "AC / AM", "10": "VC / VM", "11": "reserved"}}
       25-23: {name: field3, description: "field number, see field table"}
       22-7: {name: imm16, description: field value}
       6-2: {name: C5, description: dst config reg}
@@ -502,8 +502,8 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0111": "CFG_REG"}}
-      27-26: {name: sel2, description: config type, values: {"00": "TC / reserved", "01": "AC / VC", "10": "TM / reserved", "11": "AM / VM"}}
-      25: {name: MV, description: config side, values: {"0": "matrix config", "1": "vector config"}}
+      27-26: {name: sel2, description: config type; CM selects the group, values: {"00": "TC / TM", "01": "AC / AM", "10": "VC / VM", "11": "reserved"}}
+      25: {name: CM, description: config group, values: {"0": "compute config", "1": "memory descriptor"}}
       24-22: {name: funct3, description: op, values: {"000": "cfg.setx C, field, xS, N"}}
       21-20: {name: rsv2, description: must be 0}
       19-17: {name: field3, description: field number}
@@ -515,8 +515,8 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0111": "CFG_REG"}}
-      27-26: {name: sel2, description: config type, values: {"00": "TC / reserved", "01": "AC / VC", "10": "TM / reserved", "11": "AM / VM"}}
-      25: {name: MV, description: config side, values: {"0": "matrix config", "1": "vector config"}}
+      27-26: {name: sel2, description: config type; CM selects the group, values: {"00": "TC / TM", "01": "AC / AM", "10": "VC / VM", "11": "reserved"}}
+      25: {name: CM, description: config group, values: {"0": "compute config", "1": "memory descriptor"}}
       24-22: {name: funct3, description: op, values: {"010": "cfg.get xD, C, field"}}
       21-20: {name: rsv2, description: must be 0}
       19-17: {name: field3, description: field number}
@@ -528,8 +528,8 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0111": "CFG_REG"}}
-      27-26: {name: sel2, description: "config type; setw: 00/01 only", values: {"00": "TC / reserved", "01": "AC / VC", "10": "TM / reserved", "11": "AM / VM"}}
-      25: {name: MV, description: config side, values: {"0": "matrix config", "1": "vector config"}}
+      27-26: {name: sel2, description: "config type; setw requires CM = 0", values: {"00": "TC / TM", "01": "AC / AM", "10": "VC / VM", "11": "reserved"}}
+      25: {name: CM, description: "config group; setw: 0 only", values: {"0": "compute config", "1": "memory descriptor"}}
       24-22: {name: funct3, description: op, values: {"001": "cfg.copy CD, CS, N", "011": "cfg.setw C, xS, N"}}
       21-17: {name: reserved5, description: must be 0}
       16-12: {name: N5, description: last dst offset}
@@ -540,8 +540,8 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0111": "CFG_REG"}}
-      27-26: {name: sel2, description: compute config type, values: {"00": "TC / reserved", "01": "AC / VC", "1x": "reserved"}}
-      25: {name: MV, description: config side, values: {"0": "matrix config", "1": "vector config"}}
+      27-26: {name: sel2, description: "compute config type", values: {"00": "TC", "01": "AC", "10": "VC", "11": "reserved"}}
+      25: {name: CM, description: config group, values: {"0": "compute config", "1": "reserved"}}
       24-22: {name: funct3, description: op, values: {"100": "cfg.getw xD, C"}}
       21-12: {name: reserved10, description: must be 0}
       11-7: {name: S5, description: src config}
