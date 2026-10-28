@@ -38,7 +38,7 @@
 )[
   | 记号                         | 含义                                                                                    |
   | ---------------------------- | --------------------------------------------------------------------------------------- |
-  | `D`                          | 目的寄存器, 对应汇编操作数 `tD`, `aD`, `vD`                                       |
+  | `D`                          | 目的寄存器, 对应汇编操作数 `tD`, `aD`, `vD`                                             |
   | `A`, `B`                     | 第一, 第二源寄存器, 对应 `tA`, `tB`                                                     |
   | `S`                          | 单源或广播向量源                                                                        |
   | `M`                          | mask 操作数：以 mask 方式使用的数据寄存器                                               |
@@ -226,18 +226,18 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   columns: (1.4fr, 1.5fr, 2fr, 3fr),
   caption: [功能族总览],
 )[
-  | 功能族          | 主要数据流                                                                     | 架构职责                                           | 助记符入口                                                                                                                   |
-  | --------------- | ------------------------------------------------------------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-  | 标量与控制      | Scalar ↔ Scalar #linebreak() Scalar ↔ 内存                                     | 地址, 索引, 标量计算, 控制流                       | RV64IM (见 RISC-V 规范)                                                                                                      |
-  | 配置            | Scalar → TC, AC, VC, TM, AM, VM                                                | 建立数据域的类型, shape, 布局和访存描述            | `cfg.seti`, `cfg.setx`, `cfg.copy`, `cfg.get` #linebreak() `cfg.setw`, `cfg.getw`                                            |
-  | 地址与访存      | 内存 ↔ `t/a/v`                                                                 | 按绑定的 TM/AM/VM 描述符执行整块, 行和向量访问     | `{t,a}{load,store}` #linebreak() `{t,a}{load,store}.row` #linebreak() `v{load,store}` #linebreak() `{t,v}load.gather`        |
-  | 初始化与搬运    | 域内 #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane                         | 填充, 复制, 行搬运, lane 搬运和广播                | `{t,a,v}{fill,fillx,copy}` #linebreak() `a{insert,extract}.row` #linebreak() `v{insert,extract,broadcast}`                    |
-  | 矩阵乘与点积    | `t` × `t` → `a` #linebreak() `t` 行 × `t` → `v`                                | `i8` 乘法, `i32` 累加或点积                        | `mma` #linebreak() `vmma`                                                                                                    |
-  | 逐元素与广播    | `t/a/v` 同域 #linebreak() Acc ↔ Vec32 广播                                     | 算术, 位运算, 移位, 特殊函数, 比较和选择           | `{t,a,v}op` #linebreak() `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                                             |
-  | 规约            | `a` → `v` #linebreak() `v` → `v`                                               | 行规约, 向量规约, 平方和和 argmax                  | `areduce` #linebreak() `vreduce`                                                                                             |
-  | 类型转换与扩大  | `a/v` 内部 #linebreak() `t` → `a`                                              | 数值类型转换和 `i8` → `i32` 扩大                   | `acvt`, `vcvt` #linebreak() `twiden`                                                                                         |
-  | 量化与反量化    | `a` ↔ `t`                                                                      | 低精度存储与 `f32` 计算之间的显式转换              | `aquant`, `tdequant`                                                                                                         |
-  | 同步与结束      | 后端 → 完成边界 #linebreak() kernel → 完成                                     | 访存, 脉动阵列, 全后端完成以及 kernel 生命周期     | `fence.mem`, `fence.sa`, `fence.all` #linebreak() `kernel.end`                                                               |
+  | 功能族          | 主要数据流                                              | 架构职责                                        | 助记符入口                                                                                                             |
+  | --------------- | ------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+  | 标量与控制      | Scalar ↔ Scalar #linebreak() Scalar ↔ 内存              | 地址, 索引, 标量计算, 控制流                    | RV64IM (见 RISC-V 规范)                                                                                                |
+  | 配置            | Scalar → TC, AC, VC, TM, AM, VM                         | 建立数据域的类型, shape, 布局和访存描述         | `cfg.seti`, `cfg.setx`, `cfg.copy`, `cfg.get` #linebreak() `cfg.setw`, `cfg.getw`                                      |
+  | 地址与访存      | 内存 ↔ `t/a/v`                                          | 按绑定的 TM/AM/VM 描述符执行整块, 行和向量访问  | `{t,a}{load,store}` #linebreak() `{t,a}{load,store}.row` #linebreak() `v{load,store}` #linebreak() `{t,v}load.gather`  |
+  | 初始化与搬运    | 域内 #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane  | 填充, 复制, 行搬运, lane 搬运和广播             | `{t,a,v}{fill,fillx,copy}` #linebreak() `a{insert,extract}.row` #linebreak() `v{insert,extract,broadcast}`             |
+  | 矩阵乘与点积    | `t` × `t` → `a` #linebreak() `t` 行 × `t` → `v`         | `i8` 乘法, `i32` 累加或点积                     | `mma` #linebreak() `vmma`                                                                                              |
+  | 逐元素与广播    | `t/a/v` 同域 #linebreak() Acc ↔ Vec32 广播              | 算术, 位运算, 移位, 特殊函数, 比较和选择        | `{t,a,v}op` #linebreak() `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                                       |
+  | 规约            | `a` → `v` #linebreak() `v` → `v`                        | 行规约, 向量规约, 平方和和 argmax               | `areduce` #linebreak() `vreduce`                                                                                       |
+  | 类型转换与扩大  | `a/v` 内部 #linebreak() `t` → `a`                       | 数值类型转换和 `i8` → `i32` 扩大                | `acvt`, `vcvt` #linebreak() `twiden`                                                                                   |
+  | 量化与反量化    | `a` ↔ `t`                                               | 低精度存储与 `f32` 计算之间的显式转换           | `aquant`, `tdequant`                                                                                                   |
+  | 同步与结束      | 后端 → 完成边界 #linebreak() kernel → 完成              | 访存, 脉动阵列, 全后端完成以及 kernel 生命周期  | `fence.mem`, `fence.sa`, `fence.all` #linebreak() `kernel.end`                                                         |
 ]
 
 == 指令空间组织 <instruction-space>
@@ -307,20 +307,20 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   columns: (1fr, 5.6fr),
   caption: [选择子位语义],
 )[
-  | 简写      | 含义                                                                                           |
-  | --------- | ---------------------------------------------------------------------------------------------- |
-  | `dom2`    | 架构数据域选择: `00/01/11` 依次表示 Tile/Acc/Vec32; `10` 保留                                  |
-  | `BX`      | 第二源选择 (`B`/`xS` 二选一): `0` 选择同域寄存器 `B`, `1` 选择 Scalar 寄存器 `xS`              |
-  | `FS`      | fill 来源选择: `0` 选择立即数 `fill5`, `1` 选择 Scalar 寄存器 `xFill`                          |
-  | `IS`      | 索引来源选择: `0` 选择 `index5` 中的立即数, `1` 选择由 `index5` 指定的 Scalar 寄存器           |
-  | `EW`      | 元素位宽选择: `0` 选择 8-bit Tile, `1` 选择 32-bit Acc/Vec32; `ROW_MOVE`/`LANE_MOVE` 中 `0` 保留 |
-  | `LS`      | load/store 选择: `0` 表示 load, `1` 表示 store; 在 `M_BLK` 中占 `funct3` 最低位                |
-  | `DIR`     | 广播方向: `0` 表示按行, `1` 表示按列                                                           |
-  | `MV`      | 矩阵/向量配置选择: `0` 选择矩阵配置, `1` 选择向量配置                                          |
-  | `G`       | 操作组; 与 `op3` 共同组成 `funct4`, 选择逐元素操作                                             |
-  | `xBound`  | Scalar 边界操作数: 按指令解释为 `xBounds`, `xLen` 或 `xDelta`                                  |
-  | `index5`  | 5-bit 索引字段: 由 `IS` 选择立即数索引或 Scalar 寄存器索引                                     |
-  | `vVal5`   | `vVal` 目的寄存器字段, 仅 `vreduce.argmax` 使用                                                |
+  | 简写      | 含义                                                                                                                                  |
+  | --------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+  | `dom2`    | 架构数据域选择: `00/01/11` 依次表示 Tile/Acc/Vec32; `10` 保留                                                                         |
+  | `BX`      | 第二源选择 (`B`/`xS` 二选一): `0` 选择同域寄存器 `B`, `1` 选择 Scalar 寄存器 `xS`                                                     |
+  | `FS`      | fill 来源选择: `0` 选择立即数 `fill5`, `1` 选择 Scalar 寄存器 `xFill`                                                                 |
+  | `IS`      | 索引来源选择: `0` 选择 `index5` 中的立即数, `1` 选择由 `index5` 指定的 Scalar 寄存器                                                  |
+  | `EW`      | 元素位宽选择: 仅 `M_BLK` row 形式使用, `0` 选择 8-bit Tile, `1` 选择 32-bit Acc; `ROW_MOVE`/`LANE_MOVE`/`E_BCAST` 中 `[26]` 保留为 0  |
+  | `LS`      | load/store 选择: `0` 表示 load, `1` 表示 store; 在 `M_BLK` 中占 `funct3` 最低位                                                       |
+  | `DIR`     | 广播方向: `0` 表示按行, `1` 表示按列                                                                                                  |
+  | `MV`      | 矩阵/向量配置选择: `0` 选择矩阵配置, `1` 选择向量配置                                                                                 |
+  | `G`       | 操作组; 与 `op3` 共同组成 `funct4`, 选择逐元素操作                                                                                    |
+  | `xBound`  | Scalar 边界操作数: 按指令解释为 `xBounds`, `xLen` 或 `xDelta`                                                                         |
+  | `index5`  | 5-bit 索引字段: 由 `IS` 选择立即数索引或 Scalar 寄存器索引                                                                            |
+  | `vVal5`   | `vVal` 目的寄存器字段, 仅 `vreduce.argmax` 使用                                                                                       |
 ]
 
 字段名后的数字表示位宽, 如 `D5`, `dom2`, `funct3`.
@@ -362,8 +362,8 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
 + `reserved` 字段必须为 0, 非零组合为保留编码;
 + 操作数字段中的寄存器编号均为 5-bit, 直接对应该数据域的 32 个寄存器;
 + 译码按 `q` → `major4` → `funct3` → `sel3` 分层: 选择子位的含义总在其指令族语境下解释; 操作数字段位置全局固定 (`D5` 在 `[6:2]`, 第一源在 `[11:7]`, 第二源或索引在 `[16:12]`), 寄存器读取可在译码完成前开始;
-+ `sel3` 内高位优先放域选择 (`dom2`, `EW`), 变体位 (`BX`, `FS`, `IS`, `DIR`, `MV`) 固定占 `sel3` 最低位 `[25]`; 选择操作数来源的变体位 (`BX`, `FS`, `IS`) 只改变 `[16:12]` 的解释;
-  + 元素位宽`EW`由 `[26]` 表示: `dom2` 的低位与 `EW` 同位, `0` 为 8-bit, `1` 为 32-bit; 使用 `EW` 的指令族要求 `[27] = 0`, 因此 `sel3[2:1] = {0, EW}` 与对应矩阵域的 `dom2` 编码一致;
++ `sel3` 内高位优先放域选择 (`dom2`; `M_BLK` row 形式使用 `EW`), 变体位 (`BX`, `FS`, `IS`, `DIR`, `MV`) 固定占 `sel3` 最低位 `[25]`; 选择操作数来源的变体位 (`BX`, `FS`, `IS`) 只改变 `[16:12]` 的解释;
+  + `EW` 只用于 `M_BLK` row 形式: `dom2` 的低位与 `EW` 同位, `0` 为 8-bit, `1` 为 32-bit; 该形式要求 `[27] = 0`, 因此 `sel3[2:1] = {0, EW}` 与对应矩阵域的 `dom2` 编码一致. `ROW_MOVE`/`LANE_MOVE`/`E_BCAST` 将 `[26]` 保留为 0;
 
 = 标量与同步 <scalar-sync>
 
@@ -584,16 +584,16 @@ cfg.getw xD, C
   columns: (1.5fr, 0.5fr, 2.5fr, 2.1fr),
   caption: [地址与访存指令],
 )[
-  | Instruction         | Format  | Operation                    | Summary                                            |
-  | :------------------ | :-----: | ---------------------------- | -------------------------------------------------- |
-  | `{t,a}load`         | R2      | D[i,j] = memory[addr(i,j)]   | 按绑定的 TM/AM 读取内存到 Tile/Acc 有效区域.       |
-  | `{t,a}store`        | R2      | memory[addr(i,j)] = S[i,j]   | 将 Tile/Acc 有效区域按绑定的 TM/AM 写入内存.       |
-  | `{t,a}load.row`     | MR      | D[rd,j] = memory[addr(0,j)]  | 按绑定的 TM/AM 读取内存到 Tile/Acc 指定行.         |
-  | `{t,a}store.row`    | MR      | memory[addr(0,j)] = S[rs,j]  | 将 Tile/Acc 指定行按绑定的 TM/AM 写入内存.         |
-  | `tload.gather`      | R2      | D[i,j] = memory[gaddr(i,j)]  | 以 Vec32 各 lane 为索引 gather 加载到 Tile 行.     |
-  | `vload.gather`      | R2      | D[j] = memory[gaddr(j)]      | 以 Vec32 各 lane 为索引 gather 加载到 Vec32.       |
-  | `vload`             | R2      | D[j] = memory[addr(j)]       | 按绑定的 VM 读取内存到 Vec32 向量.                 |
-  | `vstore`            | R2      | memory[addr(j)] = S[j]       | 将 Vec32 向量按绑定的 VM 写入内存.                 |
+  | Instruction       | Format  | Operation                    | Summary                                         |
+  | :---------------- | :-----: | ---------------------------- | ----------------------------------------------- |
+  | `{t,a}load`       | R2      | D[i,j] = memory[addr(i,j)]   | 按绑定的 TM/AM 读取内存到 Tile/Acc 有效区域.    |
+  | `{t,a}store`      | R2      | memory[addr(i,j)] = S[i,j]   | 将 Tile/Acc 有效区域按绑定的 TM/AM 写入内存.    |
+  | `{t,a}load.row`   | MR      | D[rd,j] = memory[addr(0,j)]  | 按绑定的 TM/AM 读取内存到 Tile/Acc 指定行.      |
+  | `{t,a}store.row`  | MR      | memory[addr(0,j)] = S[rs,j]  | 将 Tile/Acc 指定行按绑定的 TM/AM 写入内存.      |
+  | `tload.gather`    | R2      | D[i,j] = memory[gaddr(i,j)]  | 以 Vec32 各 lane 为索引 gather 加载到 Tile 行.  |
+  | `vload.gather`    | R2      | D[j] = memory[gaddr(j)]      | 以 Vec32 各 lane 为索引 gather 加载到 Vec32.    |
+  | `vload`           | R2      | D[j] = memory[addr(j)]       | 按绑定的 VM 读取内存到 Vec32 向量.              |
+  | `vstore`          | R2      | memory[addr(j)] = S[j]       | 将 Vec32 向量按绑定的 VM 写入内存.              |
 ]
 
 `M_BLK` 的 `funct3 = {form2, LS}` 区分整块访问, gather 与 row 形式, 其最低位 `LS` 选择 load (`0`) 或 store (`1`).
@@ -802,16 +802,16 @@ vload.gather v2, v1        # vm2 指向 table_scale
 元素类型使用寄存器配置中的 dtype: Tile 为 `i8/u8`, Acc/Vec32 为 `i32/u32/f32`.
 
 #instruction-table(caption: [填充, 搬运指令])[
-  | Instruction         | Format  | Operation       | Summary                                           |
-  | :-----------------: | :-----: | --------------- | ------------------------------------------------- |
-  | `{t,a,v}fill`       | I       | D[p] = imm      | 将立即数填入 Tile/Acc/Vec32 的有效区域.           |
-  | `{t,a,v}fillx`      | R2      | D[p] = xS       | 用 Scalar 值填充 Tile/Acc/Vec32 的有效区域.       |
-  | `{t,a,v}copy`       | R2      | D[p] = S[p]     | 复制同域 Tile/Acc/Vec32 的有效数据.               |
-  | `ainsert.row`       | R4      | D[rd,j] = S[j]  | 将 Vec32 写入 Acc 的指定行.                       |
-  | `aextract.row`      | R4      | D[j] = S[rs,j]  | 从 Acc 指定行提取到 Vec32.                        |
-  | `vextract`          | R4      | xD = S[lane]    | 将 Vec32 的指定 lane 提取到 Scalar.               |
-  | `vinsert`           | R4      | D[lane] = xS    | 将 Scalar 值写入 Vec32 的指定 lane.               |
-  | `vbroadcast`        | R4      | D[j] = S[lane]  | 将源 Vec32 的一个 lane 广播到目的有效区域.        |
+  | Instruction     | Format  | Operation       | Summary                                      |
+  | :-------------: | :-----: | --------------- | -------------------------------------------- |
+  | `{t,a,v}fill`   | I       | D[p] = imm      | 将立即数填入 Tile/Acc/Vec32 的有效区域.      |
+  | `{t,a,v}fillx`  | R2      | D[p] = xS       | 用 Scalar 值填充 Tile/Acc/Vec32 的有效区域.  |
+  | `{t,a,v}copy`   | R2      | D[p] = S[p]     | 复制同域 Tile/Acc/Vec32 的有效数据.          |
+  | `ainsert.row`   | R4      | D[rd,j] = S[j]  | 将 Vec32 写入 Acc 的指定行.                  |
+  | `aextract.row`  | R4      | D[j] = S[rs,j]  | 从 Acc 指定行提取到 Vec32.                   |
+  | `vextract`      | R4      | xD = S[lane]    | 将 Vec32 的指定 lane 提取到 Scalar.          |
+  | `vinsert`       | R4      | D[lane] = xS    | 将 Scalar 值写入 Vec32 的指定 lane.          |
+  | `vbroadcast`    | R4      | D[j] = S[lane]  | 将源 Vec32 的一个 lane 广播到目的有效区域.   |
 ]
 
 `fill` 单独占用 `major4 = FILL_IMM`, 使用 I 格式, 立即数 `imm16` 按目的 dtype 解释:
@@ -825,7 +825,7 @@ vload.gather v2, v1        # vm2 指向 table_scale
   caption: [fillx/copy 格式 (REG_MOVE, R2)],
 )
 
-行搬运与 lane 操作共用 R4 格式; `ROW_MOVE`/`LANE_MOVE` 的 `EW` 必须为 1 (Acc/Vec32), `EW = 0` 保留; `IS` 选择索引来源:
+行搬运与 lane 操作共用 R4 格式; `ROW_MOVE`/`LANE_MOVE` 的 `[27:26]` 保留为 0; `IS` 选择索引来源:
 
 #rivet-encoding-figure(
   row-move-schema,
@@ -970,12 +970,12 @@ for 0 <= j < len(D):
 本节定义基础 `i8` 矩阵乘和 Tile 行—Tile 点积指令. 基础指令使用*`i8` 输入, `i32` 输出或累加*; 点积的左操作数是 Tile 的指定行. 本节采用行向量约定: 长度为 K 的向量视为 $1 times K$ 行向量.
 
 #instruction-table(caption: [矩阵乘与点积指令])[
-  | Instruction           | Format  | Operation                                       | Summary                                             |
-  | :-------------------: | :-----: | ----------------------------------------------- | --------------------------------------------------- |
-  | `mma.nt.zero.i8.i32`  | R4      | $"aD"[m,n] = sum_k "tA"[m,k] times "tB"[n,k]$   | 按转置右矩阵执行矩阵乘, 写入 `i32` Acc.             |
-  | `mma.nt.acc.i8.i32`   | R4      | $"aD"[m,n] += sum_k "tA"[m,k] times "tB"[n,k]$  | 按转置右矩阵执行矩阵乘, 累加到旧 `i32` Acc.         |
-  | `vmma.nt.zero.i8.i32` | R4      | $"vD"[n] = sum_k "tA"[r,k] times "tB"[n,k]$     | Tile 行与 Tile 各行执行点积, 结果写入 Vec32.        |
-  | `vmma.nt.acc.i8.i32`  | R4      | $"vD"[n] += sum_k "tA"[r,k] times "tB"[n,k]$    | Tile 行与 Tile 各行执行点积, 累加到旧 `i32` Vec32.  |
+  | Instruction            | Format  | Operation                                       | Summary                                             |
+  | :--------------------: | :-----: | ----------------------------------------------- | --------------------------------------------------- |
+  | `mma.nt.zero.i8.i32`   | R4      | $"aD"[m,n] = sum_k "tA"[m,k] times "tB"[n,k]$   | 按转置右矩阵执行矩阵乘, 写入 `i32` Acc.             |
+  | `mma.nt.acc.i8.i32`    | R4      | $"aD"[m,n] += sum_k "tA"[m,k] times "tB"[n,k]$  | 按转置右矩阵执行矩阵乘, 累加到旧 `i32` Acc.         |
+  | `vmma.nt.zero.i8.i32`  | R4      | $"vD"[n] = sum_k "tA"[r,k] times "tB"[n,k]$     | Tile 行与 Tile 各行执行点积, 结果写入 Vec32.        |
+  | `vmma.nt.acc.i8.i32`   | R4      | $"vD"[n] += sum_k "tA"[r,k] times "tB"[n,k]$    | Tile 行与 Tile 各行执行点积, 累加到旧 `i32` Vec32.  |
 ]
 
 矩阵乘与点积使用 R4 格式; `funct3[1]` 选择 MMA (`0`) 或 VMMA (`1`), `funct3[0]` 选择 zero (`0`) 或 acc (`1`), `funct3[2]` 保留.
@@ -1001,13 +1001,13 @@ vmma.nt.acc.i8.i32  vD, tA[row], tB
   columns: (0.9fr, 0.9fr, 3.5fr),
   caption: [矩阵乘与点积操作数],
 )[
-  | 操作数     | 数据域  | 作用                           |
-  | ---------- | ------- | ------------------------------ |
-  | `tA`       | Tile    | MMA 的左操作数                 |
-  | `tA[row]`  | Tile    | VMMA 的 Tile 行输入            |
-  | `tB`       | Tile    | MMA 或 VMMA 的右操作数         |
-  | `aD`       | Acc     | MMA 的 `i32` 目的和累加寄存器  |
-  | `vD`       | Vec32   | VMMA 的 `i32` 输出和累加寄存器 |
+  | 操作数     | 数据域  | 作用                            |
+  | ---------- | ------- | ------------------------------- |
+  | `tA`       | Tile    | MMA 的左操作数                  |
+  | `tA[row]`  | Tile    | VMMA 的 Tile 行输入             |
+  | `tB`       | Tile    | MMA 或 VMMA 的右操作数          |
+  | `aD`       | Acc     | MMA 的 `i32` 目的和累加寄存器   |
+  | `vD`       | Vec32   | VMMA 的 `i32` 输出和累加寄存器  |
 ]
 
 数学形式:
@@ -1418,7 +1418,7 @@ $ "rsqrt_approx"(x) = 1 / sqrt(x) $
 
 向量广播只支持 Acc 与 Vec32; 向量的第 i 个元素广播到矩阵第 i 行.
 
-向量广播使用 R3 格式; `EW = 1` 选择 32-bit Acc/Vec32 组合, `EW = 0` 保留; `DIR` 选择按行/按列:
+向量广播使用 R3 格式; `E_BCAST` 的 `[27:26]` 保留为 0; `DIR` 选择按行/按列:
 
 #rivet-encoding-figure(e-bcast-schema, caption: [向量广播格式 (E_BCAST)])
 
@@ -2185,22 +2185,22 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 详细语义见 @data-movement.
 
 #instruction-index(caption: [填充, 搬运指令清单])[
-  | Instruction     | Format  | Section         |
-  | :-------------: | :-----: | :-------------- |
-  | `tfill`         | I       | @fill-instr     |
-  | `tfillx`        | R2      | @fill-instr     |
-  | `tcopy`         | R2      | @copy-instr     |
-  | `afill`         | I       | @fill-instr     |
-  | `afillx`        | R2      | @fill-instr     |
-  | `acopy`         | R2      | @copy-instr     |
-  | `vfill`         | I       | @fill-instr     |
-  | `vfillx`        | R2      | @fill-instr     |
-  | `vcopy`         | R2      | @copy-instr     |
-  | `ainsert.row`   | R4      | @row-move-acc   |
-  | `aextract.row`  | R4      | @row-move-acc   |
-  | `vextract`      | R4      | @lane-move      |
-  | `vinsert`       | R4      | @lane-move      |
-  | `vbroadcast`    | R4      | @lane-move      |
+  | Instruction     | Format  | Section        |
+  | :-------------: | :-----: | :------------- |
+  | `tfill`         | I       | @fill-instr    |
+  | `tfillx`        | R2      | @fill-instr    |
+  | `tcopy`         | R2      | @copy-instr    |
+  | `afill`         | I       | @fill-instr    |
+  | `afillx`        | R2      | @fill-instr    |
+  | `acopy`         | R2      | @copy-instr    |
+  | `vfill`         | I       | @fill-instr    |
+  | `vfillx`        | R2      | @fill-instr    |
+  | `vcopy`         | R2      | @copy-instr    |
+  | `ainsert.row`   | R4      | @row-move-acc  |
+  | `aextract.row`  | R4      | @row-move-acc  |
+  | `vextract`      | R4      | @lane-move     |
+  | `vinsert`       | R4      | @lane-move     |
+  | `vbroadcast`    | R4      | @lane-move     |
 ]
 
 == 矩阵乘与 Tile 行点积
@@ -2208,12 +2208,12 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 详细语义见 @matrix.
 
 #instruction-index(caption: [矩阵乘与点积指令清单])[
-  | Instruction           | Format  | Section          |
-  | :-------------------: | :-----: | :--------------- |
-  | `mma.nt.zero.i8.i32`  | R4      | @matrix-mma      |
-  | `mma.nt.acc.i8.i32`   | R4      | @matrix-mma      |
-  | `vmma.nt.zero.i8.i32` | R4      | @matrix-vmma-nt  |
-  | `vmma.nt.acc.i8.i32`  | R4      | @matrix-vmma-nt  |
+  | Instruction            | Format  | Section          |
+  | :--------------------: | :-----: | :--------------- |
+  | `mma.nt.zero.i8.i32`   | R4      | @matrix-mma      |
+  | `mma.nt.acc.i8.i32`    | R4      | @matrix-mma      |
+  | `vmma.nt.zero.i8.i32`  | R4      | @matrix-vmma-nt  |
+  | `vmma.nt.acc.i8.i32`   | R4      | @matrix-vmma-nt  |
 ]
 
 == 逐元素, 广播和 mask
