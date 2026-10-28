@@ -1561,16 +1561,14 @@ for 0 <= j < len(D):
   columns: (1fr, 0.5fr, 2fr, 2.1fr),
   caption: [选择指令],
 )[
-  | Instruction    | Format  | Operation                          | Summary                         |
-  | :------------: | :-----: | ---------------------------------- | ------------------------------- |
-  | `tselect`      | R4      | D[i,j] = M[i,j] ? A[i,j] : B[i,j]  | mask 非零时选择 A, 否则选择 B.  |
-  | `{a,v}select`  | R4      | D[p] = M[p] ? A[p] : B[p]          | mask 非零时选择 A, 否则选择 B.  |
+  | Instruction    | Format  | Operation                  | Summary                         |
+  | :------------: | :-----: | -------------------------- | ------------------------------- |
+  | `{a,v}select`  | R4      | D[p] = M[p] ? A[p] : B[p]  | mask 非零时选择 A, 否则选择 B.  |
 ]
 
-select 按位选择: 根据 mask 在两个已经计算好的值之间选择 (t 数据使用 `u8` mask, a/v 数据使用 `u32` mask). mask 可由 mask 指令或 Vec32 的 `vcmp` 产生; Tile 域没有比较指令, 位置型 mask 可由 `tmask.*` 合成 (以零 Tile 为源, fill 取 $-1$, 即 u8 的 `0xff`); Acc mask 可由 `amask.*` 生成.
+select 按位选择: 根据 mask 在两个已经计算好的值之间选择 (`a/v` 数据使用 `u32` mask). Acc mask 可由 `amask.*` 生成; Vec32 mask 可由 `vcmp` 产生.
 
 ```asm
-tselect tD, tM, tA, tB
 aselect aD, aM, aA, aB
 vselect vD, vM, vA, vB
 ```
@@ -1599,12 +1597,12 @@ mask 使用 R4 格式; `[16:12]` 为 fill, `FS` 选择其来源 (立即数 `fill
   | Instruction        | Format  | Operation                                          | Summary                                                   |
   | :----------------: | :-----: | -------------------------------------------------- | --------------------------------------------------------- |
   | `{t,a}mask.tail`   | R4      | D[i,j] = (i < nRows && j < nCols) ? S[i,j] : fill  | 保留行列坐标小于 `xBounds` 中 `nRows`, `nCols` 的源元素.  |
-  | `{t,a}mask.tril`   | R4      | D[i,j] = (j - i <= xDelta) ? S[i,j] : fill         | 保留满足 $j-i <= "xDelta"$ 的源元素.                      |
-  | `{t,a}mask.triu`   | R4      | D[i,j] = (j - i >= xDelta) ? S[i,j] : fill         | 保留满足 $j-i >= "xDelta"$ 的源元素.                      |
+  | `amask.tril`       | R4      | D[i,j] = (j - i <= xDelta) ? S[i,j] : fill         | 保留满足 $j-i <= "xDelta"$ 的源元素.                      |
+  | `amask.triu`       | R4      | D[i,j] = (j - i >= xDelta) ? S[i,j] : fill         | 保留满足 $j-i >= "xDelta"$ 的源元素.                      |
   | `vmask.tail`       | R4      | D[j] = (j < xLen) ? S[j] : fill                    | 保留 lane 索引小于 xLen 的源元素.                         |
   | `{t,a}maskx.tail`  | R4      | 同 `mask.tail`, fill 由 Scalar 提供                | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
-  | `{t,a}maskx.tril`  | R4      | 同 `mask.tril`, fill 由 Scalar 提供                | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
-  | `{t,a}maskx.triu`  | R4      | 同 `mask.triu`, fill 由 Scalar 提供                | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
+  | `amaskx.tril`      | R4      | 同 `amask.tril`, fill 由 Scalar 提供               | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
+  | `amaskx.triu`      | R4      | 同 `amask.triu`, fill 由 Scalar 提供               | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
   | `vmaskx.tail`      | R4      | 同 `mask.tail`, fill 由 Scalar 提供                | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
 ]
 
@@ -1636,13 +1634,13 @@ mask 指令将源数据的某些位置替换为指定 fill 值. `mask` 的 fill 
 {t,a}mask.tail  D, S, xBounds, fill
 {t,a}maskx.tail D, S, xBounds, xFill
 
-{t,a}mask.tril  D, S, xDelta, fill
-{t,a}maskx.tril D, S, xDelta, xFill
-{t,a}mask.triu  D, S, xDelta, fill
-{t,a}maskx.triu D, S, xDelta, xFill
+amask.tril  D, S, xDelta, fill
+amaskx.tril D, S, xDelta, xFill
+amask.triu  D, S, xDelta, fill
+amaskx.triu D, S, xDelta, xFill
 ```
 
-`mask.tail` 的边界 `nRows` 和 `nCols` (有效行数, 列数) 打包在一个 Scalar 寄存器 `xBounds` 中 (`[31:0]` = `nRows`, `[63:32]` = `nCols`, 是寄存器内坐标, 并非内存 view); `tril`/`triu` 的 `xDelta` 为有符号 Scalar 值.
+`mask.tail` 的边界 `nRows` 和 `nCols` (有效行数, 列数) 打包在一个 Scalar 寄存器 `xBounds` 中 (`[31:0]` = `nRows`, `[63:32]` = `nCols`, 是寄存器内坐标, 并非内存 view); `amask.tril`/`amask.triu` 的 `xDelta` 为有符号 Scalar 值.
 
 向量 mask:
 
@@ -1669,12 +1667,12 @@ D[p] ← keep(p) ? S[p] : fill
   | 指令              | `keep`                    |
   | ----------------- | ------------------------- |
   | `{t,a}mask.tail`  | `i < nRows && j < nCols`  |
-  | `{t,a}mask.tril`  | `j - i <= xDelta`         |
-  | `{t,a}mask.triu`  | `j - i >= xDelta`         |
+  | `amask.tril`      | `j - i <= xDelta`         |
+  | `amask.triu`      | `j - i >= xDelta`         |
   | `vmask.tail`      | `j < xLen`                |
 ]
 
-`mask` 的 fill 来自 `fill5`, `maskx` 的 fill 来自 Scalar `xFill`; 两者的 `keep` 条件相同. 矩阵 tail 的 `nRows`, `nCols` 取自打包寄存器 `xBounds` 的低, 高 32 bit; 向量 tail 的 `xLen` 和三角 mask 的 `xDelta` 为 Scalar 值.
+`mask` 的 fill 来自 `fill5`, `maskx` 的 fill 来自 Scalar `xFill`; 两者的 `keep` 条件相同. 矩阵 tail 的 `nRows`, `nCols` 取自打包寄存器 `xBounds` 的低, 高 32 bit; 向量 tail 的 `xLen` 和 Acc 三角 mask 的 `xDelta` 为 Scalar 值.
 
 三角 mask 的边界相等时保留元素. 例如 `xDelta = 0` 对 `tril` 保留主对角线及其下方元素, 对 `triu` 保留主对角线及其上方元素; `xDelta = 1` 对 `tril` 额外保留主对角线上方一条对角线.
 
@@ -2357,7 +2355,6 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 #instruction-index(caption: [选择指令清单])[
   | Instruction  | Format  | Section              |
   | :----------: | :-----: | :------------------- |
-  | `tselect`    | R4      | @elementwise-select  |
   | `aselect`    | R4      | @elementwise-select  |
   | `vselect`    | R4      | @elementwise-select  |
 ]
@@ -2366,15 +2363,11 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | Instruction    | Format  | Section            |
   | :------------: | :-----: | :----------------- |
   | `tmask.tail`   | R4      | @elementwise-mask  |
-  | `tmask.tril`   | R4      | @elementwise-mask  |
-  | `tmask.triu`   | R4      | @elementwise-mask  |
   | `amask.tail`   | R4      | @elementwise-mask  |
   | `amask.tril`   | R4      | @elementwise-mask  |
   | `amask.triu`   | R4      | @elementwise-mask  |
   | `vmask.tail`   | R4      | @elementwise-mask  |
   | `tmaskx.tail`  | R4      | @elementwise-mask  |
-  | `tmaskx.tril`  | R4      | @elementwise-mask  |
-  | `tmaskx.triu`  | R4      | @elementwise-mask  |
   | `amaskx.tail`  | R4      | @elementwise-mask  |
   | `amaskx.tril`  | R4      | @elementwise-mask  |
   | `amaskx.triu`  | R4      | @elementwise-mask  |

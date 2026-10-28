@@ -297,9 +297,9 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0011": "E_R4"}}
-      27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "11": "Vec32", "10": "reserved"}}
+      27-26: {name: dom2, description: "data domain (Tile reserved)", values: {"00": "reserved", "01": "Acc", "11": "Vec32", "10": "reserved"}}
       25: {name: "0", description: must be 0}
-      24-22: {name: funct3, description: op, values: {"000": "select", "001": "fmadd"}}
+      24-22: {name: funct3, description: "op (Acc/Vec32 only)", values: {"000": "select", "001": "fmadd"}}
       21-17: {name: M5/C5, description: "4th operand: mask M (select) / addend C (fmadd)"}
       16-12: {name: B5, description: src2 B}
       11-7: {name: A5, description: src1 A}
@@ -311,7 +311,7 @@ structures:
       31-28: {name: major4, description: major opcode, values: {"0100": "E_MASK"}}
       27-26: {name: dom2, description: data domain, values: {"00": "Tile", "01": "Acc", "10": "reserved", "11": "Vec32"}}
       25: {name: FS}
-      24-22: {name: funct3, description: op, values: {"000": "tail", "001": "tril", "010": "triu"}}
+      24-22: {name: funct3, description: "op (tril/triu Acc only)", values: {"000": "tail", "001": "tril", "010": "triu"}}
       21-17: {name: xBound5, description: "Scalar bound (xBounds/xLen/xDelta)"}
       16-12:
         name: fill5
