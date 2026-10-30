@@ -1828,6 +1828,12 @@ tree_reduce(nodes, pair_op):
 
 `absmax` 的每个叶先经过 `absmax_leaf(x)` 映射: NaN 视为 `+0`, 其他值取绝对值; 然后对有效叶执行 `pair_max`. 因此单元素、`-0` 和全 NaN 的 `absmax` 都得到非负结果.
 
+#note[
+  `absmax` 只定义行规约形式. 它把取绝对值的叶映射和量化 scale 的 NaN 规则 (NaN 视为 `+0`) 融合进规约树, 适用于为 `aquant.rows.scale.q8s32` 预先计算每行 scale; 若拆成 `aabs` 与 `areduce.rows.max`, 全 NaN 行会得到 NaN 而不是 `+0`.
+
+  Vec32 侧没有对应的量化 scale 使用场景. 非 NaN 输入可由 `vabs` 后接 `vreduce.max` 组合得到; 分块累积还需要 `vabs` 配合逐 lane 的 `vmax`, 因此 `vreduce.absmax` 不会减少指令数.
+]
+
 `areduce.rows.argmax` 每行取最大值, 同时写索引目的 `vIdx` 和值目的 `vVal`: `vIdx` 的 dtype 为 `u32`, 值为该行最大值的有效局部列号; `vVal` 的 dtype 为 `f32`, 值为该最大值. 目的 `vIdx` 和 `vVal` 的有效长度都等于源 Acc 的行数; 数值并列取较小索引, NaN 候选被忽略 (规则与 `vreduce.argmax` 一致). 全部候选均为 NaN 时该行的索引为 0, 值为 `aS[i,0]` 的 NaN 位模式:
 
 ```text
