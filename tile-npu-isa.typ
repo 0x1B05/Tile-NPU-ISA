@@ -1721,7 +1721,7 @@ vmul           vOut, v2, v3
   | `areduce.rows.min`     | R2      | $"vD"[i] = min_j "aS"[i,j]$                                         | 将 Acc 按行取最小到 Vec32.                      |
   | `areduce.rows.sumsq`   | R2      | $"vD"[i] = sum_j "aS"[i,j]^2$                                       | 将 Acc 每行有效元素的平方和写入 Vec32.          |
   | `areduce.rows.absmax`  | R2      | $"vD"[i] = max_j abs("aS"[i,j])$                                    | 将 Acc 每行有效元素的绝对值最大写入 Vec32.      |
-  | `areduce.rows.argmax`  | R2      | $"vD"[i] = op("argmax")_j "aS"[i,j]$                                | 将 Acc 每行最大值的局部列号写入 Vec32.          |
+  | `areduce.rows.argmax`  | R4      | $"vIdx"[i] = "best_index"$ #linebreak() $"vVal"[i] = "best_value"$  | 将每行最大值的索引与值分别写入两个 Vec32.       |
   | `vreduce.sum`          | R2      | $"vD"[j] = sum_k "vS"[k]$                                           | 将 f32 Vec32 的有效 lane 求和, 广播到 Vec32.    |
   | `vreduce.max`          | R2      | $"vD"[j] = max_k "vS"[k]$                                           | 将 f32 Vec32 的有效 lane 取最大, 广播到 Vec32.  |
   | `vreduce.min`          | R2      | $"vD"[j] = min_k "vS"[k]$                                           | 将 f32 Vec32 的有效 lane 取最小, 广播到 Vec32.  |
@@ -1735,7 +1735,12 @@ vmul           vOut, v2, v3
 
 #rivet-encoding-figure(red-schema, caption: [规约格式 (AREDUCE/VREDUCE)])
 
-`vreduce.argmax` 使用 R4 双目的变体, 写两个 Vec32 目的寄存器:
+`areduce.rows.argmax` 和 `vreduce.argmax` 使用 R4 双目的变体, 各自写两个 Vec32 目的寄存器:
+
+#rivet-encoding-figure(
+  areduce-argmax-schema,
+  caption: [argmax 格式 (AREDUCE, R4 双目的变体)],
+)
 
 #rivet-encoding-figure(
   vreduce-argmax-schema,
@@ -1748,7 +1753,7 @@ vmul           vOut, v2, v3
 areduce.rows.OP   vD, aS
 ```
 
-其中$"OP" in {"sum", "max", "min", "sumsq", "absmax", "argmax"}$
+其中$"OP" in {"sum", "max", "min", "sumsq", "absmax"}$
 
 ```asm
 areduce.rows.sum    vD, aS
@@ -1756,7 +1761,7 @@ areduce.rows.max    vD, aS
 areduce.rows.min    vD, aS
 areduce.rows.sumsq  vD, aS
 areduce.rows.absmax vD, aS
-areduce.rows.argmax vD, aS
+areduce.rows.argmax vIdx, vVal, aS
 ```
 
 向量规约的形式为:
@@ -1780,7 +1785,7 @@ $
   C & = op("cols")("aS")
 $
 
-目的 Vec32 须满足:
+普通单目的行规约的目的 Vec32 须满足:
 
 $
   op("len")("vD") & = R
@@ -1823,15 +1828,16 @@ tree_reduce(nodes, pair_op):
 
 `absmax` 的每个叶先经过 `absmax_leaf(x)` 映射: NaN 视为 `+0`, 其他值取绝对值; 然后对有效叶执行 `pair_max`. 因此单元素、`-0` 和全 NaN 的 `absmax` 都得到非负结果.
 
-`areduce.rows.argmax` 每行取最大值, 目的 `vD` 的 dtype 为 `u32`, 值为该行最大值的有效局部列号; 数值并列取较小索引, NaN 候选被忽略 (规则与 `vreduce.argmax` 一致). 全部候选均为 NaN 时该行的结果为 0:
+`areduce.rows.argmax` 每行取最大值, 同时写索引目的 `vIdx` 和值目的 `vVal`: `vIdx` 的 dtype 为 `u32`, 值为该行最大值的有效局部列号; `vVal` 的 dtype 为 `f32`, 值为该最大值. 目的 `vIdx` 和 `vVal` 的有效长度都等于源 Acc 的行数; 数值并列取较小索引, NaN 候选被忽略 (规则与 `vreduce.argmax` 一致). 全部候选均为 NaN 时该行的索引为 0, 值为 `aS[i,0]` 的 NaN 位模式:
 
 ```text
 for 0 <= i < R:
     (best_index, best_value) ← argmax_tree((j, aS[i,j]) for 0 <= j < C)
-    vD[i] ← best_index
+    vIdx[i] ← best_index
+    vVal[i] ← best_value
 ```
 
-`argmax_tree` 使用与上文相同的相邻二叉树和奇数节点直通规则. 两个候选比较时, NaN 候选被忽略: 一方为 NaN 时返回另一方, 两方均为 NaN 时保留左操作数; 两个数值中较大者胜出, 数值相等时取较小的逻辑索引. 因此全部候选均为 NaN 时返回索引 0.
+`argmax_tree` 使用与上文相同的相邻二叉树和奇数节点直通规则. 两个候选比较时, NaN 候选被忽略: 一方为 NaN 时返回另一方, 两方均为 NaN 时保留左操作数; 两个数值中较大者胜出, 数值相等时取较小的逻辑索引. 因此全部候选均为 NaN 时返回索引 0, 值保留第一个候选的 NaN.
 
 == 向量规约 <reduce-vreduce>
 
@@ -1892,13 +1898,13 @@ vVal[j] ← 最大值的 f32 位模式
   #manual-table(
     caption: [规约的 NaN 规则],
   )[
-    | 规约                   | 有数值和 NaN                      | 全部为 NaN          | 说明                                   |
-    | ---------------------- | --------------------------------- | ------------------- | -------------------------------------- |
-    | `sum` / `sumsq`        | 结果为 NaN                        | 结果为 NaN          | NaN 沿加法树传播.                      |
-    | `max` / `min`          | 忽略 NaN, 得到数值结果            | 结果为 NaN          | 一方为 NaN 时返回另一方.               |
-    | `absmax`               | NaN 视为 `+0`                     | 结果为 `+0`         | 用于量化 scale.                        |
-    | `areduce.rows.argmax`  | 忽略 NaN, 索引指向数值最大者      | 索引为 0            | 仅输出索引; 数值并列取较小索引.        |
-    | `vreduce.argmax`       | 忽略 NaN, 索引和值对应数值最大者  | 索引为 0, 值为 NaN  | 两个目的分别广播; 数值并列取较小索引.  |
+    | 规约                   | 有数值和 NaN                      | 全部为 NaN          | 说明                                       |
+    | ---------------------- | --------------------------------- | ------------------- | ------------------------------------------ |
+    | `sum` / `sumsq`        | 结果为 NaN                        | 结果为 NaN          | NaN 沿加法树传播.                          |
+    | `max` / `min`          | 忽略 NaN, 得到数值结果            | 结果为 NaN          | 一方为 NaN 时返回另一方.                   |
+    | `absmax`               | NaN 视为 `+0`                     | 结果为 `+0`         | 用于量化 scale.                            |
+    | `areduce.rows.argmax`  | 忽略 NaN, 索引和值对应数值最大者  | 索引为 0, 值为 NaN  | 两个目的分别写入每行; 数值并列取较小索引.  |
+    | `vreduce.argmax`       | 忽略 NaN, 索引和值对应数值最大者  | 索引为 0, 值为 NaN  | 两个目的分别广播; 数值并列取较小索引.      |
   ]
 
   其他 f32 运算的 NaN 处理:
@@ -2386,7 +2392,7 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `areduce.rows.min`     | R2      | @reduce-areduce  |
   | `areduce.rows.sumsq`   | R2      | @reduce-areduce  |
   | `areduce.rows.absmax`  | R2      | @reduce-areduce  |
-  | `areduce.rows.argmax`  | R2      | @reduce-areduce  |
+  | `areduce.rows.argmax`  | R4      | @reduce-areduce  |
   | `vreduce.sum`          | R2      | @reduce-vreduce  |
   | `vreduce.max`          | R2      | @reduce-vreduce  |
   | `vreduce.min`          | R2      | @reduce-vreduce  |

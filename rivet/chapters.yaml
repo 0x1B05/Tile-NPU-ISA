@@ -153,6 +153,15 @@ colors:
     "11-7": "240,214,148"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
+  areduce-argmax:
+    "31-28": "179,163,205"
+    "27-25": "230,230,230"
+    "24-22": "192,200,210"
+    "21-17": "230,230,230"
+    "16-12": "238,183,150"
+    "11-7": "240,214,148"
+    "6-2": "167,199,200"
+    "1-0": "222,184,203"
   cvt:
     "31-28": "179,163,205"
     "27-26": "196,186,209"
@@ -450,7 +459,7 @@ structures:
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0001": "AREDUCE", "0010": "VREDUCE"}}
       27-25: {name: reserved3, description: must be 0}
-      24-22: {name: funct3, description: reduce op, values: {"000": "sum", "001": "max", "010": "min", "011": "sumsq", "100": "argmax (AREDUCE)", "101": "absmax (AREDUCE)"}}
+      24-22: {name: funct3, description: "reduce op (100 uses the R4 argmax form)", values: {"000": "sum", "001": "max", "010": "min", "011": "sumsq", "100": "reserved in R2", "101": "absmax (AREDUCE)"}}
       21-12: {name: reserved10, description: must be 0}
       11-7: {name: S5, description: "src (Acc/Vec32)"}
       6-2: {name: D5, description: "dst (Vec32)"}
@@ -464,6 +473,17 @@ structures:
       21-17: {name: reserved5, description: must be 0}
       16-12: {name: vVal5, description: "dst vVal (Vec32 f32)"}
       11-7: {name: S5, description: "src vS (Vec32)"}
+      6-2: {name: D5, description: "dst vIdx (Vec32 u32)"}
+      1-0: {name: q, description: "space tag (10)"}
+  areduce-argmax:
+    bits: 32
+    ranges:
+      31-28: {name: major4, description: major opcode, values: {"0001": "AREDUCE"}}
+      27-25: {name: reserved3, description: must be 0}
+      24-22: {name: funct3, description: "100 = argmax"}
+      21-17: {name: reserved5, description: must be 0}
+      16-12: {name: vVal5, description: "dst vVal (Vec32 f32)"}
+      11-7: {name: S5, description: "src aS (Acc)"}
       6-2: {name: D5, description: "dst vIdx (Vec32 u32)"}
       1-0: {name: q, description: "space tag (10)"}
   cvt:
