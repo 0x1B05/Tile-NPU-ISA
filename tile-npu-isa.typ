@@ -104,14 +104,14 @@ Operation 列使用的函数记号:
   | 寄存器类型  | 汇编名称   | 物理容量                                           | 基本 dtype                           | 主要用途                                |
   | :---------: | :--------: | -------------------------------------------------- | ------------------------------------ | --------------------------------------- |
   | Tile        | `t0..t31`  | $32 times 32 times 8$ bit #linebreak() $= 1$ KiB   | `i8`, `u8`                           | 矩阵输入, 低精度中间结果                |
-  | Acc         | `a0..a31`  | $32 times 32 times 32$ bit #linebreak() $= 4$ KiB  | `i32`, `u32`, `f32`                  | 矩阵宽累加结果, Attention score/output  |
+  | Acc         | `a0..a15`  | $32 times 32 times 32$ bit #linebreak() $= 4$ KiB  | `i32`, `u32`, `f32`                  | 矩阵宽累加结果, Attention score/output  |
   | Vec32       | `v0..v31`  | $32 times 32$ bit #linebreak() $= 128$ B           | `i32`, `u32`, `f32`                  | 行状态, 规约结果, 向量计算输入输出      |
   | Scalar      | `x0..x31`  | $64$ bit $= 8$ B                                   | `i64`, `u64`; f32 位模式取低 32 bit  | 地址, 循环, 索引和控制值                |
 ]
 
 上述四类寄存器构成四个数据域. 标量域由 RV64IM 指令集操作 (见 @scalar-sync); 其余数据域的操作由本手册定义.
 
-Tile/Acc 的物理尺寸为 32 行 $times$ 32 列, Vec32 为 32 lane; 计算配置中的 `rows`, `cols`, `len` 取值范围为 $[1, 32]$.
+Tile, Vec32 和 Scalar 各有 32 个寄存器, Acc 有 16 个; Tile/Acc 的物理尺寸为 32 行 $times$ 32 列, Vec32 为 32 lane. 计算配置中的 `rows`, `cols`, `len` 取值范围为 $[1, 32]$.
 
 ==== 配置寄存器
 
@@ -124,7 +124,7 @@ Tile/Acc 的物理尺寸为 32 行 $times$ 32 列, Vec32 为 32 lane; 计算配�
   | 寄存器类型          | 汇编名称     | 绑定或适用对象    | 位宽   | 配置字段                                         |
   | :-----------------: | :----------: | :---------------: | ------ | ------------------------------------------------ |
   | TC: Tile 计算配置   | `tc0..tc31`  | `tc[i]` ↔ `t[i]`  | 32bit  | `dtype`, `rows`, `cols`, `layout`, `arith_mode`  |
-  | AC: Acc 计算配置    | `ac0..ac31`  | `ac[i]` ↔ `a[i]`  | 32bit  | `dtype`, `rows`, `cols`, `layout`                |
+  | AC: Acc 计算配置    | `ac0..ac15`  | `ac[i]` ↔ `a[i]`  | 32bit  | `dtype`, `rows`, `cols`, `layout`                |
   | VC: Vec32 计算配置  | `vc0..vc31`  | `vc[i]` ↔ `v[i]`  | 32bit  | `dtype`, `len`                                   |
 ]
 
@@ -143,7 +143,7 @@ Tile/Acc 的物理尺寸为 32 行 $times$ 32 列, Vec32 为 32 lane; 计算配�
     | 寄存器类型            | 汇编名称     | 绑定或适用对象    | 位宽    | 配置字段                                                                   |
     | :-------------------: | :----------: | :---------------: | ------- | -------------------------------------------------------------------------- |
     | TM: Tile 访存描述符   | `tm0..tm31`  | `tm[i]` ↔ `t[i]`  | 128bit  | `base_addr`, `row_stride_bytes`, `col_stride_bytes`, `transform`, `flags`  |
-    | AM: Acc 访存描述符    | `am0..am31`  | `am[i]` ↔ `a[i]`  | 128bit  | `base_addr`, `row_stride_bytes`, `col_stride_bytes`, `transform`, `flags`  |
+    | AM: Acc 访存描述符    | `am0..am15`  | `am[i]` ↔ `a[i]`  | 128bit  | `base_addr`, `row_stride_bytes`, `col_stride_bytes`, `transform`, `flags`  |
     | VM: Vec32 访存描述符  | `vm0..vm31`  | `vm[i]` ↔ `v[i]`  | 96bit   | `base_addr`, `stride_bytes`, `flags`                                       |
   ],
 )<mem-desc>
@@ -361,7 +361,7 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
 编码原则:
 
 + `reserved` 字段必须为 0, 非零组合为保留编码;
-+ 操作数字段中的寄存器编号均为 5-bit, 直接对应该数据域的 32 个寄存器;
++ 操作数字段中的寄存器编号均为 5-bit; 合法范围由数据域决定: Tile/Vec32 为 0..31, Acc 为 0..15; 超出该域范围的编码为保留编码;
 + 译码按 `q` → `major4` → `funct3` → `sel3` 分层: 选择子位的含义总在其指令族语境下解释; 操作数字段位置全局固定 (`D5` 在 `[6:2]`, 第一源在 `[11:7]`, 第二源或索引在 `[16:12]`), 寄存器读取可在译码完成前开始;
 + `sel3` 内高位优先放域选择 (`dom2`; `M_BLK` row 形式使用 `EW`), 变体位 (`BX`, `FS`, `IS`, `DIR`) 固定占 `sel3` 最低位 `[25]`; 选择操作数来源的变体位 (`BX`, `FS`, `IS`) 只改变 `[16:12]` 的解释; `CFG_REG` 的 `sel3[2:1]` 对齐配置类型, 低位 `CM` 选择计算/访存组;
   + `EW` 只用于 `M_BLK` row 形式: `dom2` 的低位与 `EW` 同位, `0` 为 8-bit, `1` 为 32-bit; 该形式要求 `[27] = 0`, 因此 `sel3[2:1] = {0, EW}` 与对应矩阵域的 `dom2` 编码一致. `ROW_MOVE`/`LANE_MOVE`/`E_BCAST` 将 `[26]` 保留为 0;
