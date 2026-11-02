@@ -281,7 +281,7 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   | R4    | `sel3 + funct3 + 4 × field5`                             | 多源或跨域计算; 配置访问                    |
   | R3    | `sel3 + funct4 + reserved4 + 3 × field5`                 | 二元逐元素计算; 矩阵与向量广播              |
   | R2    | `sel3 + funct3 + reserved10 + S5 + D5`                   | 访存; 单源单目的搬运; 规约、转换与一元计算  |
-  | MR    | `sel3 + funct3 + reserved5 + index5 + reserved5 + reg5`  | 矩阵行访存 (`M_BLK` 的 row 形式)            |
+  | MR    | `sel3 + funct3 + reserved5 + index5 + reserved5 + reg5`  | Acc 行访存 (`M_BLK` 的 row 形式)            |
   | I     | `sel2 + funct3 + imm16 + D5/C5`                          | 立即数填充与配置                            |
   | Z     | `funct3 + reserved23`                                    | 同步与 kernel 结束                          |
 ]
@@ -314,7 +314,7 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   | `BX`      | 第二源选择 (`B`/`xS` 二选一): `0` 选择同域寄存器 `B`, `1` 选择 Scalar 寄存器 `xS`     |
   | `FS`      | fill 来源选择: `0` 选择立即数 `fill5`, `1` 选择 Scalar 寄存器 `xFill`                 |
   | `IS`      | 索引来源选择: `0` 选择 `index5` 中的立即数, `1` 选择由 `index5` 指定的 Scalar 寄存器  |
-  | `EW`      | 元素位宽选择: 仅 `M_BLK` row 形式使用, `0` 选择 8-bit Tile, `1` 选择 32-bit Acc       |
+  | `EW`      | 行访存数据域选择: 仅 `M_BLK` row 形式使用, `0` 保留, `1` 选择 Acc                     |
   | `LS`      | load/store 选择: `0` 表示 load, `1` 表示 store; 在 `M_BLK` 中占 `funct3` 最低位       |
   | `DIR`     | 广播方向: `0` 表示按行, `1` 表示按列                                                  |
   | `CM`      | 配置类别选择 (compute/memory): `0` 选择计算配置, `1` 选择访存描述符                   |
@@ -364,7 +364,7 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
 + 操作数字段中的寄存器编号均为 5-bit; 合法范围由数据域决定: Tile/Vec32 为 0..31, Acc 为 0..15; 超出该域范围的编码为保留编码;
 + 译码按 `q` → `major4` → `funct3` → `sel3` 分层: 选择子位的含义总在其指令族语境下解释; 操作数字段位置全局固定 (`D5` 在 `[6:2]`, 第一源在 `[11:7]`, 第二源或索引在 `[16:12]`), 寄存器读取可在译码完成前开始;
 + `sel3` 内高位优先放域选择 (`dom2`; `M_BLK` row 形式使用 `EW`), 变体位 (`BX`, `FS`, `IS`, `DIR`) 固定占 `sel3` 最低位 `[25]`; 选择操作数来源的变体位 (`BX`, `FS`, `IS`) 只改变 `[16:12]` 的解释; `CFG_REG` 的 `sel3[2:1]` 对齐配置类型, 低位 `CM` 选择计算/访存组;
-  + `EW` 只用于 `M_BLK` row 形式: `dom2` 的低位与 `EW` 同位, `0` 为 8-bit, `1` 为 32-bit; 该形式要求 `[27] = 0`, 因此 `sel3[2:1] = {0, EW}` 与对应矩阵域的 `dom2` 编码一致. `ROW_MOVE`/`LANE_MOVE`/`E_BCAST` 将 `[26]` 保留为 0;
+  + `EW` 只用于 `M_BLK` row 形式: 该形式要求 `[27] = 0` 且 `EW = 1`, 即 `sel3[2:1] = {0, 1}`, 与 Acc 的 `dom2` 编码一致; `EW = 0` 保留. `ROW_MOVE`/`LANE_MOVE`/`E_BCAST` 将 `[26]` 保留为 0;
 
 = 标量与同步 <scalar-sync>
 
@@ -570,22 +570,22 @@ cfg.getw xD, C
 
 = 地址与访存指令 <memory>
 
-本章定义按描述符寻址的访存指令. 访存描述符与数据寄存器一一绑定 (见 @overview): 矩阵访存 (`tload`, `tstore`, `aload`, `astore` 及行形式) 使用绑定的 `TM`/`AM`, 向量访存 (`vload`, `vstore`) 使用绑定的 `VM`; 描述符编号由数据寄存器操作数隐含, 基地址与访问坐标都在描述符的 `base_addr` 字段中. Scalar 访存由 RV64IM load/store 指令承担. 所有 x/t/a/v 访存保持统一的程序可见顺序.
+本章定义按描述符寻址的访存指令. 访存描述符与数据寄存器一一绑定 (见 @overview): 矩阵访存 (`tload`, `tstore`, `aload`, `astore` 及 Acc 行形式) 使用绑定的 `TM`/`AM`, 向量访存 (`vload`, `vstore`) 使用绑定的 `VM`; 描述符编号由数据寄存器操作数隐含, 基地址与访问坐标都在描述符的 `base_addr` 字段中. Scalar 访存由 RV64IM load/store 指令承担. 所有 x/t/a/v 访存保持统一的程序可见顺序.
 
 #instruction-table(
   columns: (1.5fr, 0.5fr, 2.5fr, 2.1fr),
   caption: [地址与访存指令],
 )[
-  | Instruction       | Format  | Operation                    | Summary                                         |
-  | :---------------- | :-----: | ---------------------------- | ----------------------------------------------- |
-  | `{t,a}load`       | R2      | D[i,j] = memory[addr(i,j)]   | 按绑定的 TM/AM 读取内存到 Tile/Acc 有效区域.    |
-  | `{t,a}store`      | R2      | memory[addr(i,j)] = S[i,j]   | 将 Tile/Acc 有效区域按绑定的 TM/AM 写入内存.    |
-  | `{t,a}load.row`   | MR      | D[rd,j] = memory[addr(0,j)]  | 按绑定的 TM/AM 读取内存到 Tile/Acc 指定行.      |
-  | `{t,a}store.row`  | MR      | memory[addr(0,j)] = S[rs,j]  | 将 Tile/Acc 指定行按绑定的 TM/AM 写入内存.      |
-  | `tload.gather`    | R2      | D[i,j] = memory[gaddr(i,j)]  | 以 Vec32 各 lane 为索引 gather 加载到 Tile 行.  |
-  | `vload.gather`    | R2      | D[j] = memory[gaddr(j)]      | 以 Vec32 各 lane 为索引 gather 加载到 Vec32.    |
-  | `vload`           | R2      | D[j] = memory[addr(j)]       | 按绑定的 VM 读取内存到 Vec32 向量.              |
-  | `vstore`          | R2      | memory[addr(j)] = S[j]       | 将 Vec32 向量按绑定的 VM 写入内存.              |
+  | Instruction     | Format  | Operation                    | Summary                                         |
+  | :-------------- | :-----: | ---------------------------- | ----------------------------------------------- |
+  | `{t,a}load`     | R2      | D[i,j] = memory[addr(i,j)]   | 按绑定的 TM/AM 读取内存到 Tile/Acc 有效区域.    |
+  | `{t,a}store`    | R2      | memory[addr(i,j)] = S[i,j]   | 将 Tile/Acc 有效区域按绑定的 TM/AM 写入内存.    |
+  | `aload.row`     | MR      | D[rd,j] = memory[addr(0,j)]  | 按绑定的 AM 读取内存到 Acc 指定行.              |
+  | `astore.row`    | MR      | memory[addr(0,j)] = S[rs,j]  | 将 Acc 指定行按绑定的 AM 写入内存.              |
+  | `tload.gather`  | R2      | D[i,j] = memory[gaddr(i,j)]  | 以 Vec32 各 lane 为索引 gather 加载到 Tile 行.  |
+  | `vload.gather`  | R2      | D[j] = memory[gaddr(j)]      | 以 Vec32 各 lane 为索引 gather 加载到 Vec32.    |
+  | `vload`         | R2      | D[j] = memory[addr(j)]       | 按绑定的 VM 读取内存到 Vec32 向量.              |
+  | `vstore`        | R2      | memory[addr(j)] = S[j]       | 将 Vec32 向量按绑定的 VM 写入内存.              |
 ]
 
 `M_BLK` 的 `funct3 = {form2, LS}` 区分整块访问, gather 与 row 形式, 其最低位 `LS` 选择 load (`0`) 或 store (`1`).
@@ -601,7 +601,7 @@ gather 同样使用 R2 格式和 `sel3 = {dom2, 0}`, 但 `S5[11:7]` 为 Vec32 �
   caption: [Gather 访存格式 (M_BLK gather 形式)],
 )
 
-行访存是 `M_BLK` 的 row 形式 (`funct3 = 10x`), 使用 MR 格式; 目标行号 `rd`/`rs` 为独立的 `index5` 字段, 与行搬运和 lane 操作的索引字段位置对齐:
+行访存是 `M_BLK` 的 row 形式 (`funct3 = 10x`), 使用 MR 格式, 只适用于 Acc; `EW` 固定为 1. 目标行号 `rd`/`rs` 为独立的 `index5` 字段, 与行搬运和 lane 操作的索引字段位置对齐:
 
 #rivet-encoding-figure(m-row-schema, caption: [行访存格式 (M_BLK row 形式)])
 
@@ -663,17 +663,14 @@ store: memory[addr(j,i)] ← tS[i,j]
 
 转置在访存路径中完成. 该变换只对 Tile 的 load/store 定义; 其余访存指令 (`aload`/`astore`, 行形式与向量访存) 执行时绑定描述符的 `transform` 须为 `normal`.
 
-=== 矩阵行访存 <mem-row>
+=== Acc 行访存 <mem-row>
 
 ```asm
-tload.row   tD[rd]
-tstore.row  tS[rs]
-
 aload.row   aD[rd]
 astore.row  aS[rs]
 ```
 
-`rd` 和 `rs` 是寄存器文件中的行号, 可以是立即数或 Scalar 寄存器提供的完整值. 行号必须小于绑定配置的有效行数 (`rows(CD)` / `rows(CS)`). 目标内存行的坐标在建立描述符时已折算进 `base_addr`, 即行访存访问描述符 `base_addr` 处的一行.
+`rd` 和 `rs` 是 Acc 寄存器文件中的行号, 可以是立即数或 Scalar 寄存器提供的完整值. 行号必须小于绑定配置的有效行数 (`rows(CD)` / `rows(CS)`). 目标内存行的坐标在建立描述符时已折算进 `base_addr`, 即行访存访问描述符 `base_addr` 处的一行.
 
 对于 row load:
 
@@ -2159,8 +2156,6 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | :-------------: | :-----: | :----------- |
   | `tload`         | R2      | @mem-block   |
   | `tstore`        | R2      | @mem-block   |
-  | `tload.row`     | MR      | @mem-row     |
-  | `tstore.row`    | MR      | @mem-row     |
   | `tload.gather`  | R2      | @mem-gather  |
   | `vload.gather`  | R2      | @mem-gather  |
   | `aload`         | R2      | @mem-block   |

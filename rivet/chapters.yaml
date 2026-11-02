@@ -362,7 +362,7 @@ structures:
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0000": "M_BLK"}}
       27: {name: "0", description: must be 0}
-      26: {name: EW, description: element width, values: {"0": "8-bit (Tile)", "1": "32-bit (Acc)"}}
+      26: {name: EW, description: row domain, values: {"0": "reserved", "1": "Acc"}}
       25: {name: IS}
       24-22: {name: funct3, description: "{form2, LS}", values: {"100": "row load", "101": "row store"}}
       21-17: {name: reserved5, description: must be 0}
@@ -377,7 +377,7 @@ structures:
             description: Scalar index register
             structure: index-x
       11-7: {name: reserved5, description: must be 0}
-      6-2: {name: reg5, description: "Tile/Acc reg"}
+      6-2: {name: reg5, description: "Acc reg"}
       1-0: {name: q, description: "space tag (01)"}
   fill-imm-instr:
     bits: 32

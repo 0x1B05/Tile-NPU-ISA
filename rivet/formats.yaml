@@ -99,13 +99,13 @@ structures:
     ranges:
       31-28: {name: major4, description: "major opcode (M_BLK)"}
       27: {name: "0", description: must be 0}
-      26: {name: EW, description: element width, values: {"0": "8-bit (Tile)", "1": "32-bit (Acc)"}}
+      26: {name: EW, description: row domain, values: {"0": "reserved", "1": "Acc"}}
       25: {name: IS, description: row index src, values: {"0": "imm row", "1": "Scalar row"}}
       24-22: {name: funct3, description: "{form2, LS} (10x = row)"}
       21-17: {name: reserved5, description: must be 0}
       16-12: {name: index5, description: "row imm / Scalar idx (by IS)"}
       11-7: {name: reserved5, description: must be 0}
-      6-2: {name: reg5, description: "Tile/Acc reg (bound TM/AM implied)"}
+      6-2: {name: reg5, description: "Acc reg (bound AM implied)"}
       1-0:
         name: q
         description: space tag
