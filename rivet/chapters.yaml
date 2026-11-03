@@ -252,7 +252,7 @@ structures:
       31-28: {name: major4, description: major opcode, values: {"0101": "E_BCAST"}}
       27: {name: "0", description: must be 0}
       26: {name: reserved, description: must be 0}
-      25: {name: DIR, description: broadcast dir, values: {"0": "byrow", "1": "bycol"}}
+      25: {name: DIR, description: broadcast direction, values: {"0": "byrow", "1": "bycol"}}
       24-21: {name: funct4, description: "{G, op3}"}
       20-17: {name: reserved4, description: must be 0}
       16-12: {name: S5, description: "vector src (Vec32)"}
@@ -468,11 +468,10 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"0100": "QNT"}}
-      27-26: {name: dom2, description: dst domain, values: {"00": "Tile", "01": "Acc"}}
-      25: {name: "0", description: must be 0}
-      24-22: {name: funct3, description: "op (others reserved)", values: {"000": "quant/dequant", "001": "quant w/ ext scale (Tile dst)"}}
-      21-17: {name: vScale5, description: "scale reg"}
-      16-12: {name: reserved5, description: must be 0}
+      27-25: {name: sel3, description: "reserved", values: {"000": "reserved"}}
+      24-22: {name: funct3, description: "direction (QD in bit 22; [24:23] reserved)", values: {"000": "Acc -> Tile", "001": "Tile -> Acc"}}
+      21-17: {name: qf5, description: "quant format (others reserved)", values: {"00000": "q8s32"}}
+      16-12: {name: vScale5, description: "scale reg (second source)"}
       11-7: {name: S5, description: main src}
       6-2: {name: D5, description: main dst}
       1-0: {name: q, description: "space tag (10)"}

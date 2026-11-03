@@ -311,7 +311,8 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   | `BX`      | 第二源选择 (`B`/`xS` 二选一): `0` 选择同域寄存器 `B`, `1` 选择 Scalar 寄存器 `xS`     |
   | `FS`      | fill 来源选择: `0` 选择立即数 `fill5`, `1` 选择 Scalar 寄存器 `xFill`                 |
   | `IS`      | 索引来源选择: `0` 选择 `index5` 中的立即数, `1` 选择由 `index5` 指定的 Scalar 寄存器  |
-  | `LS`      | load/store 选择: `0` 表示 load, `1` 表示 store; 在 `M_BLK` 中占 `funct3` 最低位       |
+  | `LS`      | load/store 选择: `0` 表示 load, `1` 表示 store                                        |
+  | `QD`      | 量化/反量化选择: `0` 表示 Acc → Tile, `1` 表示 Tile → Acc                             |
   | `DIR`     | 广播方向: `0` 表示按行, `1` 表示按列                                                  |
   | `CM`      | 配置类别选择 (compute/memory): `0` 选择计算配置, `1` 选择访存描述符                   |
   | `G`       | 操作组; 与 `op3` 共同组成 `funct4`, 选择逐元素操作                                    |
@@ -2027,39 +2028,33 @@ vScore = vScore × scale
   columns: (1.5fr, 0.5fr, 2.5fr, 1.8fr),
   caption: [量化与反量化指令],
 )[
-  | Instruction                | Format  | Operation                                                                                | Summary                                            |
-  | :------------------------: | :-----: | ---------------------------------------------------------------------------------------- | -------------------------------------------------- |
-  | `aquant.rows.q8s32`        | R4      | tD[i,:] = quant_q8s32(aS[i,:]).bits #linebreak() vScale[i] = quant_q8s32(aS[i,:]).scale  | 将 Acc 按行量化到 Tile, 每行产生一个 Vec32 scale.  |
-  | `aquant.rows.scale.q8s32`  | R4      | tD[i,:] = quant_q8s32(aS[i,:], vScale[i]).bits                                           | 用外部 Vec32 scale 将 Acc 按行量化到 Tile.         |
-  | `tdequant.rows.f32`        | R4      | aD[i,j] = f32(tS[i,j]) × vScale[i]                                                       | 用每行的 Vec32 scale 将 Tile 反量化到 f32 Acc.     |
+  | Instruction                | Format  | Operation                                       | Summary                                         |
+  | :------------------------: | :-----: | ----------------------------------------------- | ----------------------------------------------- |
+  | `aquant.rows.scale.q8s32`  | R4      | tD[i,:] = quant_q8s32(aS[i,:], vScale[i]).bits  | 用外部 Vec32 scale 将 Acc 按行量化到 Tile.      |
+  | `tdequant.rows.f32`        | R4      | aD[i,j] = f32(tS[i,j]) × vScale[i]              | 用每行的 Vec32 scale 将 Tile 反量化到 f32 Acc.  |
 ]
 
-量化与反量化使用 R4 双目的/双源格式; `vScale` 始终是 Vec32 scale 寄存器, `dom2` 选择主目的数据域, 量化方向随之确定.
-
-矩阵形式的 `[25]` 与 `[16:12]` 为保留位, 必须为 0. `funct3 = 000` 选择动态量化或反量化, `001` 选择外部提供 scale 的行量化 (`aquant.rows.scale.q8s32`, 仅 Tile 目的):
+量化与反量化使用 R4 双源格式. `sel3` 保留为 0; `funct3 = {0, 0, QD}` 选择方向: `QD = 0` 为 Acc 到 Tile 的行量化, `QD = 1` 为 Tile 到 Acc 的反量化; `funct3` 的其他值保留. `qf5` 选择量化格式, 当前只定义 `00000` (`q8s32`).
 
 #rivet-encoding-figure(qnt-mat-schema, caption: [矩阵量化与反量化格式 (QNT)])
 
-汇编操作数先列目的, 再列源. 动态量化的 `vScale` 是第二目的; 外部 scale 量化与反量化的 `vScale` 是源, 位于数据源之后.
+汇编操作数先列目的, 再列源. `vScale` 是源, 位于数据源之后.
 
 ```asm
-aquant.rows.q8s32       tD, vScale, aS
 aquant.rows.scale.q8s32 tD, aS, vScale
 tdequant.rows.f32       aD, tS, vScale
 ```
 
-矩阵行量化每行产生一个 scale. bits 和 scale 是两个显式目的/源, 依赖与生命周期必须一起跟踪. `aquant.rows.scale.q8s32` 不重新计算 scale: 每行的 scale 由显式 Vec32 源 `vScale` 提供 (记作 `quant_q8s32(x, s)`), 适用于 scale 已由前序计算 (如运行最大值, 外部校准) 给出的场景, 此时只有 Tile bits 一个目的. 内部动态量化使用具名格式 q8s32, 外部权重保留原始 bits/scale.
+每行的 scale 由显式 Vec32 源 `vScale` 提供, 适用于 scale 已由前序计算 (如运行最大值, 外部校准) 给出的场景. 量化只有 Tile bits 一个目的; bits 和 scale 的依赖与生命周期必须分别跟踪. 外部权重保留原始 bits/scale.
 
-`quant_q8s32(x)` 的动态量化定义如下 (`x` 为一行或一个向量的有效元素, 共 $N$ 个):
+`quant_q8s32(x, s)` 用给定的每行 scale `s` 定义如下 (`x` 为一行有效元素, 共 $N$ 个):
 
 ```text
-amax   ← max_j |x_j|               # 与 areduce.rows.absmax 相同的 absmax 树规则
-scale  ← amax / 127                # f32 除法
-bits_j ← sat_rne(x_j / scale)      # RNE 舍入到整数, 饱和到 [-127, 127];
-                                   # x_j / scale 为 NaN 时 bits_j ← 0
+bits_j ← sat_rne(x_j / s)          # RNE 舍入到整数, 饱和到 [-127, 127];
+                                   # x_j / s 为 NaN 时 bits_j ← 0
 ```
 
-外部 scale 形式 `quant_q8s32(x, s)` 以给定的 `s` 替换上式中的 `scale`, 不重新计算. 反量化逐元素计算 `f32(bits_j) × scale` (f32 乘法).
+反量化逐元素计算 `f32(bits_j) × scale` (f32 乘法).
 
 Q8 MMA 是以下基础指令的复合操作, 不隐藏临时 Acc:
 
@@ -2378,7 +2373,6 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 #instruction-index(caption: [量化与反量化指令清单])[
   | Instruction                | Format  | Section        |
   | :------------------------: | :-----: | :------------- |
-  | `aquant.rows.q8s32`        | R4      | @quantization  |
   | `aquant.rows.scale.q8s32`  | R4      | @quantization  |
   | `tdequant.rows.f32`        | R4      | @quantization  |
 ]
