@@ -44,6 +44,7 @@
 #let lane-move-schema = load-schema(chapters, "lane-move", deps: ("index-imm", "index-x"))
 #let mma-schema = load-schema(chapters, "mma")
 #let mma-dequant-schema = load-schema(chapters, "mma-dequant")
+#let vmma-dequant-schema = load-schema(chapters, "vmma-dequant")
 #let red-schema = load-schema(chapters, "red")
 #let vreduce-argmax-schema = load-schema(chapters, "vreduce-argmax")
 #let areduce-argmax-schema = load-schema(chapters, "areduce-argmax")

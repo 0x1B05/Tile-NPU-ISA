@@ -278,7 +278,7 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
 )[
   | 格式  | 中间字段 `[27:2]`                         | 主要用途                                    |
   | :---: | ----------------------------------------- | ------------------------------------------- |
-  | R5    | `ACC + 5 × field5`                        | 融合矩阵乘与反量化                          |
+  | R5    | `ACC + 5 × field5`                        | 融合矩阵乘/点积与反量化                     |
   | R4    | `sel3 + funct3 + 4 × field5`              | 多源或跨域计算; 配置访问                    |
   | R3    | `sel3 + funct4 + reserved4 + 3 × field5`  | 二元逐元素计算; 矩阵与向量广播              |
   | R2    | `sel3 + funct3 + reserved10 + S5 + D5`    | 访存; 单源单目的搬运; 规约、转换与一元计算  |
@@ -360,6 +360,7 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   | `10`    | `0111`    | `CFG_REG`           | R4     |
   | `10`    | `1000`    | `SYS`               | Z      |
   | `10`    | `1001`    | `MMA_DEQUANT`       | R5     |
+  | `10`    | `1010`    | `VMMA_DEQUANT`      | R5     |
 ]
 
 编码原则:
@@ -931,14 +932,16 @@ for 0 <= j < len(D):
 本节定义基础 `i8` 矩阵乘和 Tile 行—Tile 点积指令. 基础指令使用*`i8` 输入, `i32` 输出或累加*; 点积的左操作数是 Tile 的指定行. 本节采用行向量约定: 长度为 K 的向量视为 $1 times K$ 行向量.
 
 #instruction-table(caption: [矩阵乘与点积指令])[
-  | Instruction            | Format  | Operation                                                             | Summary                                             |
-  | :--------------------: | :-----: | --------------------------------------------------------------------- | --------------------------------------------------- |
-  | `mma.nt.zero`          | R4      | $"aD"[m,n] = sum_k "tA"[m,k] times "tB"[n,k]$                         | 按转置右矩阵执行矩阵乘, 写入 `i32` Acc.             |
-  | `mma.nt.acc`           | R4      | $"aD"[m,n] += sum_k "tA"[m,k] times "tB"[n,k]$                        | 按转置右矩阵执行矩阵乘, 累加到旧 `i32` Acc.         |
-  | `vmma.nt.zero`         | R4      | $"vD"[n] = sum_k "tA"[r,k] times "tB"[n,k]$                           | Tile 行与 Tile 各行执行点积, 结果写入 Vec32.        |
-  | `vmma.nt.acc`          | R4      | $"vD"[n] += sum_k "tA"[r,k] times "tB"[n,k]$                          | Tile 行与 Tile 各行执行点积, 累加到旧 `i32` Vec32.  |
-  | `mma.nt.dequant.zero`  | R5      | $"aD"[m,n] = "dequant"(sum_k "tA"[m,k] times "tB"[n,k])$              | 融合矩阵乘与反量化, 原地写 `f32` Acc.               |
-  | `mma.nt.dequant.acc`   | R5      | $"aD"[m,n] = "dequant"("aD"[m,n] + sum_k "tA"[m,k] times "tB"[n,k])$  | 累加后融合反量化, 原地写 `f32` Acc.                 |
+  | Instruction             | Format  | Operation                                                             | Summary                                                            |
+  | :---------------------: | :-----: | --------------------------------------------------------------------- | ------------------------------------------------------------------ |
+  | `mma.nt.zero`           | R4      | $"aD"[m,n] = sum_k "tA"[m,k] times "tB"[n,k]$                         | 按转置右矩阵执行矩阵乘, 写入 `i32` Acc.                            |
+  | `mma.nt.acc`            | R4      | $"aD"[m,n] += sum_k "tA"[m,k] times "tB"[n,k]$                        | 按转置右矩阵执行矩阵乘, 累加到旧 `i32` Acc.                        |
+  | `vmma.nt.zero`          | R4      | $"vD"[n] = sum_k "tA"[r,k] times "tB"[n,k]$                           | Tile 行与 Tile 各行执行点积, 结果写入 Vec32.                       |
+  | `vmma.nt.acc`           | R4      | $"vD"[n] += sum_k "tA"[r,k] times "tB"[n,k]$                          | Tile 行与 Tile 各行执行点积, 累加到旧 `i32` Vec32.                 |
+  | `mma.nt.dequant.zero`   | R5      | $"aD"[m,n] = "dequant"(sum_k "tA"[m,k] times "tB"[n,k])$              | 融合矩阵乘与反量化, 原地写 `f32` Acc.                              |
+  | `mma.nt.dequant.acc`    | R5      | $"aD"[m,n] = "dequant"("aD"[m,n] + sum_k "tA"[m,k] times "tB"[n,k])$  | 累加后融合反量化, 原地写 `f32` Acc.                                |
+  | `vmma.nt.dequant.zero`  | R5      | $"vD"[n] = "dequant"(sum_k "tA"[r,k] times "tB"[n,k])$                | Tile 行与 Tile 各行执行点积, 融合列/行 scale, 原地写 `f32` Vec32.  |
+  | `vmma.nt.dequant.acc`   | R5      | $"vD"[n] = "dequant"("vD"[n] + sum_k "tA"[r,k] times "tB"[n,k])$      | 累加后融合反量化, 原地写 `f32` Vec32.                              |
 ]
 
 矩阵乘与点积使用 R4 格式; 融合反量化的 `mma.nt.dequant` 以及 `vmma.nt.dequant` 使用 R5 格式和独立的 `major4`(见 @matrix-mma-dequant).
@@ -1090,6 +1093,33 @@ for 0 <= i < rows(aD):
         aD[i,j] ← round_f32(t × vRow[i])
 ac[D].dtype ← f32
 ```
+
+== `vmma.nt.dequant.zero` 和 `vmma.nt.dequant.acc` <matrix-vmma-dequant>
+
+```asm
+vmma.nt.dequant.zero vD, tA[row], tB, vScalePair
+vmma.nt.dequant.acc  vD, tA[row], tB, vScalePair
+```
+
+#rivet-encoding-figure(
+  vmma-dequant-schema,
+  caption: [融合反量化点积格式 (VMMA_DEQUANT)],
+)
+
+`vmma.nt.dequant` 在点积的输出阶段完成反量化, 结果原地写回 `vD`: 先按列乘 `vCol`, 再按行乘 `vRow`, `vCol`/`vRow` 为 Vec32 `f32`, 有效长度分别为 `N` 和 1 (`vRow` 仅使用 lane 0), 两次乘法分别按 RNE 舍入. `tA` 的 `cols` 为 $K$, `row` 必须在 `rows(tA)` 内; `tB` 为 $N times K$, 两者均为 `i8`; `vD` 的有效长度为 $N$.
+
+`vScalePair` 指定相邻的 Vec32 对: `vCol = v[base]`, `vRow = v[base + 1]`, `base <= 30`; 行 scale 使用 `vRow[0]`.
+
+`zero` 形式用于单个 K 块; `acc` 形式用于沿 K 维分块累加的最后一个 K 块. 融合后 `vD` 已经是 `f32`, 故 `vD` 的配置在指令接收前为 `i32`, 成功后更新为 `f32`.
+
+编码使用 R5 格式: `ACC` 选择 zero/acc, `[26:22]` 为 `vScalePair`, `[21:17]` 为 Tile A 行.
+
+```text
+for 0 <= j < len(vD):
+    partial ← (acc ? vD[j] : 0) + sum_k tA[row,k] × tB[j,k]
+    t ← round_f32(f32(partial) × vCol[j])
+    vD[j] ← round_f32(t × vRow[0])
+vc[D].dtype ← f32
 ```
 
 = 逐元素, 广播和 mask <elementwise>
@@ -2190,14 +2220,16 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 详细语义见 @matrix.
 
 #instruction-index(caption: [矩阵乘与点积指令清单])[
-  | Instruction            | Format  | Section              |
-  | :--------------------: | :-----: | :------------------- |
-  | `mma.nt.zero`          | R4      | @matrix-mma          |
-  | `mma.nt.acc`           | R4      | @matrix-mma          |
-  | `vmma.nt.zero`         | R4      | @matrix-vmma-nt      |
-  | `vmma.nt.acc`          | R4      | @matrix-vmma-nt      |
-  | `mma.nt.dequant.zero`  | R5      | @matrix-mma-dequant  |
-  | `mma.nt.dequant.acc`   | R5      | @matrix-mma-dequant  |
+  | Instruction             | Format  | Section               |
+  | :---------------------: | :-----: | :-------------------- |
+  | `mma.nt.zero`           | R4      | @matrix-mma           |
+  | `mma.nt.acc`            | R4      | @matrix-mma           |
+  | `vmma.nt.zero`          | R4      | @matrix-vmma-nt       |
+  | `vmma.nt.acc`           | R4      | @matrix-vmma-nt       |
+  | `mma.nt.dequant.zero`   | R5      | @matrix-mma-dequant   |
+  | `mma.nt.dequant.acc`    | R5      | @matrix-mma-dequant   |
+  | `vmma.nt.dequant.zero`  | R5      | @matrix-vmma-dequant  |
+  | `vmma.nt.dequant.acc`   | R5      | @matrix-vmma-dequant  |
 ]
 
 == 逐元素, 广播和 mask
