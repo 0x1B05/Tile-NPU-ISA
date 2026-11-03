@@ -28,17 +28,6 @@ colors:
     "11-7": "163,200,177"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
-  fmt-mr:
-    "31-28": "179,163,205"
-    "27": "196,186,209"
-    "26": "230,230,230"
-    "25": "196,186,209"
-    "24-22": "192,200,210"
-    "21-17": "230,230,230"
-    "16-12": "163,200,177"
-    "11-7": "230,230,230"
-    "6-2": "238,183,150"
-    "1-0": "222,184,203"
   fmt-i:
     "31-28": "179,163,205"
     "27-26": "196,186,209"
@@ -90,22 +79,6 @@ structures:
       21-12: {name: reserved10, description: must be 0}
       11-7: {name: S5, description: src reg}
       6-2: {name: D5, description: dst reg}
-      1-0:
-        name: q
-        description: space tag
-        values: {"00": "elementwise", "01": "data movement", "10": "cross-domain/control", "11": "scalar (RV64IM)"}
-  fmt-mr:
-    bits: 32
-    ranges:
-      31-28: {name: major4, description: "major opcode (M_BLK)"}
-      27: {name: "0", description: must be 0}
-      26: {name: EW, description: row domain, values: {"0": "reserved", "1": "Acc"}}
-      25: {name: IS, description: row index src, values: {"0": "imm row", "1": "Scalar row"}}
-      24-22: {name: funct3, description: "{form2, LS} (10x = row)"}
-      21-17: {name: reserved5, description: must be 0}
-      16-12: {name: index5, description: "row imm / Scalar idx (by IS)"}
-      11-7: {name: reserved5, description: must be 0}
-      6-2: {name: reg5, description: "Acc reg (bound AM implied)"}
       1-0:
         name: q
         description: space tag

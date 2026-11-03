@@ -26,7 +26,6 @@
 #let fmt-r4-schema = load-schema(formats, "fmt-r4")
 #let fmt-r3-schema = load-schema(formats, "fmt-r3")
 #let fmt-r2-schema = load-schema(formats, "fmt-r2")
-#let fmt-mr-schema = load-schema(formats, "fmt-mr")
 #let fmt-i-schema = load-schema(formats, "fmt-i")
 #let fmt-z-schema = load-schema(formats, "fmt-z")
 
@@ -37,7 +36,6 @@
 #let cfg-getw-schema = load-schema(chapters, "cfg-getw")
 #let m-blk-schema = load-schema(chapters, "m-blk")
 #let m-gather-schema = load-schema(chapters, "m-gather")
-#let m-row-schema = load-schema(chapters, "m-row", deps: ("index-imm", "index-x"))
 
 #let fill-imm-schema = load-schema(chapters, "fill-imm-instr")
 #let reg-move-schema = load-schema(chapters, "reg-move")
