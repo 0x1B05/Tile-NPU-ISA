@@ -967,15 +967,14 @@ vmma.nt.acc  vD, tA[row], tB
   columns: (0.9fr, 0.9fr, 3.5fr),
   caption: [矩阵乘与点积操作数],
 )[
-  | 操作数     | 数据域  | 作用                            |
-  | ---------- | ------- | ------------------------------- |
-  | `tA`       | Tile    | MMA 的左操作数                  |
-  | `tA[row]`  | Tile    | VMMA 的 Tile 行输入             |
-  | `tB`       | Tile    | MMA 或 VMMA 的右操作数          |
-  | `aD`       | Acc     | MMA 的 `i32` 目的和累加寄存器   |
-  | `vD`       | Vec32   | VMMA 的 `i32` 输出和累加寄存器  |
-  | `vCol`     | Vec32   | 融合反量化的列 scale            |
-  | `vRow`     | Vec32   | 融合反量化的行 scale            |
+  | 操作数        | 数据域  | 作用                            |
+  | ------------- | ------- | ------------------------------- |
+  | `tA`          | Tile    | MMA 的左操作数                  |
+  | `tA[row]`     | Tile    | VMMA 的 Tile 行输入             |
+  | `tB`          | Tile    | MMA 或 VMMA 的右操作数          |
+  | `aD`          | Acc     | MMA 的 `i32` 目的和累加寄存器   |
+  | `vD`          | Vec32   | VMMA 的 `i32` 输出和累加寄存器  |
+  | `vScalePair`  | Vec32   | 融合反量化的相邻列/行 scale 对  |
 ]
 
 数学形式:
@@ -1070,8 +1069,8 @@ vmma.nt.acc vAcc, tAct[3], tWeight
 == `mma.nt.dequant.zero` 和 `mma.nt.dequant.acc` <matrix-mma-dequant>
 
 ```asm
-mma.nt.dequant.zero aD, tA, tB, vCol, vRow
-mma.nt.dequant.acc  aD, tA, tB, vCol, vRow
+mma.nt.dequant.zero aD, tA, tB, vScalePair
+mma.nt.dequant.acc  aD, tA, tB, vScalePair
 ```
 
 #rivet-encoding-figure(
@@ -1081,9 +1080,11 @@ mma.nt.dequant.acc  aD, tA, tB, vCol, vRow
 
 `mma.nt.dequant` 在矩阵乘的输出阶段完成反量化, 结果原地写回 `aD`: 先按列乘 `vCol`, 再按行乘 `vRow`, `vCol`/`vRow` 为 Vec32 `f32`, 有效长度分别为 `N` 和 `M`, 两次乘法分别按 RNE 舍入. `tA` 为 $M times K$, `tB` 为 $N times K$, 两者均为 `i8`; `aD` 为 $M times N$.
 
-`zero` 形式用于单个 K 块; `acc` 形式用于沿 K 维分块累加的最后一个 K 块. 融合后 `aD` 已经是 `f32`, 故 `aD` 的配置在指令接收前为 `i32`, 成功后更新为 `f32`.
+`vScalePair` 指定相邻的 Vec32 对: `vCol = v[base]`, `vRow = v[base + 1]`, `base <= 30`.
 
-编码使用 R5 格式: `ACC` 选择 zero/acc, `vCol5`/`vRow5` 分别给出两个 scale 寄存器.
+`zero` 形式用于单个 K 块; `acc` 形式用于沿 K 维分块累加的最后一个 K 块. 两种形式都在 `i32` 部分和上完成整数累加, 再把 `f32` 结果原地写回: 接收前 `ac[D].dtype` 为 `i32` (`acc` 形式据此读取前序 `mma.nt` 留下的部分和), 成功后更新为 `f32`, 与 `acvt` 的原地转换相同.
+
+编码使用 R5 格式: `ACC` 选择 zero/acc, `[26:22]` 为 `vScalePair`, `[21:17]` 为保留位, 必须为 0.
 
 ```text
 for 0 <= i < rows(aD):
@@ -1110,7 +1111,7 @@ vmma.nt.dequant.acc  vD, tA[row], tB, vScalePair
 
 `vScalePair` 指定相邻的 Vec32 对: `vCol = v[base]`, `vRow = v[base + 1]`, `base <= 30`; 行 scale 使用 `vRow[0]`.
 
-`zero` 形式用于单个 K 块; `acc` 形式用于沿 K 维分块累加的最后一个 K 块. 融合后 `vD` 已经是 `f32`, 故 `vD` 的配置在指令接收前为 `i32`, 成功后更新为 `f32`.
+`zero` 形式用于单个 K 块; `acc` 形式用于沿 K 维分块累加的最后一个 K 块. 两种形式都在 `i32` 部分和上完成整数点积, 再把 `f32` 结果原地写回: 接收前 `vc[D].dtype` 为 `i32` (`acc` 形式据此读取前序 `vmma.nt` 留下的部分和), 成功后更新为 `f32`, 与 `vcvt` 的原地转换相同.
 
 编码使用 R5 格式: `ACC` 选择 zero/acc, `[26:22]` 为 `vScalePair`, `[21:17]` 为 Tile A 行.
 
