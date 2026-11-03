@@ -2,6 +2,15 @@
 # Field colors follow roles: major4 purple, selector light purple, funct
 # blue-grey, operand fields yellow/orange/green/teal, reserved grey, q pink.
 colors:
+  fmt-r5:
+    "31-28": "179,163,205"
+    "27": "196,186,209"
+    "26-22": "240,214,148"
+    "21-17": "238,183,150"
+    "16-12": "163,200,177"
+    "11-7": "167,199,200"
+    "6-2": "191,177,211"
+    "1-0": "222,184,203"
   fmt-r4:
     "31-28": "179,163,205"
     "27-25": "196,186,209"
@@ -42,6 +51,20 @@ colors:
     "1-0": "222,184,203"
 
 structures:
+  fmt-r5:
+    bits: 32
+    ranges:
+      31-28: {name: major4, description: major opcode}
+      27: {name: ACC, description: "0 = zero, 1 = acc"}
+      26-22: {name: field5, description: per major4}
+      21-17: {name: field5, description: per major4}
+      16-12: {name: B5, description: "usually B"}
+      11-7: {name: A5, description: "usually A"}
+      6-2: {name: D5, description: "usually D"}
+      1-0:
+        name: q
+        description: space tag
+        values: {"00": "elementwise", "01": "data movement", "10": "cross-domain/control", "11": "scalar (RV64IM)"}
   fmt-r4:
     bits: 32
     ranges:
