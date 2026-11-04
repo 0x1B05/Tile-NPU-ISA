@@ -113,23 +113,14 @@ colors:
     "11-7": "163,200,177"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
-  mma-dequant:
+  dequant:
     "31-28": "179,163,205"
-    "27": "196,186,209"
-    "26-22": "240,214,148"
+    "27-25": "230,230,230"
+    "24-22": "192,200,210"
     "21-17": "238,183,150"
-    "16-12": "163,200,177"
-    "11-7": "167,199,200"
-    "6-2": "191,177,211"
-    "1-0": "222,184,203"
-  vmma-dequant:
-    "31-28": "179,163,205"
-    "27": "196,186,209"
-    "26-22": "240,214,148"
-    "21-17": "238,183,150"
-    "16-12": "163,200,177"
-    "11-7": "167,199,200"
-    "6-2": "191,177,211"
+    "16-12": "240,214,148"
+    "11-7": "163,200,177"
+    "6-2": "167,199,200"
     "1-0": "222,184,203"
   mma:
     "31-28": "179,163,205"
@@ -432,27 +423,16 @@ structures:
       11-7: {name: A5, description: "src1 (Tile)"}
       6-2: {name: D5, description: "dst (Acc/Vec32)"}
       1-0: {name: q, description: "space tag (10)"}
-  mma-dequant:
+  dequant:
     bits: 32
     ranges:
-      31-28: {name: major4, description: major opcode, values: {"1001": "MMA_DEQUANT"}}
-      27: {name: AC, description: "0 = zero, 1 = acc"}
-      26-22: {name: vPair5, description: "scale pair base; vCol=v[base], vRow=v[base+1]"}
-      21-17: {name: rsv5, description: must be 0}
-      16-12: {name: B5, description: "src2 (Tile)"}
-      11-7: {name: A5, description: "src1 (Tile)"}
-      6-2: {name: D5, description: "dst (Acc, in-place)"}
-      1-0: {name: q, description: "space tag (10)"}
-  vmma-dequant:
-    bits: 32
-    ranges:
-      31-28: {name: major4, description: major opcode, values: {"1010": "VMMA_DEQUANT"}}
-      27: {name: AC, description: "0 = zero, 1 = acc"}
-      26-22: {name: vPair5, description: "scale pair base; vCol=v[base], vRow=v[base+1]"}
-      21-17: {name: row5, description: "Tile A row"}
-      16-12: {name: B5, description: "src2 (Tile)"}
-      11-7: {name: A5, description: "src1 (Tile)"}
-      6-2: {name: D5, description: "dst (Vec32, in-place)"}
+      31-28: {name: major4, description: major opcode, values: {"1001": "DEQUANT"}}
+      27-25: {name: sel3, description: domain selector, values: {"010": "Acc (adequant)", "110": "Vec32 (vdequant)"}}
+      24-22: {name: funct3, description: "reserved (000)", values: {"000": "dequant"}}
+      21-17: {name: vRow5, description: "row scale (Vec32 f32); lane 0 for vdequant"}
+      16-12: {name: vCol5, description: "column scale (Vec32 f32)"}
+      11-7: {name: S5, description: "i32 source (Acc/Vec32)"}
+      6-2: {name: D5, description: "f32 destination (Acc/Vec32)"}
       1-0: {name: q, description: "space tag (10)"}
   red:
     bits: 32

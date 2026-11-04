@@ -28,6 +28,7 @@
 记法约定:
 + 指令助记符, 寄存器名与字段名使用等宽字体 (如 `vadd`, `a0`, `rows`)
 + 花括号表示该位置可取的一组文本, 并展开为所有对应的助记符. 例如 `{t,a}{load,store}` 表示 `tload`, `tstore`, `aload` 和 `astore`.
++ 汇编指令按目的操作数在前, 源操作数在后的顺序书写; 多个源按指令语义排列, scale, 索引和 mask 等附加源通常排在数据源之后.
 + 指令表的 Operation 列用赋值式描述每条指令的效果. 式子里的下标默认取遍目的寄存器的整个有效区域, 如 `D[i,j] = A[i,j] + B[i,j]` 表示对所有 `i`, `j` 逐元素相加. 矩阵使用 `[i,j]`, 向量使用 `[j]`; 同一表达式兼写矩阵与向量形式时使用 `[p]`. `D` 为目的操作数, `A`, `B`, `S` 为源操作数. 例如 `ainsert.row` 的 `D[rd,j] = S[j]` 对应 `aD[rd,j] = vS[j]`.
 
 指令表与伪代码中的通用操作数记号:
@@ -237,7 +238,7 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   | 逐元素与广播    | `t/a/v` 同域 #linebreak() Acc ↔ Vec32 广播              | 算术, 位运算, 移位, 特殊函数, 比较和选择        | `{t,a,v}op` #linebreak() `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                            |
   | 规约            | `a` → `v` #linebreak() `v` → `v`                        | 行规约, 向量规约, 平方和和 argmax               | `areduce` #linebreak() `vreduce`                                                                            |
   | 类型转换与扩大  | `a/v` 内部 #linebreak() `t` → `a`                       | 数值类型转换和 `i8` → `i32` 扩大                | `acvt`, `vcvt` #linebreak() `twiden`                                                                        |
-  | 量化与反量化    | `a` ↔ `t`                                               | 低精度存储与 `f32` 计算之间的显式转换           | `aquant`, `tdequant`                                                                                        |
+  | 量化与反量化    | `a/v` 内部 #linebreak() `a` ↔ `t`                       | 低精度存储与 `f32` 计算之间的显式转换           | `aquant`, `tdequant` #linebreak() `adequant`, `vdequant`                                                    |
   | 同步与结束      | 后端 → 完成边界 #linebreak() kernel → 完成              | 访存, 脉动阵列, 全后端完成以及 kernel 生命周期  | `fence.mem`, `fence.sa`, `fence.all` #linebreak() `kernel.end`                                              |
 ]
 
@@ -278,8 +279,7 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
 )[
   | 格式  | 中间字段 `[27:2]`                         | 主要用途                                    |
   | :---: | ----------------------------------------- | ------------------------------------------- |
-  | R5    | `AC + 5 × field5`                         | 融合矩阵乘/点积与反量化                     |
-  | R4    | `sel3 + funct3 + 4 × field5`              | 多源或跨域计算; 配置访问                    |
+  | R4    | `sel3 + funct3 + 4 × field5`              | 多源或跨域计算; 配置访问; 反量化            |
   | R3    | `sel3 + funct4 + reserved4 + 3 × field5`  | 二元逐元素计算; 矩阵与向量广播              |
   | R2    | `sel3 + funct3 + reserved10 + S5 + D5`    | 访存; 单源单目的搬运; 规约、转换与一元计算  |
   | I     | `sel2 + funct3 + imm16 + D5/C5`           | 立即数填充与配置                            |
@@ -287,11 +287,6 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
 ]
 
 === 位段布局
-
-#rivet-format-figure(
-  fmt-r5-schema,
-  caption: [R5 格式: 一个控制位和五个 5-bit 字段],
-)
 
 #rivet-format-figure(fmt-r4-schema, caption: [R4 格式: 四个 5-bit 字段])
 
@@ -319,7 +314,6 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   | `IS`      | 索引来源选择: `0` 选择 `index5` 中的立即数, `1` 选择由 `index5` 指定的 Scalar 寄存器  |
   | `LS`      | load/store 选择: `0` 表示 load, `1` 表示 store                                        |
   | `QD`      | 量化/反量化选择: `0` 表示 Acc → Tile, `1` 表示 Tile → Acc                             |
-  | `AC`      | R5 累加选择: `0` 表示 zero (写入目的), `1` 表示 acc (累加)                            |
   | `DIR`     | 广播方向: `0` 表示按行, `1` 表示按列                                                  |
   | `CM`      | 配置类别选择 (compute/memory): `0` 选择计算配置, `1` 选择访存描述符                   |
   | `G`       | 操作组; 与 `op3` 共同组成 `funct4`, 选择逐元素操作                                    |
@@ -360,8 +354,7 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   | `10`    | `0110`    | `CFG_MEM_SETI`      | I      |
   | `10`    | `0111`    | `CFG_REG`           | R4     |
   | `10`    | `1000`    | `SYS`               | Z      |
-  | `10`    | `1001`    | `MMA_DEQUANT`       | R5     |
-  | `10`    | `1010`    | `VMMA_DEQUANT`      | R5     |
+  | `10`    | `1001`    | `DEQUANT`           | R4     |
 ]
 
 编码原则:
@@ -608,7 +601,7 @@ gather 同样使用 R2 格式和 `sel3 = {dom2, 0}`, 但 `S5[11:7]` 为 Vec32 �
 
 内存中的元素类型由绑定配置寄存器的 `dtype` 决定.
 
-类型与精度转换 (`i8` → `i32`, `i8` → `f32`, 子字节格式如 `q4` 的展开, 以及打包量化格式如 `q8` + scale 到 `f32` 的反量化) 由 `twiden`, `acvt`/`vcvt`, `aquant`/`tdequant` 等显式指令完成 (见 @quantization).
+类型与精度转换 (`i8` → `i32`, `i8` → `f32`, 子字节格式如 `q4` 的展开, 以及打包量化格式如 `q8` + scale 到 `f32` 的反量化) 由 `twiden`, `acvt`/`vcvt`, `aquant`/`tdequant`, `adequant`/`vdequant` 等显式指令完成 (见 @quantization).
 
 == 基础访存指令
 
@@ -933,19 +926,15 @@ for 0 <= j < len(D):
 本节定义基础 `i8` 矩阵乘和 Tile 行—Tile 点积指令. 基础指令使用*`i8` 输入, `i32` 输出或累加*; 点积的左操作数是 Tile 的指定行. 本节采用行向量约定: 长度为 K 的向量视为 $1 times K$ 行向量.
 
 #instruction-table(caption: [矩阵乘与点积指令])[
-  | Instruction             | Format  | Operation                                                             | Summary                                                            |
-  | :---------------------: | :-----: | --------------------------------------------------------------------- | ------------------------------------------------------------------ |
-  | `mma.nt.zero`           | R4      | $"aD"[m,n] = sum_k "tA"[m,k] times "tB"[n,k]$                         | 按转置右矩阵执行矩阵乘, 写入 `i32` Acc.                            |
-  | `mma.nt.acc`            | R4      | $"aD"[m,n] += sum_k "tA"[m,k] times "tB"[n,k]$                        | 按转置右矩阵执行矩阵乘, 累加到旧 `i32` Acc.                        |
-  | `vmma.nt.zero`          | R4      | $"vD"[n] = sum_k "tA"[r,k] times "tB"[n,k]$                           | Tile 行与 Tile 各行执行点积, 结果写入 Vec32.                       |
-  | `vmma.nt.acc`           | R4      | $"vD"[n] += sum_k "tA"[r,k] times "tB"[n,k]$                          | Tile 行与 Tile 各行执行点积, 累加到旧 `i32` Vec32.                 |
-  | `mma.nt.dequant.zero`   | R5      | $"aD"[m,n] = "dequant"(sum_k "tA"[m,k] times "tB"[n,k])$              | 融合矩阵乘与反量化, 原地写 `f32` Acc.                              |
-  | `mma.nt.dequant.acc`    | R5      | $"aD"[m,n] = "dequant"("aD"[m,n] + sum_k "tA"[m,k] times "tB"[n,k])$  | 累加后融合反量化, 原地写 `f32` Acc.                                |
-  | `vmma.nt.dequant.zero`  | R5      | $"vD"[n] = "dequant"(sum_k "tA"[r,k] times "tB"[n,k])$                | Tile 行与 Tile 各行执行点积, 融合列/行 scale, 原地写 `f32` Vec32.  |
-  | `vmma.nt.dequant.acc`   | R5      | $"vD"[n] = "dequant"("vD"[n] + sum_k "tA"[r,k] times "tB"[n,k])$      | 累加后融合反量化, 原地写 `f32` Vec32.                              |
+  | Instruction     | Format  | Operation                                       | Summary                                             |
+  | :-------------: | :-----: | ----------------------------------------------- | --------------------------------------------------- |
+  | `mma.nt.zero`   | R4      | $"aD"[m,n] = sum_k "tA"[m,k] times "tB"[n,k]$   | 按转置右矩阵执行矩阵乘, 写入 `i32` Acc.             |
+  | `mma.nt.acc`    | R4      | $"aD"[m,n] += sum_k "tA"[m,k] times "tB"[n,k]$  | 按转置右矩阵执行矩阵乘, 累加到旧 `i32` Acc.         |
+  | `vmma.nt.zero`  | R4      | $"vD"[n] = sum_k "tA"[r,k] times "tB"[n,k]$     | Tile 行与 Tile 各行执行点积, 结果写入 Vec32.        |
+  | `vmma.nt.acc`   | R4      | $"vD"[n] += sum_k "tA"[r,k] times "tB"[n,k]$    | Tile 行与 Tile 各行执行点积, 累加到旧 `i32` Vec32.  |
 ]
 
-矩阵乘与点积使用 R4 格式; 融合反量化的 `mma.nt.dequant` 以及 `vmma.nt.dequant` 使用 R5 格式和独立的 `major4`(见 @matrix-mma-dequant).
+矩阵乘与点积使用 R4 格式, 只产生 `i32` 部分和.
 
 == 指令格式
 
@@ -968,14 +957,13 @@ vmma.nt.acc  vD, tA[row], tB
   columns: (0.9fr, 0.9fr, 3.5fr),
   caption: [矩阵乘与点积操作数],
 )[
-  | 操作数        | 数据域  | 作用                            |
-  | ------------- | ------- | ------------------------------- |
-  | `tA`          | Tile    | MMA 的左操作数                  |
-  | `tA[row]`     | Tile    | VMMA 的 Tile 行输入             |
-  | `tB`          | Tile    | MMA 或 VMMA 的右操作数          |
-  | `aD`          | Acc     | MMA 的 `i32` 目的和累加寄存器   |
-  | `vD`          | Vec32   | VMMA 的 `i32` 输出和累加寄存器  |
-  | `vScalePair`  | Vec32   | 融合反量化的相邻列/行 scale 对  |
+  | 操作数     | 数据域  | 作用                            |
+  | ---------- | ------- | ------------------------------- |
+  | `tA`       | Tile    | MMA 的左操作数                  |
+  | `tA[row]`  | Tile    | VMMA 的 Tile 行输入             |
+  | `tB`       | Tile    | MMA 或 VMMA 的右操作数          |
+  | `aD`       | Acc     | MMA 的 `i32` 目的和累加寄存器   |
+  | `vD`       | Vec32   | VMMA 的 `i32` 输出和累加寄存器  |
 ]
 
 数学形式:
@@ -1065,63 +1053,6 @@ for 0 <= j < N:
 ```asm
 # 从激活 Tile 的第 3 行直接累加一个 K 块
 vmma.nt.acc vAcc, tAct[3], tWeight
-```
-
-== `mma.nt.dequant.zero` 和 `mma.nt.dequant.acc` <matrix-mma-dequant>
-
-```asm
-mma.nt.dequant.zero aD, tA, tB, vScalePair
-mma.nt.dequant.acc  aD, tA, tB, vScalePair
-```
-
-#rivet-encoding-figure(
-  mma-dequant-schema,
-  caption: [融合反量化矩阵乘格式 (MMA_DEQUANT)],
-)
-
-`mma.nt.dequant` 在矩阵乘的输出阶段完成反量化, 结果原地写回 `aD`: 先按列乘 `vCol`, 再按行乘 `vRow`, `vCol`/`vRow` 为 Vec32 `f32`, 有效长度分别为 `N` 和 `M`, 两次乘法分别按 RNE 舍入. `tA` 为 $M times K$, `tB` 为 $N times K$, 两者均为 `i8`; `aD` 为 $M times N$.
-
-`vScalePair` 指定相邻的 Vec32 对: `vCol = v[base]`, `vRow = v[base + 1]`, `base <= 30`.
-
-`zero` 形式用于单个 K 块; `acc` 形式用于沿 K 维分块累加的最后一个 K 块. 两种形式都在 `i32` 部分和上完成整数累加, 再把 `f32` 结果原地写回: 接收前 `ac[D].dtype` 为 `i32` (`acc` 形式据此读取前序 `mma.nt` 留下的部分和), 成功后更新为 `f32`, 与 `acvt` 的原地转换相同.
-
-编码使用 R5 格式: `AC` 选择 zero/acc, `[26:22]` 为 `vScalePair`, `[21:17]` 为保留位, 必须为 0.
-
-```text
-for 0 <= i < rows(aD):
-    for 0 <= j < cols(aD):
-        partial ← (acc ? aD[i,j] : 0) + sum_k tA[i,k] × tB[j,k]
-        t ← round_f32(f32(partial) × vCol[j])
-        aD[i,j] ← round_f32(t × vRow[i])
-ac[D].dtype ← f32
-```
-
-== `vmma.nt.dequant.zero` 和 `vmma.nt.dequant.acc` <matrix-vmma-dequant>
-
-```asm
-vmma.nt.dequant.zero vD, tA[row], tB, vScalePair
-vmma.nt.dequant.acc  vD, tA[row], tB, vScalePair
-```
-
-#rivet-encoding-figure(
-  vmma-dequant-schema,
-  caption: [融合反量化点积格式 (VMMA_DEQUANT)],
-)
-
-`vmma.nt.dequant` 在点积的输出阶段完成反量化, 结果原地写回 `vD`: 先按列乘 `vCol`, 再按行乘 `vRow`, `vCol`/`vRow` 为 Vec32 `f32`, 有效长度分别为 `N` 和 1 (`vRow` 仅使用 lane 0), 两次乘法分别按 RNE 舍入. `tA` 的 `cols` 为 $K$, `row` 必须在 `rows(tA)` 内; `tB` 为 $N times K$, 两者均为 `i8`; `vD` 的有效长度为 $N$.
-
-`vScalePair` 指定相邻的 Vec32 对: `vCol = v[base]`, `vRow = v[base + 1]`, `base <= 30`; 行 scale 使用 `vRow[0]`.
-
-`zero` 形式用于单个 K 块; `acc` 形式用于沿 K 维分块累加的最后一个 K 块. 两种形式都在 `i32` 部分和上完成整数点积, 再把 `f32` 结果原地写回: 接收前 `vc[D].dtype` 为 `i32` (`acc` 形式据此读取前序 `vmma.nt` 留下的部分和), 成功后更新为 `f32`, 与 `vcvt` 的原地转换相同.
-
-编码使用 R5 格式: `AC` 选择 zero/acc, `[26:22]` 为 `vScalePair`, `[21:17]` 为 Tile A 行.
-
-```text
-for 0 <= j < len(vD):
-    partial ← (acc ? vD[j] : 0) + sum_k tA[row,k] × tB[j,k]
-    t ← round_f32(f32(partial) × vCol[j])
-    vD[j] ← round_f32(t × vRow[0])
-vc[D].dtype ← f32
 ```
 
 = 逐元素, 广播和 mask <elementwise>
@@ -1953,7 +1884,7 @@ vVal[j] ← 最大值的 f32 位模式
   - 逐元素 `min` / `max`: 按 IEEE-754 minNum/maxNum; 一方为 NaN 时返回另一方, 两方均为 NaN 时为 NaN.
   - 比较: 任一操作数为 NaN 时 `eq`/`lt`/`le` 为假, `unord` 为真; `ne`/`ord` 由取反得到.
   - 近似函数: `exp2_approx`, `rcp_approx`, `rsqrt_approx` 的 NaN 输入得到 NaN, 其他特殊值见 @elementwise-approx.
-  - 量化: `x / scale` 为 NaN 时量化 bits 为 0; `absmax` 将 NaN 视为 `+0`, 见 @quantization.
+  - 量化: `x / scale` 为 NaN 时量化值为 0; `absmax` 将 NaN 视为 `+0`, 见 @quantization.
 ]
 
 == 类型转换指令 <reduce-cvt>
@@ -2095,49 +2026,93 @@ vScore = vScore × scale
 
 = 量化与反量化 <quantization>
 
+量化把 `f32` 数据转换为低精度整数, 并用 scale 记录数值范围; 反量化把整数与 scale 还原为 `f32`. NPU 的矩阵乘在 `i8` 域累加, scale 在 drain 阶段应用, 因此量化与反量化使用显式指令, 不隐藏在矩阵乘语义中.
+
+本节包含两类操作:
+
+- `aquant` / `tdequant`: 在 Acc 与 Tile 之间转换, 使用每行显式 scale.
+- `adequant` / `vdequant`: 在 Acc/Vec32 内部把 `i32` 部分和转换为 `f32`, 使用列/行 scale.
+
 #instruction-table(
   columns: (1.5fr, 0.5fr, 2.5fr, 1.8fr),
   caption: [量化与反量化指令],
 )[
-  | Instruction          | Format  | Operation                                       | Summary                                         |
-  | :------------------: | :-----: | ----------------------------------------------- | ----------------------------------------------- |
-  | `aquant.rows.q8s32`  | R4      | tD[i,:] = quant_q8s32(aS[i,:], vScale[i]).bits  | 用外部 Vec32 scale 将 Acc 按行量化到 Tile.      |
-  | `tdequant.rows.f32`  | R4      | aD[i,j] = f32(tS[i,j]) × vScale[i]              | 用每行的 Vec32 scale 将 Tile 反量化到 f32 Acc.  |
+  | Instruction          | Format  | Operation                                   | Summary                                       |
+  | :------------------: | :-----: | ------------------------------------------- | --------------------------------------------- |
+  | `aquant.rows.q8s32`  | R4      | tD[i,j] = quant_q8s32(aS[i,j], vScale[i])   | 用每行 Vec32 scale 将 Acc 量化为 q8s32 Tile.  |
+  | `tdequant.rows.f32`  | R4      | aD[i,j] = f32(tS[i,j]) × vScale[i]          | 用每行 Vec32 scale 将 Tile 反量化为 f32 Acc.  |
+  | `adequant`           | R4      | aD[i,j] = f32(aS[i,j]) × vCol[j] × vRow[i]  | 将 i32 Acc 反量化为 f32 Acc.                  |
+  | `vdequant`           | R4      | vD[j] = f32(vS[j]) × vCol[j] × vRow[0]      | 将 i32 Vec32 反量化为 f32 Vec32.              |
 ]
 
-量化与反量化使用 R4 双源格式. `sel3` 保留为 0; `funct3 = {0, 0, QD}` 选择方向: `QD = 0` 为 Acc 到 Tile 的行量化, `QD = 1` 为 Tile 到 Acc 的反量化; `funct3` 的其他值保留. `qf5` 选择量化格式, 当前只定义 `00000` (`q8s32`).
+== 矩阵量化与反量化 <quantization-quant>
 
-#rivet-encoding-figure(qnt-mat-schema, caption: [矩阵量化与反量化格式 (QNT)])
-
-汇编操作数先列目的, 再列源. `vScale` 是源, 位于数据源之后.
+`aquant` / `tdequant` 使用 QNT 的 R4 格式, 在 Acc 与 Tile 之间按行转换:
 
 ```asm
 aquant.rows.q8s32 tD, aS, vScale
-tdequant.rows.f32       aD, tS, vScale
+tdequant.rows.f32 aD, tS, vScale
 ```
 
-每行的 scale 由显式 Vec32 源 `vScale` 提供, 适用于 scale 已由前序计算 (如运行最大值, 外部校准) 给出的场景. 量化只有 Tile bits 一个目的; bits 和 scale 的依赖与生命周期必须分别跟踪. 外部权重保留原始 bits/scale.
+#rivet-encoding-figure(qnt-mat-schema, caption: [矩阵量化与反量化格式 (QNT)])
 
-`quant_q8s32(x, s)` 用给定的每行 scale `s` 定义如下 (`x` 为一行有效元素, 共 $N$ 个):
+QNT 的编码由 R4 格式给出: `major4 = QNT`; `sel3` 固定为 0; `funct3` 的最低位 `QD` 选择方向, 其余位保留; `qf5` 选择量化格式, 当前只定义 `00000` (`q8s32`). 图中 `vScale5` 是每行 scale 源, `S5`/`D5` 分别是源/目的寄存器; 其余编码组合保留.
 
-```text
-bits_j ← sat_rne(x_j / s)          # RNE 舍入到整数, 饱和到 [-127, 127];
-                                   # x_j / s 为 NaN 时 bits_j ← 0
-```
+`aquant` 的每个有效行 `i` 使用 `vScale[i]` 作为该行 scale, 将 `aS[i,:]` 量化为 `tD[i,:]`; `tdequant` 对 Tile 的每个有效行执行相反方向. `vScale` 是 Vec32 `f32` 源, `len` 等于源的有效行数. 这适用于 scale 已由前序计算 (例如 `areduce.rows.absmax`) 或外部校准给出的场景; 量化结果与 scale 的依赖需要分别跟踪.
 
-反量化逐元素计算 `f32(bits_j) × scale` (f32 乘法).
+`q8s32` 使用 `i8` 量化值, 每行配一个 `f32` scale. 对一行有效元素 $x_j$ ($0 <= j < N$), 定义
 
-Q8 MMA 是以下基础指令的复合操作, 不隐藏临时 Acc:
+$ q_j = op("sat_rne")(x_j / s), $
+
+其中 `sat_rne` 先按 RNE 舍入到整数, 再饱和到 $[-127, 127]$; 当 $x_j / s$ 为 NaN 时 $q_j = 0$. `aquant` 将 $q_j$ 写入目的 Tile 的对应行; `tdequant` 计算
+
+$ "aD"[i,j] = op("f32")("tS"[i,j]) times "vScale"[i]. $
+
+== Acc/Vec32 的 drain 反量化 <quantization-dequant>
+
+`adequant` / `vdequant` 使用 DEQUANT 的 R4 格式, 将 `i32` 部分和反量化为独立的 `f32` 目的寄存器:
 
 ```asm
-mma.nt.zero aTmp, tA, tB
-acvt.i32.f32       aTmp, aTmp
-amulv.byrow    aTmp, aTmp, vAs
-amulv.bycol    aTmp, aTmp, vBs
-aadd          aOut, aOut, aTmp
+adequant aD, aS, vCol, vRow
+vdequant vD, vS, vCol, vRow
 ```
 
-aOut 预先初始化, aTmp 与 aOut 分开. 每个 K 块分别 scale 后再累加. Decode 对应 `vmma → vcvt → scale → vadd`, raw 临时使用 v.
+#rivet-encoding-figure(
+  dequant-schema,
+  caption: [Acc/Vec32 反量化格式 (DEQUANT)],
+)
+
+DEQUANT 的编码由 R4 格式给出: `major4 = 1001`; `sel3` 选择数据域 (`010` 为 Acc, `110` 为 Vec32), `sel3[0]` 保留为 0; `funct3 = 000`; 图中 `vRow5`/`vCol5` 分别是行/列 scale 源, `S5`/`D5` 分别是源/目的寄存器. 其余选择子组合保留.
+
+`adequant` 处理 Acc, `vdequant` 处理 Vec32. 源 `aS`/`vS` 为 `i32`, 目的 `aD`/`vD` 为 `f32`; 源与目的的有效 shape 相同, 且必须是不同寄存器. `vCol`/`vRow` 是 Vec32 `f32` scale 源: `adequant` 的 `vCol.len = cols(aD)`, `vRow.len = rows(aD)`; `vdequant` 的 `vCol.len = len(vD)`, `vRow.len = 1`, 只使用 `vRow[0]`. 所有源在写目的前读取.
+
+先按列乘 `vCol`, 再按行乘 `vRow`, 两次乘法分别按 RNE 舍入. `adequant` 对每个有效元素执行:
+
+```text
+for 0 <= i < rows(aD):
+    for 0 <= j < cols(aD):
+        t ← round_f32(f32(aS[i,j]) × vCol[j])
+        aD[i,j] ← round_f32(t × vRow[i])
+```
+
+`vdequant` 对每个有效 lane 执行:
+
+```text
+for 0 <= j < len(vD):
+    t ← round_f32(f32(vS[j]) × vCol[j])
+    vD[j] ← round_f32(t × vRow[0])
+```
+
+#note[
+  `mma.nt` / `vmma.nt` 只产生 `i32` 部分和. 在最后一次 K 块累加前加载 `vCol`/`vRow`, 并让 `adequant` / `vdequant` 紧跟 `mma.nt` / `vmma.nt`, 可以形成固定的 drain 序列, 便于硬件检测并融合矩阵乘与反量化. 例如:
+
+  ```asm
+  vload     vCol
+  vload     vRow
+  mma.nt.acc a0, tA, tB
+  adequant  a8, a0, vCol, vRow
+  ```
+]
 
 = 指令集清单 <instructions>
 
@@ -2222,16 +2197,12 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 详细语义见 @matrix.
 
 #instruction-index(caption: [矩阵乘与点积指令清单])[
-  | Instruction             | Format  | Section               |
-  | :---------------------: | :-----: | :-------------------- |
-  | `mma.nt.zero`           | R4      | @matrix-mma           |
-  | `mma.nt.acc`            | R4      | @matrix-mma           |
-  | `vmma.nt.zero`          | R4      | @matrix-vmma-nt       |
-  | `vmma.nt.acc`           | R4      | @matrix-vmma-nt       |
-  | `mma.nt.dequant.zero`   | R5      | @matrix-mma-dequant   |
-  | `mma.nt.dequant.acc`    | R5      | @matrix-mma-dequant   |
-  | `vmma.nt.dequant.zero`  | R5      | @matrix-vmma-dequant  |
-  | `vmma.nt.dequant.acc`   | R5      | @matrix-vmma-dequant  |
+  | Instruction     | Format  | Section          |
+  | :-------------: | :-----: | :--------------- |
+  | `mma.nt.zero`   | R4      | @matrix-mma      |
+  | `mma.nt.acc`    | R4      | @matrix-mma      |
+  | `vmma.nt.zero`  | R4      | @matrix-vmma-nt  |
+  | `vmma.nt.acc`   | R4      | @matrix-vmma-nt  |
 ]
 
 == 逐元素, 广播和 mask
@@ -2446,8 +2417,10 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 详细语义见 @quantization.
 
 #instruction-index(caption: [量化与反量化指令清单])[
-  | Instruction          | Format  | Section        |
-  | :------------------: | :-----: | :------------- |
-  | `aquant.rows.q8s32`  | R4      | @quantization  |
-  | `tdequant.rows.f32`  | R4      | @quantization  |
+  | Instruction          | Format  | Section                |
+  | :------------------: | :-----: | :--------------------- |
+  | `aquant.rows.q8s32`  | R4      | @quantization-quant    |
+  | `tdequant.rows.f32`  | R4      | @quantization-quant    |
+  | `adequant`           | R4      | @quantization-dequant  |
+  | `vdequant`           | R4      | @quantization-dequant  |
 ]
