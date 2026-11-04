@@ -349,12 +349,12 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   | `10`    | `0001`    | `AREDUCE`           | R2     |
   | `10`    | `0010`    | `VREDUCE`           | R2/R4  |
   | `10`    | `0011`    | `CVT`               | R2     |
-  | `10`    | `0100`    | `QNT`               | R4     |
+  | `10`    | `0100`    | `QNT_AT`            | R4     |
   | `10`    | `0101`    | `CFG_COMPUTE_SETI`  | I      |
   | `10`    | `0110`    | `CFG_MEM_SETI`      | I      |
   | `10`    | `0111`    | `CFG_REG`           | R4     |
   | `10`    | `1000`    | `SYS`               | Z      |
-  | `10`    | `1001`    | `DEQUANT`           | R4     |
+  | `10`    | `1001`    | `QNT_DRAIN`         | R4     |
 ]
 
 编码原则:
@@ -2047,16 +2047,16 @@ vScore = vScore × scale
 
 == 矩阵量化与反量化 <quantization-quant>
 
-`aquant` / `tdequant` 使用 QNT 的 R4 格式, 在 Acc 与 Tile 之间按行转换:
+`aquant` / `tdequant` 使用 QNT_AT 的 R4 格式, 在 Acc 与 Tile 之间按行转换:
 
 ```asm
 aquant.rows.q8s32 tD, aS, vScale
 tdequant.rows.f32 aD, tS, vScale
 ```
 
-#rivet-encoding-figure(qnt-mat-schema, caption: [矩阵量化与反量化格式 (QNT)])
+#rivet-encoding-figure(qnt-mat-schema, caption: [矩阵量化与反量化格式 (QNT_AT)])
 
-QNT 的编码由 R4 格式给出: `major4 = QNT`; `sel3` 固定为 0; `funct3` 的最低位 `QD` 选择方向, 其余位保留; `qf5` 选择量化格式, 当前只定义 `00000` (`q8s32`). 图中 `vScale5` 是每行 scale 源, `S5`/`D5` 分别是源/目的寄存器; 其余编码组合保留.
+QNT_AT 的编码由 R4 格式给出: `major4 = QNT_AT`; `sel3` 固定为 0; `funct3` 的最低位 `QD` 选择方向, 其余位保留; `qf5` 选择量化格式, 当前只定义 `00000` (`q8s32`). 图中 `vScale5` 是每行 scale 源, `S5`/`D5` 分别是源/目的寄存器; 其余编码组合保留.
 
 `aquant` 的每个有效行 `i` 使用 `vScale[i]` 作为该行 scale, 将 `aS[i,:]` 量化为 `tD[i,:]`; `tdequant` 对 Tile 的每个有效行执行相反方向. `vScale` 是 Vec32 `f32` 源, `len` 等于源的有效行数. 这适用于 scale 已由前序计算 (例如 `areduce.rows.absmax`) 或外部校准给出的场景; 量化结果与 scale 的依赖需要分别跟踪.
 
@@ -2070,7 +2070,7 @@ $ "aD"[i,j] = op("f32")("tS"[i,j]) times "vScale"[i]. $
 
 == Acc/Vec32 的 drain 反量化 <quantization-dequant>
 
-`adequant` / `vdequant` 使用 DEQUANT 的 R4 格式, 将 `i32` 部分和反量化为独立的 `f32` 目的寄存器:
+`adequant` / `vdequant` 使用 QNT_DRAIN 的 R4 格式, 将 `i32` 部分和反量化为独立的 `f32` 目的寄存器:
 
 ```asm
 adequant aD, aS, vCol, vRow
@@ -2079,10 +2079,10 @@ vdequant vD, vS, vCol, vRow
 
 #rivet-encoding-figure(
   dequant-schema,
-  caption: [Acc/Vec32 反量化格式 (DEQUANT)],
+  caption: [Acc/Vec32 反量化格式 (QNT_DRAIN)],
 )
 
-DEQUANT 的编码由 R4 格式给出: `major4 = 1001`; `sel3` 选择数据域 (`010` 为 Acc, `110` 为 Vec32), `sel3[0]` 保留为 0; `funct3 = 000`; 图中 `vRow5`/`vCol5` 分别是行/列 scale 源, `S5`/`D5` 分别是源/目的寄存器. 其余选择子组合保留.
+QNT_DRAIN 的编码由 R4 格式给出: `major4 = 1001`; `sel3` 选择数据域 (`010` 为 Acc, `110` 为 Vec32), `sel3[0]` 保留为 0; `funct3 = 000`; 图中 `vRow5`/`vCol5` 分别是行/列 scale 源, `S5`/`D5` 分别是源/目的寄存器. 其余选择子组合保留.
 
 `adequant` 处理 Acc, `vdequant` 处理 Vec32. 源 `aS`/`vS` 为 `i32`, 目的 `aD`/`vD` 为 `f32`; 源与目的的有效 shape 相同, 且必须是不同寄存器. `vCol`/`vRow` 是 Vec32 `f32` scale 源: `adequant` 的 `vCol.len = cols(aD)`, `vRow.len = rows(aD)`; `vdequant` 的 `vCol.len = len(vD)`, `vRow.len = 1`, 只使用 `vRow[0]`. 所有源在写目的前读取.
 

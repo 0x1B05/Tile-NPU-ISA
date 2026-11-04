@@ -426,7 +426,7 @@ structures:
   dequant:
     bits: 32
     ranges:
-      31-28: {name: major4, description: major opcode, values: {"1001": "DEQUANT"}}
+      31-28: {name: major4, description: major opcode, values: {"1001": "QNT_DRAIN"}}
       27-25: {name: sel3, description: domain selector, values: {"010": "Acc (adequant)", "110": "Vec32 (vdequant)"}}
       24-22: {name: funct3, description: "reserved (000)", values: {"000": "dequant"}}
       21-17: {name: vRow5, description: "row scale (Vec32 f32); lane 0 for vdequant"}
@@ -480,7 +480,7 @@ structures:
   qnt-mat:
     bits: 32
     ranges:
-      31-28: {name: major4, description: major opcode, values: {"0100": "QNT"}}
+      31-28: {name: major4, description: major opcode, values: {"0100": "QNT_AT"}}
       27-25: {name: sel3, description: "reserved", values: {"000": "reserved"}}
       24-22: {name: funct3, description: "direction (QD in bit 22; [24:23] reserved)", values: {"000": "Acc -> Tile", "001": "Tile -> Acc"}}
       21-17: {name: qf5, description: "quant format (others reserved)", values: {"00000": "q8s32"}}
