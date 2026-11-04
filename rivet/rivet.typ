@@ -23,6 +23,7 @@
 #let vm-1-schema = load-schema(descriptors, "vm-1")
 #let vm-2-schema = load-schema(descriptors, "vm-2")
 
+#let fmt-r5-schema = load-schema(formats, "fmt-r5")
 #let fmt-r4-schema = load-schema(formats, "fmt-r4")
 #let fmt-r3-schema = load-schema(formats, "fmt-r3")
 #let fmt-r2-schema = load-schema(formats, "fmt-r2")
@@ -42,6 +43,8 @@
 #let row-move-schema = load-schema(chapters, "row-move", deps: ("index-imm", "index-x"))
 #let lane-move-schema = load-schema(chapters, "lane-move", deps: ("index-imm", "index-x"))
 #let mma-schema = load-schema(chapters, "mma")
+#let mma-dequant-schema = load-schema(chapters, "mma-dequant")
+#let vmma-dequant-schema = load-schema(chapters, "vmma-dequant")
 #let red-schema = load-schema(chapters, "red")
 #let vreduce-argmax-schema = load-schema(chapters, "vreduce-argmax")
 #let areduce-argmax-schema = load-schema(chapters, "areduce-argmax")
