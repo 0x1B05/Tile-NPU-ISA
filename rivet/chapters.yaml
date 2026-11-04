@@ -436,7 +436,7 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"1001": "MMA_DEQUANT"}}
-      27: {name: ACC, description: "0 = zero, 1 = acc"}
+      27: {name: AC, description: "0 = zero, 1 = acc"}
       26-22: {name: vPair5, description: "scale pair base; vCol=v[base], vRow=v[base+1]"}
       21-17: {name: rsv5, description: must be 0}
       16-12: {name: B5, description: "src2 (Tile)"}
@@ -447,7 +447,7 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode, values: {"1010": "VMMA_DEQUANT"}}
-      27: {name: ACC, description: "0 = zero, 1 = acc"}
+      27: {name: AC, description: "0 = zero, 1 = acc"}
       26-22: {name: vPair5, description: "scale pair base; vCol=v[base], vRow=v[base+1]"}
       21-17: {name: row5, description: "Tile A row"}
       16-12: {name: B5, description: "src2 (Tile)"}

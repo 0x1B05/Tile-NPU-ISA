@@ -55,7 +55,7 @@ structures:
     bits: 32
     ranges:
       31-28: {name: major4, description: major opcode}
-      27: {name: ACC, description: "0 = zero, 1 = acc"}
+      27: {name: AC, description: "0 = zero, 1 = acc"}
       26-22: {name: field5, description: per major4}
       21-17: {name: field5, description: per major4}
       16-12: {name: B5, description: "usually B"}
