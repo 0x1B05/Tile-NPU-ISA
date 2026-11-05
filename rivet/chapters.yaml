@@ -93,31 +93,12 @@ colors:
     "11-7": "163,200,177"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
-  row-move:
+  row-lane-move:
     "31-28": "179,163,205"
     "27-26": "230,230,230"
     "25": "196,186,209"
     "24-22": "192,200,210"
     "21-17": "230,230,230"
-    "16-12": "240,214,148"
-    "11-7": "163,200,177"
-    "6-2": "167,199,200"
-    "1-0": "222,184,203"
-  lane-move:
-    "31-28": "179,163,205"
-    "27-26": "230,230,230"
-    "25": "196,186,209"
-    "24-22": "192,200,210"
-    "21-17": "230,230,230"
-    "16-12": "240,214,148"
-    "11-7": "163,200,177"
-    "6-2": "167,199,200"
-    "1-0": "222,184,203"
-  dequant:
-    "31-28": "179,163,205"
-    "27-25": "230,230,230"
-    "24-22": "192,200,210"
-    "21-17": "238,183,150"
     "16-12": "240,214,148"
     "11-7": "163,200,177"
     "6-2": "167,199,200"
@@ -166,12 +147,12 @@ colors:
     "11-7": "163,200,177"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
-  qnt-mat:
+  qnt:
     "31-28": "179,163,205"
     "27-25": "196,186,209"
     "24-22": "192,200,210"
-    "21-17": "240,214,148"
-    "16-12": "230,230,230"
+    "21-17": "238,183,150"
+    "16-12": "240,214,148"
     "11-7": "163,200,177"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
@@ -370,34 +351,13 @@ structures:
       11-7: {name: S5, description: "src reg / Scalar xS (fillx)"}
       6-2: {name: D5, description: dst reg}
       1-0: {name: q, description: "space tag (01)"}
-  row-move:
+  row-lane-move:
     bits: 32
     ranges:
-      31-28: {name: major4, description: major opcode, values: {"0011": "ROW_MOVE"}}
+      31-28: {name: major4, description: major opcode, values: {"0011": "ROW_LANE_MOVE"}}
       27-26: {name: "rsv2", description: must be 0}
       25: {name: IS}
-      24-22: {name: funct3, description: op, values: {"000": "insert.row", "001": "extract.row"}}
-      21-17: {name: reserved5, description: must be 0}
-      16-12:
-        name: index5
-        depends-on: 25
-        values:
-          0:
-            description: immediate index
-            structure: index-imm
-          1:
-            description: Scalar index register
-            structure: index-x
-      11-7: {name: S5, description: src reg}
-      6-2: {name: D5, description: dst reg}
-      1-0: {name: q, description: "space tag (01)"}
-  lane-move:
-    bits: 32
-    ranges:
-      31-28: {name: major4, description: major opcode, values: {"0100": "LANE_MOVE"}}
-      27-26: {name: rsv2, description: must be 0}
-      25: {name: IS}
-      24-22: {name: funct3, description: op, values: {"000": "extract", "001": "insert", "010": "broadcast"}}
+      24-22: {name: funct3, description: op, values: {"000": "ainsert.row", "001": "aextract.row", "010": "vextract", "011": "vinsert", "100": "vbroadcast", "101": "reserved", "110": "reserved", "111": "reserved"}}
       21-17: {name: reserved5, description: must be 0}
       16-12:
         name: index5
@@ -422,17 +382,6 @@ structures:
       16-12: {name: B5, description: "src2 (Tile)"}
       11-7: {name: A5, description: "src1 (Tile)"}
       6-2: {name: D5, description: "dst (Acc/Vec32)"}
-      1-0: {name: q, description: "space tag (10)"}
-  dequant:
-    bits: 32
-    ranges:
-      31-28: {name: major4, description: major opcode, values: {"1001": "QNT_DRAIN"}}
-      27-25: {name: sel3, description: domain selector, values: {"010": "Acc (adequant)", "110": "Vec32 (vdequant)"}}
-      24-22: {name: funct3, description: "reserved (000)", values: {"000": "dequant"}}
-      21-17: {name: vRow5, description: "row scale (Vec32 f32); lane 0 for vdequant"}
-      16-12: {name: vCol5, description: "column scale (Vec32 f32)"}
-      11-7: {name: S5, description: "i32 source (Acc/Vec32)"}
-      6-2: {name: D5, description: "f32 destination (Acc/Vec32)"}
       1-0: {name: q, description: "space tag (10)"}
   red:
     bits: 32
@@ -477,14 +426,14 @@ structures:
       11-7: {name: S5, description: src reg}
       6-2: {name: D5, description: dst reg}
       1-0: {name: q, description: "space tag (10)"}
-  qnt-mat:
+  qnt:
     bits: 32
     ranges:
-      31-28: {name: major4, description: major opcode, values: {"0100": "QNT_AT"}}
-      27-25: {name: sel3, description: "reserved", values: {"000": "reserved"}}
-      24-22: {name: funct3, description: "direction (QD in bit 22; [24:23] reserved)", values: {"000": "Acc -> Tile", "001": "Tile -> Acc"}}
-      21-17: {name: qf5, description: "quant format (others reserved)", values: {"00000": "q8s32"}}
-      16-12: {name: vScale5, description: "scale reg (second source)"}
+      31-28: {name: major4, description: major opcode, values: {"0100": "QNT"}}
+      27-25: {name: qf3, description: "quant format (others reserved)", values: {"000": "q8s32"}}
+      24-22: {name: funct3, description: "operation (DQ/FORM)", values: {"000": "aquant", "100": "tdequant", "101": "adequant", "110": "vdequant"}}
+      21-17: {name: vCol5, description: "column scale (Vec32 f32); 0 for aquant/tdequant"}
+      16-12: {name: vRow5, description: "row scale (Vec32 f32); lane 0 for vdequant"}
       11-7: {name: S5, description: main src}
       6-2: {name: D5, description: main dst}
       1-0: {name: q, description: "space tag (10)"}

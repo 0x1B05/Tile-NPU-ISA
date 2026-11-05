@@ -313,7 +313,6 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   | `FS`      | fill 来源选择: `0` 选择立即数 `fill5`, `1` 选择 Scalar 寄存器 `xFill`                 |
   | `IS`      | 索引来源选择: `0` 选择 `index5` 中的立即数, `1` 选择由 `index5` 指定的 Scalar 寄存器  |
   | `LS`      | load/store 选择: `0` 表示 load, `1` 表示 store                                        |
-  | `QD`      | 量化/反量化选择: `0` 表示 Acc → Tile, `1` 表示 Tile → Acc                             |
   | `DIR`     | 广播方向: `0` 表示按行, `1` 表示按列                                                  |
   | `CM`      | 配置类别选择 (compute/memory): `0` 选择计算配置, `1` 选择访存描述符                   |
   | `G`       | 操作组; 与 `op3` 共同组成 `funct4`, 选择逐元素操作                                    |
@@ -343,18 +342,16 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   | `01`    | `0000`    | `M_BLK`             | R2     |
   | `01`    | `0001`    | `FILL_IMM`          | I      |
   | `01`    | `0010`    | `REG_MOVE`          | R2     |
-  | `01`    | `0011`    | `ROW_MOVE`          | R4     |
-  | `01`    | `0100`    | `LANE_MOVE`         | R4     |
+  | `01`    | `0011`    | `ROW_LANE_MOVE`     | R4     |
   | `10`    | `0000`    | `MMA`               | R4     |
   | `10`    | `0001`    | `AREDUCE`           | R2     |
   | `10`    | `0010`    | `VREDUCE`           | R2/R4  |
   | `10`    | `0011`    | `CVT`               | R2     |
-  | `10`    | `0100`    | `QNT_AT`            | R4     |
+  | `10`    | `0100`    | `QNT`               | R4     |
   | `10`    | `0101`    | `CFG_COMPUTE_SETI`  | I      |
   | `10`    | `0110`    | `CFG_MEM_SETI`      | I      |
   | `10`    | `0111`    | `CFG_REG`           | R4     |
   | `10`    | `1000`    | `SYS`               | Z      |
-  | `10`    | `1001`    | `QNT_DRAIN`         | R4     |
 ]
 
 编码原则:
@@ -362,7 +359,7 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
 + `reserved` 字段必须为 0, 非零组合为保留编码;
 + 操作数字段中的寄存器编号均为 5-bit; 合法范围由数据域决定: Tile/Vec32 为 0..31, Acc 为 0..15; 超出该域范围的编码为保留编码;
 + 译码按 `q` → `major4` → `funct3` → `sel3` 分层: 选择子位的含义总在其指令族语境下解释; 操作数字段位置全局固定 (`D5` 在 `[6:2]`, 第一源在 `[11:7]`, 第二源或索引在 `[16:12]`), 寄存器读取可在译码完成前开始;
-+ `sel3` 内高位优先放域选择 (`dom2`), 变体位 (`BX`, `FS`, `IS`, `DIR`) 固定占 `sel3` 最低位 `[25]`; 选择操作数来源的变体位 (`BX`, `FS`, `IS`) 只改变 `[16:12]` 的解释; `CFG_REG` 的 `sel3[2:1]` 对齐配置类型, 低位 `CM` 选择计算/访存组; `ROW_MOVE`/`LANE_MOVE`/`E_BCAST` 将 `[26]` 保留为 0;
++ `sel3` 内高位优先放域选择 (`dom2`), 变体位 (`BX`, `FS`, `IS`, `DIR`) 固定占 `sel3` 最低位 `[25]`; 选择操作数来源的变体位 (`BX`, `FS`, `IS`) 只改变 `[16:12]` 的解释; `CFG_REG` 的 `sel3[2:1]` 对齐配置类型, 低位 `CM` 选择计算/访存组; `ROW_LANE_MOVE`/`E_BCAST` 将 `[26]` 保留为 0;
 
 = 标量与同步 <scalar-sync>
 
@@ -781,17 +778,26 @@ vload.gather v2, v1        # vm2 指向 table_scale
   caption: [fillx/copy 格式 (REG_MOVE, R2)],
 )
 
-行搬运与 lane 操作共用 R4 格式; `ROW_MOVE`/`LANE_MOVE` 的 `[27:26]` 保留为 0; `IS` 选择索引来源:
+行搬运与 lane 操作共用 `ROW_LANE_MOVE` 的 R4 格式; `[27:26]` 保留为 0; `IS` 选择索引来源:
 
 #rivet-encoding-figure(
-  row-move-schema,
-  caption: [行搬运格式 (ROW_MOVE)],
+  row-lane-move-schema,
+  caption: [行搬运与 lane 操作格式 (ROW_LANE_MOVE)],
 )
 
-#rivet-encoding-figure(
-  lane-move-schema,
-  caption: [lane 操作格式 (LANE_MOVE)],
-)
+#manual-table(
+  columns: (0.6fr, 2.3fr, 0.8fr, 0.8fr, 1fr),
+  caption: [ROW_LANE_MOVE 的操作],
+)[
+  | funct3  | 指令                       | D5      | S5      | index5     |
+  | 000     | `ainsert.row aD[rd], vS`   | Acc     | Vec32   | 目的行     |
+  | 001     | `aextract.row vD, aS[rs]`  | Vec32   | Acc     | 源行       |
+  | 010     | `vextract xD, vS[lane]`    | Scalar  | Vec32   | 源 lane    |
+  | 011     | `vinsert vD[lane], xS`     | Vec32   | Scalar  | 目的 lane  |
+  | 100     | `vbroadcast vD, vS[lane]`  | Vec32   | Vec32   | 源 lane    |
+]
+
+`funct3 = 101..111` 保留.
 
 == Fill 指令 <fill-instr>
 
@@ -2045,20 +2051,35 @@ vScore = vScore × scale
   | `vdequant`           | R4      | vD[j] = f32(vS[j]) × vCol[j] × vRow[0]      | 将 i32 Vec32 反量化为 f32 Vec32.              |
 ]
 
+== QNT 编码 <quantization-qnt>
+
+QNT 使用 R4 格式. `qf3[27:25]` 选择量化格式, 当前只定义 `000` (`q8s32`); `funct3[24:22]` 选择操作:
+
+#rivet-encoding-figure(qnt-schema, caption: [量化与反量化格式 (QNT)])
+
+#manual-table(
+  columns: (0.7fr, 2.2fr, 0.8fr, 0.8fr, 0.9fr, 0.9fr),
+  caption: [QNT 的操作编码],
+)[
+  | funct3  | 指令                 | D5     | S5     | vCol5     | vRow5     |
+  | 000     | `aquant.rows.q8s32`  | Tile   | Acc    | 0         | 行 scale  |
+  | 100     | `tdequant.rows.f32`  | Acc    | Tile   | 0         | 行 scale  |
+  | 101     | `adequant`           | Acc    | Acc    | 列 scale  | 行 scale  |
+  | 110     | `vdequant`           | Vec32  | Vec32  | 列 scale  | lane 0    |
+]
+
+`vCol5`/`vRow5` 是 Vec32 `f32` scale 源. `aquant`/`tdequant` 只使用行 scale, `vCol5` 必须为 0; `adequant`/`vdequant` 同时使用列/行 scale. `funct3` 的其他组合和 `qf3` 的其他值保留. `S5`/`D5` 的数据域由 `funct3` 决定, 见上表.
+
 == 矩阵量化与反量化 <quantization-quant>
 
-`aquant` / `tdequant` 使用 QNT_AT 的 R4 格式, 在 Acc 与 Tile 之间按行转换:
+`aquant` / `tdequant` 使用 QNT 的 `funct3 = 000/100`, 在 Acc 与 Tile 之间按行转换:
 
 ```asm
 aquant.rows.q8s32 tD, aS, vScale
 tdequant.rows.f32 aD, tS, vScale
 ```
 
-#rivet-encoding-figure(qnt-mat-schema, caption: [矩阵量化与反量化格式 (QNT_AT)])
-
-QNT_AT 的编码由 R4 格式给出: `major4 = QNT_AT`; `sel3` 固定为 0; `funct3` 的最低位 `QD` 选择方向, 其余位保留; `qf5` 选择量化格式, 当前只定义 `00000` (`q8s32`). 图中 `vScale5` 是每行 scale 源, `S5`/`D5` 分别是源/目的寄存器; 其余编码组合保留.
-
-`aquant` 的每个有效行 `i` 使用 `vScale[i]` 作为该行 scale, 将 `aS[i,:]` 量化为 `tD[i,:]`; `tdequant` 对 Tile 的每个有效行执行相反方向. `vScale` 是 Vec32 `f32` 源, `len` 等于源的有效行数. 这适用于 scale 已由前序计算 (例如 `areduce.rows.absmax`) 或外部校准给出的场景; 量化结果与 scale 的依赖需要分别跟踪.
+`aquant` 的每个有效行 `i` 使用 `vScale[i]` 作为该行 scale, 将 `aS[i,:]` 量化为 `tD[i,:]`; `tdequant` 对 Tile 的每个有效行执行相反方向. `vScale` 是 Vec32 `f32` 源, 在编码中对应 `vRow5`, `len` 等于源的有效行数. 这适用于 scale 已由前序计算 (例如 `areduce.rows.absmax`) 或外部校准给出的场景; 量化结果与 scale 的依赖需要分别跟踪.
 
 `q8s32` 使用 `i8` 量化值, 每行配一个 `f32` scale. 对一行有效元素 $x_j$ ($0 <= j < N$), 定义
 
@@ -2070,19 +2091,12 @@ $ "aD"[i,j] = op("f32")("tS"[i,j]) times "vScale"[i]. $
 
 == Acc/Vec32 的 drain 反量化 <quantization-dequant>
 
-`adequant` / `vdequant` 使用 QNT_DRAIN 的 R4 格式, 将 `i32` 部分和反量化为独立的 `f32` 目的寄存器:
+`adequant` / `vdequant` 使用 QNT 的 `funct3 = 101/110`, 将 `i32` 部分和反量化为独立的 `f32` 目的寄存器:
 
 ```asm
 adequant aD, aS, vCol, vRow
 vdequant vD, vS, vCol, vRow
 ```
-
-#rivet-encoding-figure(
-  dequant-schema,
-  caption: [Acc/Vec32 反量化格式 (QNT_DRAIN)],
-)
-
-QNT_DRAIN 的编码由 R4 格式给出: `major4 = 1001`; `sel3` 选择数据域 (`010` 为 Acc, `110` 为 Vec32), `sel3[0]` 保留为 0; `funct3 = 000`; 图中 `vRow5`/`vCol5` 分别是行/列 scale 源, `S5`/`D5` 分别是源/目的寄存器. 其余选择子组合保留.
 
 `adequant` 处理 Acc, `vdequant` 处理 Vec32. 源 `aS`/`vS` 为 `i32`, 目的 `aD`/`vD` 为 `f32`; 源与目的的有效 shape 相同, 且必须是不同寄存器. `vCol`/`vRow` 是 Vec32 `f32` scale 源: `adequant` 的 `vCol.len = cols(aD)`, `vRow.len = rows(aD)`; `vdequant` 的 `vCol.len = len(vD)`, `vRow.len = 1`, 只使用 `vRow[0]`. 所有源在写目的前读取.
 
