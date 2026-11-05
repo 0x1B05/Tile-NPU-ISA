@@ -122,11 +122,11 @@ Tile, Vec32 和 Scalar 各有 32 个寄存器, Acc 有 16 个; Tile/Acc 的物�
   columns: (1fr, 0.6fr, 1fr, 0.4fr, 2fr),
   caption: [计算配置寄存器],
 )[
-  | 寄存器类型          | 汇编名称     | 绑定或适用对象    | 位宽   | 配置字段                                         |
-  | :-----------------: | :----------: | :---------------: | ------ | ------------------------------------------------ |
-  | TC: Tile 计算配置   | `tc0..tc31`  | `tc[i]` ↔ `t[i]`  | 32bit  | `dtype`, `rows`, `cols`, `layout`, `arith_mode`  |
-  | AC: Acc 计算配置    | `ac0..ac15`  | `ac[i]` ↔ `a[i]`  | 32bit  | `dtype`, `rows`, `cols`, `layout`                |
-  | VC: Vec32 计算配置  | `vc0..vc31`  | `vc[i]` ↔ `v[i]`  | 32bit  | `dtype`, `len`                                   |
+  | 寄存器类型          | 汇编名称     | 绑定或适用对象    | 位宽   | 配置字段                           |
+  | :-----------------: | :----------: | :---------------: | ------ | ---------------------------------- |
+  | TC: Tile 计算配置   | `tc0..tc31`  | `tc[i]` ↔ `t[i]`  | 32bit  | `dtype`, `rows`, `cols`, `layout`  |
+  | AC: Acc 计算配置    | `ac0..ac15`  | `ac[i]` ↔ `a[i]`  | 32bit  | `dtype`, `rows`, `cols`, `layout`  |
+  | VC: Vec32 计算配置  | `vc0..vc31`  | `vc[i]` ↔ `v[i]`  | 32bit  | `dtype`, `len`                     |
 ]
 
 计算配置与数据寄存器一一绑定, 定义元素的逻辑类型、有效区域、内部布局和相关运算行为:
@@ -134,7 +134,6 @@ Tile, Vec32 和 Scalar 各有 32 个寄存器, Acc 有 16 个; Tile/Acc 的物�
 - `rows`、`cols`：矩阵寄存器的有效逻辑行数和列数, 适用于 `TC` 和 `AC`.
 - `len`：向量寄存器的有效 lane 数, 适用于 `VC`. 它决定向量指令实际处理的有效元素范围.
 - `layout`：矩阵寄存器内部的逻辑布局, 适用于 `TC` 和 `AC`. 具体布局编码及其适用指令由对应章节规定.
-- `arith_mode`：Tile 8-bit 整数 `add` 和 `sub` 的溢出模式, 适用于 `TC`; `wrap` 表示回绕, `sat` 表示饱和.
 
 #figure(
   manual-table(
@@ -235,7 +234,7 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   | 地址与访存      | 内存 ↔ `t/a/v`                                          | 按绑定的 TM/AM/VM 描述符执行整块与向量访问      | `{t,a}{load,store}` #linebreak() `v{load,store}` #linebreak() `{t,v}load.gather`                            |
   | 初始化与搬运    | 域内 #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane  | 填充, 复制, 行搬运, lane 搬运和广播             | `{t,a,v}{fill,fillx,copy}` #linebreak() `a{insert,extract}.row` #linebreak() `v{insert,extract,broadcast}`  |
   | 矩阵乘与点积    | `t` × `t` → `a` #linebreak() `t` 行 × `t` → `v`         | `i8` 乘法, `i32` 累加或点积                     | `mma` #linebreak() `vmma`                                                                                   |
-  | 逐元素与广播    | `t/a/v` 同域 #linebreak() Acc ↔ Vec32 广播              | 算术, 位运算, 移位, 特殊函数, 比较和选择        | `{t,a,v}op` #linebreak() `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                            |
+  | 逐元素与广播    | `a/v` 同域 #linebreak() Acc ↔ Vec32 广播                | 算术, 位运算, 移位, 特殊函数, 比较和选择        | `{a,v}op` #linebreak() `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                              |
   | 规约            | `a` → `v` #linebreak() `v` → `v`                        | 行规约, 向量规约, 平方和和 argmax               | `areduce` #linebreak() `vreduce`                                                                            |
   | 类型转换与扩大  | `a/v` 内部 #linebreak() `t` → `a`                       | 数值类型转换和 `i8` → `i32` 扩大                | `acvt`, `vcvt` #linebreak() `twiden`                                                                        |
   | 量化与反量化    | `a/v` 内部 #linebreak() `a` ↔ `t`                       | 低精度存储与 `f32` 计算之间的显式转换           | `aquant`, `tdequant` #linebreak() `adequant`, `vdequant`                                                    |
@@ -418,16 +417,16 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   columns: (1fr, 1.2fr, 1.2fr, 1.2fr, 1.8fr, 1.6fr),
   caption: [配置字段编号 (field3)],
 )[
-  | `field3`  | TC          | AC      | VC     | TM/AM             | VM            |
-  | --------- | ----------- | ------- | ------ | ----------------- | ------------- |
-  | `000`     | dtype       | dtype   | dtype  | base_addr         | base_addr     |
-  | `001`     | rows        | rows    | len    | row_stride_bytes  | stride_bytes  |
-  | `010`     | cols        | cols    | -      | col_stride_bytes  | flags         |
-  | `011`     | layout      | layout  | -      | transform         | -             |
-  | `100`     | arith_mode  | -       | -      | flags             | -             |
-  | `101`     | -           | -       | -      | -                 | -             |
-  | `110`     | -           | -       | -      | -                 | -             |
-  | `111`     | -           | -       | -      | -                 | -             |
+  | `field3`  | TC      | AC      | VC     | TM/AM             | VM            |
+  | --------- | ------- | ------- | ------ | ----------------- | ------------- |
+  | `000`     | dtype   | dtype   | dtype  | base_addr         | base_addr     |
+  | `001`     | rows    | rows    | len    | row_stride_bytes  | stride_bytes  |
+  | `010`     | cols    | cols    | -      | col_stride_bytes  | flags         |
+  | `011`     | layout  | layout  | -      | transform         | -             |
+  | `100`     | -       | -       | -      | flags             | -             |
+  | `101`     | -       | -       | -      | -                 | -             |
+  | `110`     | -       | -       | -      | -                 | -             |
+  | `111`     | -       | -       | -      | -                 | -             |
 ]
 
 写配置的 `cfg.setx`, `cfg.copy`, `cfg.setw` 使用 `D5` 指定起始目的配置寄存器, `N5[16:12]` 指定最后一个目的配置寄存器相对于起始寄存器的偏移. 汇编操作数 `N` 直接编码到 `N5` ($0 <= N <= 31$), 写入范围为 `C[D5]` 至 `C[D5 + N]`, 包含两端: 相对编号 0 是起始寄存器, 1 是其下一个寄存器. 下文伪代码用 `D` 表示 `D5`, 用 `C[D..D + N]` 表示按上述范围选中的全部目的配置寄存器.
@@ -536,7 +535,7 @@ cfg.setw C, xS[, N]
     C[D..D + N] ← w
 ```
 
-`w` 中任一字段必须满足对应配置字段的取值规则 (例如 `rows`/`cols`/`len` 的取值范围、`dtype` 所属类型、`layout` 和 `arith_mode` 的枚举编码).
+`w` 中任一字段必须满足对应配置字段的取值规则 (例如 `rows`/`cols`/`len` 的取值范围、`dtype` 所属类型和 `layout` 的枚举编码).
 
 示例:
 
@@ -1063,7 +1062,7 @@ vmma.nt.acc vAcc, tAct[3], tWeight
 
 = 逐元素, 广播和 mask <elementwise>
 
-本节定义 Tile, Acc 和 Vec32 的逐元素运算, 按行/列广播, 比较, select 和 mask 操作.
+本节定义 Acc 和 Vec32 的逐元素运算, 按行/列广播, 比较, select 和 mask 操作. Tile 数据域不定义逐元素指令.
 
 本节中的基础运算只处理寄存器中的有效区域. 有效区域由目的寄存器对应的 `TC`, `AC` 或 `VC` 配置确定.
 
@@ -1081,9 +1080,6 @@ fill, copy 以及行搬运和 lane 操作遵循同样的 dtype 一致与索引�
 以 `op` 表示某个合法的逐元素操作, 基础形式包括:
 
 ```asm
-top       tD, tA, tB
-topx      tD, tA, xS
-
 aop       aD, aA, aB
 aopx      aD, aA, xS
 
@@ -1094,8 +1090,6 @@ vopx      vD, vA, xS
 例如:
 
 ```asm
-tadd t0, t1, t2
-
 aadd   a0, a1, a2
 vadd   v0, v1, v2
 
@@ -1104,7 +1098,7 @@ vaddx  v0, v1, x4
 
 `x` 表示右操作数来自 Scalar 寄存器.
 
-整块二元操作的语义为:
+矩阵二元操作的语义为:
 
 ```text
 for 0 <= i < rows(D):
@@ -1126,7 +1120,7 @@ value ← decode_scalar(xS)
 D[p] ← op(A[p], value)
 ```
 
-普通二元操作使用 R3 格式; `BX` 选择第二源为同域寄存器或 Scalar:
+普通二元操作使用 R3 格式; `BX` 选择第二源为同域寄存器或 Scalar. `E_BIN` 的 `dom2` 只接受 Acc (`01`) 和 Vec32 (`11`), `00`/`10` 保留:
 
 #rivet-encoding-figure(e-bin-schema, caption: [普通二元操作格式 (E_BIN)])
 
@@ -1160,42 +1154,16 @@ D[p] ← op(A[p], value)
   columns: (1.2fr, 4.5fr),
   caption: [逐元素操作与数据类型],
 )[
-  | dtype           | 基础操作                                                                              |
-  | --------------- | ------------------------------------------------------------------------------------- |
-  | `i8/u8`         | `add`, `sub`, `min`, `max`, `and`, `or`, `xor`, `not`, `shl`, `shr`, `sra`, `select`  |
-  | `i32/u32`       | `add`, `sub`, `mul`, `min`, `max`, bitwise, shift, `cmp`, `select`                    |
-  | `i32`           | 另外支持 `abs`, `neg`                                                                 |
-  | `f32`           | `add`, `sub`, `mul`, `min`, `max`, `abs`, `neg`, `fma`, `cmp`, `select`               |
-  | `f32` 近似函数  | `exp2.approx`, `rcp.approx`, `rsqrt.approx`                                           |
+  | dtype           | 基础操作                                                                 |
+  | --------------- | ------------------------------------------------------------------------ |
+  | `i32/u32`       | `add`, `sub`, `mul`, `min`, `max`, bitwise, shift, `cmp`, `select`       |
+  | `i32`           | 另外支持 `abs`, `neg`                                                    |
+  | `f32`           | `add`, `sub`, `mul`, `min`, `max`, `abs`, `neg`, `fma`, `cmp`, `select`  |
+  | `f32` 近似函数  | `exp2.approx`, `rcp.approx`, `rsqrt.approx`                              |
 ]
 
-以下分 8-bit 域 (Tile) 与 32-bit 域 (Acc/Vec32) 两表列出基础操作. 8-bit 域的元素类型为 `i8/u8`, 32-bit 域为 `i32/u32/f32`, 由目的寄存器配置决定; 标注 "仅 f32" 或 "仅整数" 的行为例外. 二元操作展开为寄存器和 Scalar (`x`) 两种来源; 8-bit 域加法和减法的溢出模式由配置 `arith_mode` 决定 (见 @integer-arithmetic). 一元操作仅列单源形式, 融合乘加, 特殊函数, 比较和 select 在各自小节列出.
+基础二元操作只在 32-bit 域 (Acc/Vec32) 定义, 元素类型为 `i32/u32/f32`, 由目的寄存器配置决定; 标注 "仅 f32" 或 "仅整数" 的行为例外. 二元操作展开为寄存器和 Scalar (`x`) 两种来源; 32-bit 整数 `add`, `sub`, `mul` 使用 wrap32 回绕. 一元操作仅列单源形式, 融合乘加, 特殊函数, 比较和 select 在各自小节列出.
 
-#instruction-table(caption: [Tile 基础逐元素指令])[
-  | Instruction  | Format  | Operation                     | Summary                   |
-  | :----------: | :-----: | ----------------------------- | ------------------------- |
-  | `tadd`       | R3      | D[i,j] = A[i,j] + B[i,j]      | 同域逐元素加法.           |
-  | `taddx`      | R3      | D[i,j] = A[i,j] + xS          | Scalar 值逐元素加法.      |
-  | `tsub`       | R3      | D[i,j] = A[i,j] - B[i,j]      | 同域逐元素减法.           |
-  | `tsubx`      | R3      | D[i,j] = A[i,j] - xS          | Scalar 值逐元素减法.      |
-  | `tmin`       | R3      | D[i,j] = min(A[i,j], B[i,j])  | 同域逐元素取小.           |
-  | `tminx`      | R3      | D[i,j] = min(A[i,j], xS)      | Scalar 值逐元素取小.      |
-  | `tmax`       | R3      | D[i,j] = max(A[i,j], B[i,j])  | 同域逐元素取大.           |
-  | `tmaxx`      | R3      | D[i,j] = max(A[i,j], xS)      | Scalar 值逐元素取大.      |
-  | `tand`       | R3      | D[i,j] = A[i,j] and B[i,j]    | 同域逐元素按位与.         |
-  | `tandx`      | R3      | D[i,j] = A[i,j] and xS        | Scalar 值逐元素按位与.    |
-  | `tor`        | R3      | D[i,j] = A[i,j] or B[i,j]     | 同域逐元素按位或.         |
-  | `torx`       | R3      | D[i,j] = A[i,j] or xS         | Scalar 值逐元素按位或.    |
-  | `txor`       | R3      | D[i,j] = A[i,j] xor B[i,j]    | 同域逐元素按位异或.       |
-  | `txorx`      | R3      | D[i,j] = A[i,j] xor xS        | Scalar 值逐元素按位异或.  |
-  | `tshl`       | R3      | D[i,j] = shl(A[i,j], B[i,j])  | 同域逐元素左移.           |
-  | `tshlx`      | R3      | D[i,j] = shl(A[i,j], xS)      | Scalar 值逐元素左移.      |
-  | `tshr`       | R3      | D[i,j] = shr(A[i,j], B[i,j])  | 同域逐元素逻辑右移.       |
-  | `tshrx`      | R3      | D[i,j] = shr(A[i,j], xS)      | Scalar 值逐元素逻辑右移.  |
-  | `tsra`       | R3      | D[i,j] = sra(A[i,j], B[i,j])  | 同域逐元素算术右移.       |
-  | `tsrax`      | R3      | D[i,j] = sra(A[i,j], xS)      | Scalar 值逐元素算术右移.  |
-  | `tnot`       | R2      | D[i,j] = not A[i,j]           | 逐元素按位取反.           |
-]
 
 #instruction-table(caption: [Acc/Vec32 基础逐元素指令])[
   | Instruction  | Format  | Operation               | Summary                           |
@@ -1226,36 +1194,6 @@ D[p] ← op(A[p], value)
   | `{a,v}abs`   | R2      | D[p] = abs(A[p])        | 逐元素绝对值; 仅 `i32/f32`.       |
   | `{a,v}neg`   | R2      | D[p] = -A[p]            | 逐元素取负; 仅 `i32/f32`.         |
 ]
-
-== 整数算术规则 <integer-arithmetic>
-
-8-bit 域 (`i8/u8`) 的 `add` 和 `sub` 的溢出行为由绑定配置寄存器的 `arith_mode` 字段决定: 0 = wrap (回绕), 1 = sat (饱和), 2-3 预留. 32-bit 整数 `add`, `sub`, `mul` 默认使用 wrap32 回绕.
-
-```asm
-tadd  t0, t1, t2    # 溢出行为由 tc0.arith_mode 决定
-```
-
-=== Wrap 形式
-
-对于宽度为 `w` 的整数类型:
-
-$ op("wrap")_w(x) = x mod 2^w $
-
-结果保留低 `w` bit, 并按目标 dtype 解释. 例如:
-
-1. i8 wrap: 结果按 8 bit 保留;
-2. u8 wrap: 结果按无符号 8 bit 保留.
-
-=== Saturate 形式
-
-对于 `i8`:
-
-$ op("sat")_("i8")(x) = min(max(x, -128), 127) $
-
-对于 `u8`:
-
-$ op("sat")_("u8")(x) = min(max(x, 0), 255) $
-
 
 == 浮点逐元素规则 <elementwise-fma>
 
@@ -2223,31 +2161,6 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 
 详细语义见 @elementwise.
 
-#instruction-index(caption: [Tile 基础逐元素指令清单])[
-  | Instruction  | Format  | Section           |
-  | :----------: | :-----: | :---------------- |
-  | `tadd`       | R3      | @elementwise-ops  |
-  | `taddx`      | R3      | @elementwise-ops  |
-  | `tsub`       | R3      | @elementwise-ops  |
-  | `tsubx`      | R3      | @elementwise-ops  |
-  | `tmin`       | R3      | @elementwise-ops  |
-  | `tminx`      | R3      | @elementwise-ops  |
-  | `tmax`       | R3      | @elementwise-ops  |
-  | `tmaxx`      | R3      | @elementwise-ops  |
-  | `tand`       | R3      | @elementwise-ops  |
-  | `tandx`      | R3      | @elementwise-ops  |
-  | `tor`        | R3      | @elementwise-ops  |
-  | `torx`       | R3      | @elementwise-ops  |
-  | `txor`       | R3      | @elementwise-ops  |
-  | `txorx`      | R3      | @elementwise-ops  |
-  | `tshl`       | R3      | @elementwise-ops  |
-  | `tshlx`      | R3      | @elementwise-ops  |
-  | `tshr`       | R3      | @elementwise-ops  |
-  | `tshrx`      | R3      | @elementwise-ops  |
-  | `tsra`       | R3      | @elementwise-ops  |
-  | `tsrax`      | R3      | @elementwise-ops  |
-  | `tnot`       | R2      | @elementwise-ops  |
-]
 
 #instruction-index(caption: [Acc 基础逐元素指令清单])[
   | Instruction  | Format  | Section           |
