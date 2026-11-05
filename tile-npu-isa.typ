@@ -581,7 +581,7 @@ cfg.getw xD, C
   | `vstore`        | R2      | memory[addr(j)] = S[j]       | 将 Vec32 向量按绑定的 VM 写入内存.              |
 ]
 
-`M_BLK` 的 `funct3 = {form2, LS}` 区分整块访问与 gather, 其最低位 `LS` 选择 load (`0`) 或 store (`1`).
+`M_BLK` 的 `funct3 = {FORM, LS}`: `FORM[24:23]` 区分整块访问与 gather, 最低位 `LS` 选择 load (`0`) 或 store (`1`).
 
 普通整块与向量访存使用 R2 格式, `sel3 = {dom2, 0}` 选择数据域. load/store 的 `funct3` 分别为 `000`/`001`:
 
@@ -2053,26 +2053,26 @@ vScore = vScore × scale
 
 == QNT 编码 <quantization-qnt>
 
-QNT 使用 R4 格式. `qf3[27:25]` 选择量化格式, 当前只定义 `000` (`q8s32`); `funct3[24:22]` 选择操作:
+QNT 使用 R4 格式. `qf3[27:25]` 选择量化格式, 当前只定义 `000` (`q8s32`); `funct3[24:22] = {FORM, QD}` 选择操作, 其中 `FORM[24:23]` 选择路径, `QD[22]` 选择方向 (`0` 量化, `1` 反量化):
 
 #rivet-encoding-figure(qnt-schema, caption: [量化与反量化格式 (QNT)])
 
 #manual-table(
-  columns: (0.7fr, 2.2fr, 0.8fr, 0.8fr, 0.9fr, 0.9fr),
+  columns: (0.45fr, 0.35fr, 1.75fr, 0.7fr, 0.7fr, 0.85fr, 0.85fr),
   caption: [QNT 的操作编码],
 )[
-  | funct3  | 指令                 | D5     | S5     | vCol5     | vRow5     |
-  | 000     | `aquant.rows.q8s32`  | Tile   | Acc    | 0         | 行 scale  |
-  | 100     | `tdequant.rows.f32`  | Acc    | Tile   | 0         | 行 scale  |
-  | 101     | `adequant`           | Acc    | Acc    | 列 scale  | 行 scale  |
-  | 110     | `vdequant`           | Vec32  | Vec32  | 列 scale  | lane 0    |
+  | FORM  | QD  | 指令                 | vCol5     | vRow5     | S5     | D5     |
+  | 00    | 0   | `aquant.rows.q8s32`  | 0         | 行 scale  | Acc    | Tile   |
+  | 00    | 1   | `tdequant.rows.f32`  | 0         | 行 scale  | Tile   | Acc    |
+  | 01    | 1   | `adequant`           | 列 scale  | 行 scale  | Acc    | Acc    |
+  | 10    | 1   | `vdequant`           | 列 scale  | lane 0    | Vec32  | Vec32  |
 ]
 
-`vCol5`/`vRow5` 是 Vec32 `f32` scale 源. `aquant`/`tdequant` 只使用行 scale, `vCol5` 必须为 0; `adequant`/`vdequant` 同时使用列/行 scale. `funct3` 的其他组合和 `qf3` 的其他值保留. `S5`/`D5` 的数据域由 `funct3` 决定, 见上表.
+`FORM = 00` 为 Acc↔Tile 路径, `01` 为 Acc drain, `10` 为 Vec32 drain, `11` 保留. `vCol5`/`vRow5` 是 Vec32 `f32` scale 源. `aquant`/`tdequant` 只使用行 scale; `adequant`/`vdequant` 同时使用列/行 scale. `funct3` 的其他组合和 `qf3` 的其他值保留. `S5`/`D5` 的数据域由 `funct3` 决定, 见上表.
 
 == 矩阵量化与反量化 <quantization-quant>
 
-`aquant` / `tdequant` 使用 QNT 的 `funct3 = 000/100`, 在 Acc 与 Tile 之间按行转换:
+`aquant` / `tdequant` 使用 QNT 的 `funct3 = 000/001`, 在 Acc 与 Tile 之间按行转换:
 
 ```asm
 aquant.rows.q8s32 tD, aS, vScale
@@ -2091,7 +2091,7 @@ $ "aD"[i,j] = op("f32")("tS"[i,j]) times "vScale"[i]. $
 
 == Acc/Vec32 的 drain 反量化 <quantization-dequant>
 
-`adequant` / `vdequant` 使用 QNT 的 `funct3 = 101/110`, 将 `i32` 部分和反量化为独立的 `f32` 目的寄存器:
+`adequant` / `vdequant` 使用 QNT 的 `funct3 = 011/101`, 将 `i32` 部分和反量化为独立的 `f32` 目的寄存器:
 
 ```asm
 adequant aD, aS, vCol, vRow
