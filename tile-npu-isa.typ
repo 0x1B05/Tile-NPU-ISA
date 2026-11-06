@@ -1502,16 +1502,16 @@ mask 使用 R4 格式; `[16:12]` 为 fill, `FS` 选择其来源 (立即数 `fill
   columns: (1fr, 0.5fr, 2fr, 2fr),
   caption: [Mask 指令],
 )[
-  | Instruction        | Format  | Operation                                          | Summary                                                   |
-  | :----------------: | :-----: | -------------------------------------------------- | --------------------------------------------------------- |
-  | `{t,a}mask.tail`   | R4      | D[i,j] = (i < nRows && j < nCols) ? S[i,j] : fill  | 保留行列坐标小于 `xBounds` 中 `nRows`, `nCols` 的源元素.  |
-  | `amask.tril`       | R4      | D[i,j] = (j - i <= xDelta) ? S[i,j] : fill         | 保留满足 $j-i <= "xDelta"$ 的源元素.                      |
-  | `amask.triu`       | R4      | D[i,j] = (j - i >= xDelta) ? S[i,j] : fill         | 保留满足 $j-i >= "xDelta"$ 的源元素.                      |
-  | `vmask.tail`       | R4      | D[j] = (j < xLen) ? S[j] : fill                    | 保留 lane 索引小于 xLen 的源元素.                         |
-  | `{t,a}maskx.tail`  | R4      | 同 `mask.tail`, fill 由 Scalar 提供                | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
-  | `amaskx.tril`      | R4      | 同 `amask.tril`, fill 由 Scalar 提供               | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
-  | `amaskx.triu`      | R4      | 同 `amask.triu`, fill 由 Scalar 提供               | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
-  | `vmaskx.tail`      | R4      | 同 `mask.tail`, fill 由 Scalar 提供                | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
+  | Instruction    | Format  | Operation                                          | Summary                                                   |
+  | :------------: | :-----: | -------------------------------------------------- | --------------------------------------------------------- |
+  | `amask.tail`   | R4      | D[i,j] = (i < nRows && j < nCols) ? S[i,j] : fill  | 保留行列坐标小于 `xBounds` 中 `nRows`, `nCols` 的源元素.  |
+  | `amask.tril`   | R4      | D[i,j] = (j - i <= xDelta) ? S[i,j] : fill         | 保留满足 $j-i <= "xDelta"$ 的源元素.                      |
+  | `amask.triu`   | R4      | D[i,j] = (j - i >= xDelta) ? S[i,j] : fill         | 保留满足 $j-i >= "xDelta"$ 的源元素.                      |
+  | `vmask.tail`   | R4      | D[j] = (j < xLen) ? S[j] : fill                    | 保留 lane 索引小于 xLen 的源元素.                         |
+  | `amaskx.tail`  | R4      | 同 `mask.tail`, fill 由 Scalar 提供                | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
+  | `amaskx.tril`  | R4      | 同 `amask.tril`, fill 由 Scalar 提供               | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
+  | `amaskx.triu`  | R4      | 同 `amask.triu`, fill 由 Scalar 提供               | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
+  | `vmaskx.tail`  | R4      | 同 `mask.tail`, fill 由 Scalar 提供                | fill 由 Scalar `xFill` 提供, 可为任意值.                  |
 ]
 
 mask 指令将源数据的某些位置替换为指定 fill 值. `mask` 的 fill 为 5-bit 立即数编码 `fill5`, 按下表解码后转换为目的 dtype; `maskx` 的 fill 由 Scalar 寄存器提供, 可为任意值.
@@ -1539,8 +1539,8 @@ mask 指令将源数据的某些位置替换为指定 fill 值. `mask` 的 fill 
 矩阵 mask:
 
 ```asm
-{t,a}mask.tail  D, S, xBounds, fill
-{t,a}maskx.tail D, S, xBounds, xFill
+amask.tail  D, S, xBounds, fill
+amaskx.tail D, S, xBounds, xFill
 
 amask.tril  D, S, xDelta, fill
 amaskx.tril D, S, xDelta, xFill
@@ -1572,12 +1572,12 @@ D[p] ← keep(p) ? S[p] : fill
   inset: 3.5pt,
   caption: [Mask 保留条件],
 )[
-  | 指令              | `keep`                    |
-  | ----------------- | ------------------------- |
-  | `{t,a}mask.tail`  | `i < nRows && j < nCols`  |
-  | `amask.tril`      | `j - i <= xDelta`         |
-  | `amask.triu`      | `j - i >= xDelta`         |
-  | `vmask.tail`      | `j < xLen`                |
+  | 指令          | `keep`                    |
+  | ------------- | ------------------------- |
+  | `amask.tail`  | `i < nRows && j < nCols`  |
+  | `amask.tril`  | `j - i <= xDelta`         |
+  | `amask.triu`  | `j - i >= xDelta`         |
+  | `vmask.tail`  | `j < xLen`                |
 ]
 
 `mask` 的 fill 来自 `fill5`, `maskx` 的 fill 来自 Scalar `xFill`; 两者的 `keep` 条件相同. 矩阵 tail 的 `nRows`, `nCols` 取自打包寄存器 `xBounds` 的低, 高 32 bit; 向量 tail 的 `xLen` 和 Acc 三角 mask 的 `xDelta` 为 Scalar 值.
@@ -2299,12 +2299,10 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
 #instruction-index(caption: [Mask 指令清单])[
   | Instruction    | Format  | Section            |
   | :------------: | :-----: | :----------------- |
-  | `tmask.tail`   | R4      | @elementwise-mask  |
   | `amask.tail`   | R4      | @elementwise-mask  |
   | `amask.tril`   | R4      | @elementwise-mask  |
   | `amask.triu`   | R4      | @elementwise-mask  |
   | `vmask.tail`   | R4      | @elementwise-mask  |
-  | `tmaskx.tail`  | R4      | @elementwise-mask  |
   | `amaskx.tail`  | R4      | @elementwise-mask  |
   | `amaskx.tril`  | R4      | @elementwise-mask  |
   | `amaskx.triu`  | R4      | @elementwise-mask  |
