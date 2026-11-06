@@ -138,15 +138,6 @@ colors:
     "11-7": "163,200,177"
     "6-2": "167,199,200"
     "1-0": "222,184,203"
-  cvt:
-    "31-28": "179,163,205"
-    "27-26": "196,186,209"
-    "25": "230,230,230"
-    "24-22": "192,200,210"
-    "21-12": "230,230,230"
-    "11-7": "163,200,177"
-    "6-2": "167,199,200"
-    "1-0": "222,184,203"
   qnt:
     "31-28": "179,163,205"
     "27-25": "196,186,209"
@@ -414,17 +405,6 @@ structures:
       16-12: {name: vVal5, description: "dst vVal (Vec32 f32)"}
       11-7: {name: S5, description: "src aS (Acc)"}
       6-2: {name: D5, description: "dst vIdx (Vec32 u32)"}
-      1-0: {name: q, description: "space tag (10)"}
-  cvt:
-    bits: 32
-    ranges:
-      31-28: {name: major4, description: major opcode, values: {"0011": "CVT"}}
-      27-26: {name: dom2, description: dst domain, values: {"01": "Acc", "11": "Vec32", "00": "reserved", "10": "reserved"}}
-      25: {name: "0", description: must be 0}
-      24-22: {name: funct3, description: op, values: {"000": "i32 -> f32 (acvt/vcvt)", "001": "i8 -> i32 widen (twiden)"}}
-      21-12: {name: reserved10, description: must be 0}
-      11-7: {name: S5, description: src reg}
-      6-2: {name: D5, description: dst reg}
       1-0: {name: q, description: "space tag (10)"}
   qnt:
     bits: 32

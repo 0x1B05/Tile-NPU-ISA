@@ -44,7 +44,6 @@
 #let red-schema = load-schema(chapters, "red")
 #let vreduce-argmax-schema = load-schema(chapters, "vreduce-argmax")
 #let areduce-argmax-schema = load-schema(chapters, "areduce-argmax")
-#let cvt-schema = load-schema(chapters, "cvt")
 #let qnt-schema = load-schema(chapters, "qnt")
 #let sys-schema = load-schema(chapters, "sys")
 #let e-bin-schema = load-schema(chapters, "e-bin", deps: ("reg-b", "reg-x"))

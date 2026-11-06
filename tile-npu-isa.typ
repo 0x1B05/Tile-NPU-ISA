@@ -227,18 +227,17 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   columns: (1.4fr, 1.5fr, 2fr, 3fr),
   caption: [功能族总览],
 )[
-  | 功能族          | 主要数据流                                              | 架构职责                                        | 助记符入口                                                                                                  |
-  | --------------- | ------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-  | 标量与控制      | Scalar ↔ Scalar #linebreak() Scalar ↔ 内存              | 地址, 索引, 标量计算, 控制流                    | RV64IM (见 RISC-V 规范)                                                                                     |
-  | 配置            | Scalar → TC, AC, VC, TM, AM, VM                         | 建立数据域的类型, shape, 布局和访存描述         | `cfg.seti`, `cfg.setx`, `cfg.copy`, `cfg.get` #linebreak() `cfg.setw`, `cfg.getw`                           |
-  | 地址与访存      | 内存 ↔ `t/a/v`                                          | 按绑定的 TM/AM/VM 描述符执行整块与向量访问      | `{t,a}{load,store}` #linebreak() `v{load,store}` #linebreak() `{t,v}load.gather`                            |
-  | 初始化与搬运    | 域内 #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane  | 填充, 复制, 行搬运, lane 搬运和广播             | `{t,a,v}{fill,fillx,copy}` #linebreak() `a{insert,extract}.row` #linebreak() `v{insert,extract,broadcast}`  |
-  | 矩阵乘与点积    | `t` × `t` → `a` #linebreak() `t` 行 × `t` → `v`         | `i8` 乘法, `i32` 累加或点积                     | `mma` #linebreak() `vmma`                                                                                   |
-  | 逐元素与广播    | `a/v` 同域 #linebreak() Acc ↔ Vec32 广播                | 算术, 位运算, 移位, 特殊函数, 比较和选择        | `{a,v}op` #linebreak() `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                              |
-  | 规约            | `a` → `v` #linebreak() `v` → `v`                        | 行规约, 向量规约, 平方和和 argmax               | `areduce` #linebreak() `vreduce`                                                                            |
-  | 类型转换与扩大  | `a/v` 内部 #linebreak() `t` → `a`                       | 数值类型转换和 `i8` → `i32` 扩大                | `acvt`, `vcvt` #linebreak() `twiden`                                                                        |
-  | 量化与反量化    | `a/v` 内部 #linebreak() `a` ↔ `t`                       | 低精度存储与 `f32` 计算之间的显式转换           | `aquant`, `tdequant` #linebreak() `adequant`, `vdequant`                                                    |
-  | 同步与结束      | 后端 → 完成边界 #linebreak() kernel → 完成              | 访存, 脉动阵列, 全后端完成以及 kernel 生命周期  | `fence.mem`, `fence.sa`, `fence.all` #linebreak() `kernel.end`                                              |
+  | 功能族        | 主要数据流                                              | 架构职责                                        | 助记符入口                                                                                                  |
+  | ------------- | ------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+  | 标量与控制    | Scalar ↔ Scalar #linebreak() Scalar ↔ 内存              | 地址, 索引, 标量计算, 控制流                    | RV64IM (见 RISC-V 规范)                                                                                     |
+  | 配置          | Scalar → TC, AC, VC, TM, AM, VM                         | 建立数据域的类型, shape, 布局和访存描述         | `cfg.seti`, `cfg.setx`, `cfg.copy`, `cfg.get` #linebreak() `cfg.setw`, `cfg.getw`                           |
+  | 地址与访存    | 内存 ↔ `t/a/v`                                          | 按绑定的 TM/AM/VM 描述符执行整块与向量访问      | `{t,a}{load,store}` #linebreak() `v{load,store}` #linebreak() `{t,v}load.gather`                            |
+  | 初始化与搬运  | 域内 #linebreak() `a` ↔ `v` #linebreak() Scalar ↔ lane  | 填充, 复制, 行搬运, lane 搬运和广播             | `{t,a,v}{fill,fillx,copy}` #linebreak() `a{insert,extract}.row` #linebreak() `v{insert,extract,broadcast}`  |
+  | 矩阵乘与点积  | `t` × `t` → `a` #linebreak() `t` 行 × `t` → `v`         | `i8` 乘法, `i32` 累加或点积                     | `mma` #linebreak() `vmma`                                                                                   |
+  | 逐元素与广播  | `a/v` 同域 #linebreak() Acc ↔ Vec32 广播                | 算术, 位运算, 移位, 特殊函数, 比较和选择        | `{a,v}op` #linebreak() `.byrow`, `.bycol` #linebreak() `cmp`, `select`, `mask`                              |
+  | 规约          | `a` → `v` #linebreak() `v` → `v`                        | 行规约, 向量规约, 平方和和 argmax               | `areduce` #linebreak() `vreduce`                                                                            |
+  | 量化与反量化  | `a/v` 内部 #linebreak() `a` ↔ `t`                       | 低精度存储与 `f32` 计算之间的显式转换           | `aquant`, `tdequant` #linebreak() `adequant`, `vdequant`                                                    |
+  | 同步与结束    | 后端 → 完成边界 #linebreak() kernel → 完成              | 访存, 脉动阵列, 全后端完成以及 kernel 生命周期  | `fence.mem`, `fence.sa`, `fence.all` #linebreak() `kernel.end`                                              |
 ]
 
 == 指令空间组织 <instruction-space>
@@ -255,7 +254,7 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   | :------: | --------------- | -------------------------------------------------------------------------------------------- |
   | `00`     | 通用逐元素计算  | 算术, 位运算, 比较, Scalar 变体 (`opx`, `cmpx`), 向量广播, 融合乘加, select, mask, 特殊函数  |
   | `01`     | 数据传输与重排  | 矩阵/向量访存, fill, copy, 行和 lane 搬运, 转置                                              |
-  | `10`     | 跨域计算与控制  | 矩阵乘与点积, 规约, 类型转换与扩大, 量化与反量化, 配置, 同步, `kernel.end`; 其余编码预留     |
+  | `10`     | 跨域计算与控制  | 矩阵乘与点积, 规约, 量化与反量化, 配置, 同步, `kernel.end`; 其余编码预留                     |
 ]
 
 #note[
@@ -276,13 +275,13 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   columns: (0.6fr, 3fr, 3.2fr),
   caption: [非标量指令格式],
 )[
-  | 格式  | 中间字段 `[27:2]`                         | 主要用途                                    |
-  | :---: | ----------------------------------------- | ------------------------------------------- |
-  | R4    | `sel3 + funct3 + 4 × field5`              | 多源或跨域计算; 配置访问; 反量化            |
-  | R3    | `sel3 + funct4 + reserved4 + 3 × field5`  | 二元逐元素计算; 矩阵与向量广播              |
-  | R2    | `sel3 + funct3 + reserved10 + S5 + D5`    | 访存; 单源单目的搬运; 规约、转换与一元计算  |
-  | I     | `sel2 + funct3 + imm16 + D5/C5`           | 立即数填充与配置                            |
-  | Z     | `funct3 + reserved23`                     | 同步与 kernel 结束                          |
+  | 格式  | 中间字段 `[27:2]`                         | 主要用途                              |
+  | :---: | ----------------------------------------- | ------------------------------------- |
+  | R4    | `sel3 + funct3 + 4 × field5`              | 多源或跨域计算; 配置访问; 反量化      |
+  | R3    | `sel3 + funct4 + reserved4 + 3 × field5`  | 二元逐元素计算; 矩阵与向量广播        |
+  | R2    | `sel3 + funct3 + reserved10 + S5 + D5`    | 访存; 单源单目的搬运; 规约与一元计算  |
+  | I     | `sel2 + funct3 + imm16 + D5/C5`           | 立即数填充与配置                      |
+  | Z     | `funct3 + reserved23`                     | 同步与 kernel 结束                    |
 ]
 
 === 位段布局
@@ -345,7 +344,6 @@ ISA 按四个数据域及其数据流划分功能. 下表列出正文定义的�
   | `10`    | `0000`    | `MMA`               | R4     |
   | `10`    | `0001`    | `AREDUCE`           | R2     |
   | `10`    | `0010`    | `VREDUCE`           | R2/R4  |
-  | `10`    | `0011`    | `CVT`               | R2     |
   | `10`    | `0100`    | `QNT`               | R4     |
   | `10`    | `0101`    | `CFG_COMPUTE_SETI`  | I      |
   | `10`    | `0110`    | `CFG_MEM_SETI`      | I      |
@@ -597,7 +595,7 @@ gather 同样使用 R2 格式和 `sel3 = {dom2, 0}`, 但 `S5[11:7]` 为 Vec32 �
 
 内存中的元素类型由绑定配置寄存器的 `dtype` 决定.
 
-类型与精度转换 (`i8` → `i32`, `i8` → `f32`, 子字节格式如 `q4` 的展开, 以及打包量化格式如 `q8` + scale 到 `f32` 的反量化) 由 `twiden`, `acvt`/`vcvt`, `aquant`/`tdequant`, `adequant`/`vdequant` 等显式指令完成 (见 @quantization).
+量化与反量化 (`q8` + scale 到 `f32`, 以及 `f32` 到 `q8`) 由 `aquant`/`tdequant`, `adequant`/`vdequant` 等显式指令完成 (见 @quantization).
 
 == 基础访存指令
 
@@ -1613,9 +1611,9 @@ vrcp.approx    v3, vSum
 vmul           vOut, v2, v3
 ```
 
-= 规约与类型转换 <reduction-conversion>
+= 规约 <reduction>
 
-本节定义矩阵规约, 向量规约, 数据类型转换和低精度扩大转换. 规约指令将多个元素合并为一个或多个结果.
+本节定义矩阵规约和向量规约. 规约指令将多个元素合并为一个或多个结果.
 
 == 规约指令格式
 
@@ -1831,78 +1829,6 @@ vVal[j] ← 最大值的 f32 位模式
   - 量化: `x / scale` 为 NaN 时量化值为 0; `absmax` 将 NaN 视为 `+0`, 见 @quantization.
 ]
 
-== 类型转换指令 <reduce-cvt>
-
-#instruction-table(
-  columns: (1fr, 0.5fr, 2fr, 2fr),
-  caption: [类型转换与扩大指令],
-)[
-  | Instruction      | Format  | Operation                    | Summary                                   |
-  | :--------------: | :-----: | ---------------------------- | ----------------------------------------- |
-  | `acvt.i32.f32`   | R2      | aD[i,j] = f32(aS[i,j])       | 将 Acc 中的 `i32` 逐元素转为 `f32`.       |
-  | `vcvt.i32.f32`   | R2      | vD[j] = f32(vS[j])           | 将 Vec32 中的 `i32` 逐 lane 转为 `f32`.   |
-  | `twiden.i8.i32`  | R2      | aD[i,j] = sign_ext(tS[i,j])  | 将 Tile 的 `i8` 符号扩展到 Acc 的 `i32`.  |
-]
-
-类型转换与扩大使用 R2 格式; `dom2` 选择目的数据域:
-
-#rivet-encoding-figure(cvt-schema, caption: [类型转换与扩大格式 (CVT)])
-
-源与目的的有效 shape 必须相同; `acvt`/`vcvt` 要求源与目的 dtype 均为 `i32`, 成功接收后目的 dtype 更新为 `f32`; `twiden` 要求源 Tile dtype 为 `i8`, 目的 Acc dtype 为 `i32`.
-
-本节的转换助记符采用源类型在前, 目的类型在后:
-
-```text
-<source type>.<destination type>
-```
-
-将 `i32` 数据逐元素转换为 `f32`:
-
-```asm
-acvt.i32.f32 aD, aS
-vcvt.i32.f32 vD, vS
-```
-
-`acvt` 操作:
-
-```text
-for 0 <= i < rows(aD):
-    for 0 <= j < cols(aD):
-        aD[i,j] ← f32(aS[i,j])
-```
-
-`vcvt` 操作:
-
-```text
-for 0 <= j < len(vD):
-    vD[j] ← f32(vS[j])
-```
-
-`acvt` 和 `vcvt` 都允许原地使用:
-
-```asm
-acvt.i32.f32 a0, a0
-vcvt.i32.f32 v0, v0
-```
-
-原地转换必须先读取源元素, 再写回目的元素. 目的 dtype 在该转换操作被成功接收时更新; 后续消费者按照新的 dtype 等待结果, 已经被接收的旧消费者仍按照转换前的源 dtype 执行.
-
-== Tile 到 Acc 的扩大转换 <reduce-widen>
-
-```asm
-twiden.i8.i32 aD, tS
-```
-
-将 Tile 的 `i8` 符号扩展到 Acc 的 `i32`. 跨数据域, 不能原地执行; 目的 Acc 的有效 shape 与源 Tile 相同.
-
-操作:
-
-```text
-for 0 <= i < rows(tS):
-    for 0 <= j < cols(tS):
-        aD[i,j] ← sign_ext(tS[i,j])
-```
-
 == 示例
 
 === RMSNorm 行规约
@@ -1926,46 +1852,6 @@ $
 ```asm
 vadd vSumSq, vSumSq, vEpsilon
 vrsqrt.approx vInv, vSumSq
-```
-
-=== `i8` Tile 扩大到 Acc
-
-```asm
-twiden.i8.i32 aRaw, tInput
-```
-
-其逻辑含义为:
-
-$ "aRaw"_(i,j) = op("sign_extend_i8")("tInput"_(i,j)) $
-
-如果后续需要 `f32`:
-
-```asm
-acvt.i32.f32 aFloat, aRaw
-```
-
-如果需要反量化:
-
-```asm
-amulv.bycol aFloat, aFloat, vScale
-```
-
-或使用明确的 scale 乘法指令.
-
-=== Tile 行点积结果转 `f32`
-
-```asm
-vmma.nt.zero vRaw, tQ[0], tK
-vcvt.i32.f32   vScore, vRaw
-vmul       vScore, vScore, vScale
-```
-
-这三条指令分别表示:
-
-```text
-vRaw   = i8 dot product
-vScore = i32 转 f32
-vScore = vScore × scale
 ```
 
 = 量化与反量化 <quantization>
@@ -2072,7 +1958,7 @@ for 0 <= j < len(vD):
 
 == 清单说明
 
-元素类型的合法取值以对应章节的每行说明为准; 带固定类型后缀的指令 (如 `acvt.i32.f32`) 直接按该类型解释. 比较条件取独立子集: 整数为 `eq/ne/lt/ge`, f32 为 `eq/lt/le/unord`; 整数的 `gt`/`le` 由交换操作数获得, `ord` 由 `unord` 取反获得.
+元素类型的合法取值以对应章节的每行说明为准; 带固定类型后缀的指令 (如 `aquant.rows.q8s32`) 直接按该类型解释. 比较条件取独立子集: 整数为 `eq/ne/lt/ge`, f32 为 `eq/lt/le/unord`; 整数的 `gt`/`le` 由交换操作数获得, `ord` 由 `unord` 取反获得.
 
 Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变体均不作为已分配编码处理.
 
@@ -2309,9 +2195,9 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `vmaskx.tail`  | R4      | @elementwise-mask  |
 ]
 
-== 规约与类型转换
+== 规约
 
-详细语义见 @reduction-conversion.
+详细语义见 @reduction.
 
 #instruction-index(caption: [规约指令清单])[
   | Instruction            | Format  | Section          |
@@ -2329,13 +2215,6 @@ Scalar 指令集为 RV64IM, 其指令不在本清单. 各类尚未定义的变�
   | `vreduce.argmax`       | R4      | @reduce-argmax   |
 ]
 
-#instruction-index(caption: [类型转换与扩大指令清单])[
-  | Instruction      | Format  | Section        |
-  | :--------------: | :-----: | :------------- |
-  | `acvt.i32.f32`   | R2      | @reduce-cvt    |
-  | `vcvt.i32.f32`   | R2      | @reduce-cvt    |
-  | `twiden.i8.i32`  | R2      | @reduce-widen  |
-]
 
 == 量化与反量化
 
