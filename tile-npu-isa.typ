@@ -1867,12 +1867,12 @@ vrsqrt.approx vInv, vSumSq
   columns: (1.5fr, 0.5fr, 2.5fr, 1.8fr),
   caption: [量化与反量化指令],
 )[
-  | Instruction          | Format  | Operation                                   | Summary                                       |
-  | :------------------: | :-----: | ------------------------------------------- | --------------------------------------------- |
-  | `aquant.rows.q8s32`  | R4      | tD[i,j] = quant_q8s32(aS[i,j], vScale[i])   | 用每行 Vec32 scale 将 Acc 量化为 q8s32 Tile.  |
-  | `tdequant.rows.f32`  | R4      | aD[i,j] = f32(tS[i,j]) × vScale[i]          | 用每行 Vec32 scale 将 Tile 反量化为 f32 Acc.  |
-  | `adequant`           | R4      | aD[i,j] = f32(aS[i,j]) × vCol[j] × vRow[i]  | 将 i32 Acc 反量化为 f32 Acc.                  |
-  | `vdequant`           | R4      | vD[j] = f32(vS[j]) × vCol[j] × vRow[0]      | 将 i32 Vec32 反量化为 f32 Vec32.              |
+  | Instruction          | Format  | Operation                                   | Summary                                                |
+  | :------------------: | :-----: | ------------------------------------------- | ------------------------------------------------------ |
+  | `aquant.rows.q8s32`  | R4      | tD[i,j] = quant_q8s32(aS[i,j], vScale[i])   | 用每行 Vec32 scale 将 Acc 量化为 q8s32 Tile.           |
+  | `tdequant.rows.f32`  | R4      | aD[i,j] = f32(tS[i,j]) × vScale[i]          | 用每行 Vec32 scale 将 Tile 反量化为 f32 Acc.           |
+  | `adequant`           | R4      | aD[i,j] = f32(aS[i,j]) × vCol[j] × vRow[i]  | 将 i32 Acc 反量化为 f32 Acc; `aD == aS` 时可就地转换.  |
+  | `vdequant`           | R4      | vD[j] = f32(vS[j]) × vCol[j] × vRow[0]      | 将 i32 Vec32 反量化为 f32 Vec32.                       |
 ]
 
 == QNT 编码 <quantization-qnt>
@@ -1922,7 +1922,7 @@ adequant aD, aS, vCol, vRow
 vdequant vD, vS, vCol, vRow
 ```
 
-`adequant` 处理 Acc, `vdequant` 处理 Vec32. 源 `aS`/`vS` 为 `i32`, 目的 `aD`/`vD` 为 `f32`; 源与目的的有效 shape 相同, 且必须是不同寄存器. `vCol`/`vRow` 是 Vec32 `f32` scale 源: `adequant` 的 `vCol.len = cols(aD)`, `vRow.len = rows(aD)`; `vdequant` 的 `vCol.len = len(vD)`, `vRow.len = 1`, 只使用 `vRow[0]`. 所有源在写目的前读取.
+`adequant` 处理 Acc, `vdequant` 处理 Vec32. 源 `aS`/`vS` 为 `i32`, 目的 `aD`/`vD` 为 `f32`; 源与目的的有效 shape 相同. `vdequant` 的源与目的必须是不同寄存器. `adequant` 允许 `aD` 与 `aS` 为同一寄存器: 此时按 `i32` 读取源、按 `f32` 写回同一寄存器, 成功完成后将 `ac[aD].dtype` 更新为 `f32`, 其他字段保持不变. `vCol`/`vRow` 是 Vec32 `f32` scale 源: `adequant` 的 `vCol.len = cols(aD)`, `vRow.len = rows(aD)`; `vdequant` 的 `vCol.len = len(vD)`, `vRow.len = 1`, 只使用 `vRow[0]`. 所有源在写目的前读取; 就地形式按元素先读后写, 不影响其他元素.
 
 先按列乘 `vCol`, 再按行乘 `vRow`, 两次乘法分别按 RNE 舍入. `adequant` 对每个有效元素执行:
 
@@ -1950,6 +1950,8 @@ for 0 <= j < len(vD):
   mma.nt.acc a0, tA, tB
   adequant  a8, a0, vCol, vRow
   ```
+
+  `adequant` 也可以就地写回累加器: `adequant a0, a0, vCol, vRow`; 成功后 `ac[a0].dtype` 为 `f32`.
 ]
 
 = 指令集清单 <instructions>
