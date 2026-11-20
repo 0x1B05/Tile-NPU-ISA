@@ -1871,8 +1871,8 @@ vrsqrt.approx vInv, vSumSq
   | :------------------: | :-----: | ------------------------------------------- | --------------------------------------------- |
   | `aquant.rows.q8s32`  | R4      | tD[i,j] = quant_q8s32(aS[i,j], vScale[i])   | 用每行 Vec32 scale 将 Acc 量化为 q8s32 Tile.  |
   | `tdequant.rows.f32`  | R4      | aD[i,j] = f32(tS[i,j]) × vScale[i]          | 用每行 Vec32 scale 将 Tile 反量化为 f32 Acc.  |
-  | `adequant`           | R4      | aD[i,j] = f32(aS[i,j]) × vCol[j] × vRow[i]  | 将 i32 Acc 反量化为 f32 Acc                   |
-  | `vdequant`           | R4      | vD[j] = f32(vS[j]) × vCol[j] × vRow[0]      | 将 i32 Vec32 反量化为 f32 Vec32               |
+  | `adequant`           | R4      | aD[i,j] = f32(aS[i,j]) × vRow[i] × vCol[j]  | 将 i32 Acc 反量化为 f32 Acc                   |
+  | `vdequant`           | R4      | vD[j] = f32(vS[j]) × vRow[0] × vCol[j]      | 将 i32 Vec32 反量化为 f32 Vec32               |
 ]
 
 == QNT 编码 <quantization-qnt>
@@ -1928,21 +1928,21 @@ vdequant vD, vS, vCol, vRow
   允许 `aD == aS` / `vD == vS`。执行时按 `i32` 读入原值、按 `f32` 写回新值。在指令成功执行时，需要将对应 `ac[aD].dtype` 或 `vc[vD].dtype` 就地更新为 `f32`，配置寄存器的其他控制/状态字段保持不变。
 ]
 
-`adequant` 先按列乘 `vCol`, 再按行乘 `vRow`, 两次乘法分别按 RNE 舍入, 对每个有效元素执行:
+`adequant` 先按行乘 `vRow`, 再按列乘 `vCol`, 两次乘法分别按 RNE 舍入, 对每个有效元素执行:
 
 ```text
 for 0 <= i < rows(aD):
     for 0 <= j < cols(aD):
-        t ← round_f32(f32(aS[i,j]) × vCol[j])
-        aD[i,j] ← round_f32(t × vRow[i])
+        t ← round_f32(f32(aS[i,j]) × vRow[i])
+        aD[i,j] ← round_f32(t × vCol[j])
 ```
 
 `vdequant` 对每个有效 lane 执行:
 
 ```text
 for 0 <= j < len(vD):
-    t ← round_f32(f32(vS[j]) × vCol[j])
-    vD[j] ← round_f32(t × vRow[0])
+    t ← round_f32(f32(vS[j]) × vRow[0])
+    vD[j] ← round_f32(t × vCol[j])
 ```
 
 #note[
